@@ -1,5 +1,5 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
-import { WorldSchema } from "@imagix/shared";
+import { WorldSchema, createId, EntityPrefix } from "@imagix/shared";
 import { putWorld, listWorldsByUser, getWorld } from "./db/repository.js";
 
 export async function handler(
@@ -19,7 +19,7 @@ export async function handler(
   try {
     if (path === "/api/worlds" && method === "POST") {
       const body = JSON.parse(event.body ?? "{}");
-      const id = `world-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const id = createId(EntityPrefix.World);
       const now = new Date().toISOString();
 
       const world = WorldSchema.parse({

@@ -1,4 +1,28 @@
 import { z } from "zod";
+import { EntityPrefix, isValidId, isValidIdWithPrefix } from "./id.js";
+
+// ---------------------------------------------------------------------------
+// ID validators
+// ---------------------------------------------------------------------------
+
+const id = z.string().length(30).refine(isValidId, "Invalid ID format");
+
+const wldId = id.refine((v) => isValidIdWithPrefix(v, EntityPrefix.World));
+const txnId = id.refine(
+  (v) => isValidIdWithPrefix(v, EntityPrefix.TaxonomyNode),
+);
+const chrId = id.refine((v) => isValidIdWithPrefix(v, EntityPrefix.Character));
+const thgId = id.refine((v) => isValidIdWithPrefix(v, EntityPrefix.Thing));
+const relId = id.refine(
+  (v) => isValidIdWithPrefix(v, EntityPrefix.Relationship),
+);
+const evtId = id.refine((v) => isValidIdWithPrefix(v, EntityPrefix.Event));
+const styId = id.refine((v) => isValidIdWithPrefix(v, EntityPrefix.Story));
+const chpId = id.refine((v) => isValidIdWithPrefix(v, EntityPrefix.Chapter));
+const pltId = id.refine((v) => isValidIdWithPrefix(v, EntityPrefix.Plot));
+
+/** Any valid entity ID (prefix-agnostic). */
+const entityId = id;
 
 // ---------------------------------------------------------------------------
 // Taxonomy tree types
@@ -14,11 +38,11 @@ export const AttributeDefinitionSchema = z.object({
 });
 
 export const TaxonomyNodeSchema = z.object({
-  id: z.string(),
-  worldId: z.string(),
+  id: txnId,
+  worldId: wldId,
   tree: TaxonomyTree,
   name: z.string(),
-  parentId: z.string().nullable(),
+  parentId: txnId.nullable(),
   attributeDefinitions: z.array(AttributeDefinitionSchema).default([]),
 });
 
@@ -30,7 +54,7 @@ export type TaxonomyNode = z.infer<typeof TaxonomyNodeSchema>;
 // ---------------------------------------------------------------------------
 
 export const WorldSchema = z.object({
-  id: z.string(),
+  id: wldId,
   userId: z.string(),
   name: z.string(),
   description: z.string().default(""),
@@ -47,9 +71,9 @@ export type World = z.infer<typeof WorldSchema>;
 // ---------------------------------------------------------------------------
 
 export const CharacterSchema = z.object({
-  id: z.string(),
-  worldId: z.string(),
-  categoryNodeId: z.string(),
+  id: chrId,
+  worldId: wldId,
+  categoryNodeId: txnId,
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -61,9 +85,9 @@ export type Character = z.infer<typeof CharacterSchema>;
 // ---------------------------------------------------------------------------
 
 export const ThingSchema = z.object({
-  id: z.string(),
-  worldId: z.string(),
-  categoryNodeId: z.string(),
+  id: thgId,
+  worldId: wldId,
+  categoryNodeId: txnId,
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -75,11 +99,11 @@ export type Thing = z.infer<typeof ThingSchema>;
 // ---------------------------------------------------------------------------
 
 export const RelationshipSchema = z.object({
-  id: z.string(),
-  worldId: z.string(),
-  typeNodeId: z.string(),
-  fromId: z.string(),
-  toId: z.string(),
+  id: relId,
+  worldId: wldId,
+  typeNodeId: txnId,
+  fromId: entityId,
+  toId: entityId,
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -92,20 +116,20 @@ export type Relationship = z.infer<typeof RelationshipSchema>;
 
 export const AttributeChangeSchema = z.object({
   entityType: z.enum(["character", "thing"]),
-  entityId: z.string(),
+  entityId: entityId,
   attribute: z.string(),
   value: z.union([z.string(), z.number(), z.boolean()]),
 });
 
 export const RelationshipChangeSchema = z.object({
   action: z.enum(["create", "remove"]),
-  typeNodeId: z.string(),
-  fromId: z.string(),
-  toId: z.string(),
+  typeNodeId: txnId,
+  fromId: entityId,
+  toId: entityId,
 });
 
 export const RelationshipAttributeChangeSchema = z.object({
-  relationshipId: z.string(),
+  relationshipId: relId,
   attribute: z.string(),
   direction: z.enum(["from_to", "to_from"]),
   value: z.union([z.string(), z.number(), z.boolean()]),
@@ -120,11 +144,11 @@ export const StateImpactSchema = z.object({
 });
 
 export const EventSchema = z.object({
-  id: z.string(),
-  worldId: z.string(),
+  id: evtId,
+  worldId: wldId,
   time: z.number(),
-  placeId: z.string().nullable(),
-  participantIds: z.array(z.string()).default([]),
+  placeId: thgId.nullable(),
+  participantIds: z.array(entityId).default([]),
   content: z.string(),
   impacts: StateImpactSchema.default({
     attributeChanges: [],
@@ -148,9 +172,9 @@ export type Event = z.infer<typeof EventSchema>;
 // ---------------------------------------------------------------------------
 
 export const EventLinkSchema = z.object({
-  worldId: z.string(),
-  eventIdA: z.string(),
-  eventIdB: z.string(),
+  worldId: wldId,
+  eventIdA: evtId,
+  eventIdB: evtId,
   description: z.string().default(""),
 });
 
@@ -161,8 +185,8 @@ export type EventLink = z.infer<typeof EventLinkSchema>;
 // ---------------------------------------------------------------------------
 
 export const StorySchema = z.object({
-  id: z.string(),
-  worldId: z.string(),
+  id: styId,
+  worldId: wldId,
   userId: z.string(),
   title: z.string(),
   createdAt: z.string(),
@@ -176,11 +200,11 @@ export type Story = z.infer<typeof StorySchema>;
 // ---------------------------------------------------------------------------
 
 export const ChapterSchema = z.object({
-  id: z.string(),
-  storyId: z.string(),
+  id: chpId,
+  storyId: styId,
   seq: z.number().int().nonnegative(),
   title: z.string(),
-  plotIds: z.array(z.string()).default([]),
+  plotIds: z.array(pltId).default([]),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -192,12 +216,12 @@ export type Chapter = z.infer<typeof ChapterSchema>;
 // ---------------------------------------------------------------------------
 
 export const PlotSchema = z.object({
-  id: z.string(),
-  storyId: z.string(),
+  id: pltId,
+  storyId: styId,
   chapterSeq: z.number().int().nonnegative(),
   plotSeq: z.number().int().nonnegative(),
-  eventIds: z.array(z.string()).default([]),
-  perspectiveCharacterId: z.string().nullable(),
+  eventIds: z.array(evtId).default([]),
+  perspectiveCharacterId: chrId.nullable(),
   style: z.string().default(""),
   content: z.string().default(""),
   createdAt: z.string(),

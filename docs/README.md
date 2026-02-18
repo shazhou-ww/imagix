@@ -78,9 +78,8 @@ bun run dev
 
 部署架构：DynamoDB + Lambda + CloudFront + S3
 
-1. 构建: `bun run build`
-2. 部署: `cd backend && sam deploy --guided`（首次需配置）
-3. 前端构建产物部署到 S3，通过 CloudFront 分发
+1. 后端: `bun run build:backend`，然后 `cd backend && sam deploy --guided`（首次需配置）
+2. 前端发布到 **imagix.shazhou.me**（ACM 证书 + DNS + 一次 CloudFormation + `bun run deploy:frontend`）：详见 [docs/deploy-imagix-shazhou-me.md](deploy-imagix-shazhou-me.md)
 
 ## Cognito + Google 登录
 

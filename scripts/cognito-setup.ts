@@ -25,9 +25,12 @@ const POOL_NAME = "imagix-user-pool";
 const CLIENT_NAME = "imagix-web";
 const DOMAIN_PREFIX = "imagix-auth";
 
-function getEnv(name: string, defaultValue: string): string {
-  const v = process.env[name];
-  return (v?.trim() ?? defaultValue).trim();
+function getEnv(name: string): string | undefined;
+function getEnv(name: string, defaultValue: string): string;
+function getEnv(name: string, defaultValue?: string): string | undefined {
+  const v = process.env[name]?.trim();
+  if (defaultValue !== undefined) return (v ?? defaultValue).trim();
+  return v === "" ? undefined : v;
 }
 
 function getEnvOptional(name: string): string | undefined {

@@ -1,0 +1,18 @@
+version = 0.1
+
+[default.deploy.parameters]
+stack_name = "imagix"
+profile = "AdministratorAccess-914369185440"
+resolve_s3 = true
+s3_prefix = "imagix"
+region = "us-east-1"
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = true
+
+[default.build.parameters]
+cached = true
+parallel = true
+
+[default.local_start_api.parameters]
+warm_containers = "EAGER"
+profile = "AdministratorAccess-914369185440"

@@ -1,0 +1,6 @@
+{
+  "ImagixApiFunction": {
+    "STORIES_TABLE": "imagix-stories",
+    "AWS_SAM_LOCAL": "true"
+  }
+}

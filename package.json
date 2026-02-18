@@ -1,0 +1,44 @@
+{
+  "name": "imagix",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend",
+    "shared"
+  ],
+  "scripts": {
+    "dev": "concurrently \"bun run dev:db\" \"bun run dev:backend\" \"bun run dev:frontend\"",
+    "dev:db": "docker compose up dynamodb-local",
+    "dev:backend": "cd backend && sam local start-api --warm-containers EAGER --env-vars env-vars.json",
+    "dev:frontend": "cd frontend && bun run dev",
+    "build": "bun run build:shared && bun run build:backend && bun run build:frontend",
+    "build:shared": "cd shared && bun run build",
+    "build:backend": "bun run build:shared && bun scripts/build-backend.ts && cd backend && sam build",
+    "build:frontend": "cd frontend && bun run build",
+    "deploy": "bun run build && cd backend && sam deploy",
+    "test": "bun run test:shared && bun run test:frontend && bun run test:backend",
+    "test:shared": "cd shared && bun run test",
+    "test:frontend": "cd frontend && bun run test",
+    "test:backend": "cd backend && bun run test",
+    "typecheck": "bun run typecheck:shared && bun run typecheck:frontend && bun run typecheck:backend",
+    "typecheck:shared": "cd shared && tsc --noEmit",
+    "typecheck:frontend": "cd frontend && tsc --noEmit",
+    "typecheck:backend": "cd backend && tsc --noEmit",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "lint": "biome lint .",
+    "lint:fix": "biome lint --write .",
+    "markdownlint": "markdownlint '**/*.md' --ignore node_modules",
+    "markdownlint:fix": "markdownlint '**/*.md' --ignore node_modules --fix"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.2",
+    "concurrently": "^9.2.1",
+    "markdownlint-cli": "^0.43.0",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

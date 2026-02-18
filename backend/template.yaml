@@ -27,21 +27,34 @@ Globals:
       - x86_64
 
 Resources:
-  StoriesTable:
+  ImagixTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: imagix-stories
+      TableName: imagix
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: pk
           AttributeType: S
         - AttributeName: sk
           AttributeType: S
+        - AttributeName: gsi1pk
+          AttributeType: S
+        - AttributeName: gsi1sk
+          AttributeType: S
       KeySchema:
         - AttributeName: pk
           KeyType: HASH
         - AttributeName: sk
           KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: gsi1
+          KeySchema:
+            - AttributeName: gsi1pk
+              KeyType: HASH
+            - AttributeName: gsi1sk
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
 
   ApiFunction:
     Type: AWS::Serverless::Function
@@ -53,11 +66,11 @@ Resources:
       CodeUri: .
       Environment:
         Variables:
-          STORIES_TABLE: !Ref StoriesTable
+          TABLE_NAME: !Ref ImagixTable
           COGNITO_USER_POOL_ID: !Ref CognitoUserPoolId
       Policies:
         - DynamoDBCrudPolicy:
-            TableName: !Ref StoriesTable
+            TableName: !Ref ImagixTable
       Events:
         ApiRoot:
           Type: Api
@@ -80,6 +93,6 @@ Outputs:
   ApiEndpoint:
     Description: API Gateway endpoint URL
     Value: !Sub "https://${Api}.execute-api.${AWS::Region}.amazonaws.com/prod"
-  StoriesTableName:
-    Description: DynamoDB Stories table name
-    Value: !Ref StoriesTable
+  TableName:
+    Description: DynamoDB table name
+    Value: !Ref ImagixTable

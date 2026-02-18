@@ -17,7 +17,7 @@ Imagix 是一个基于 AI 的故事生成器。
 - Docker（用于 DynamoDB Local）
 - AWS SAM CLI
 - AWS CLI（用于 DynamoDB Local 初始化）
-- AWS Profile: `AdministratorAccess-914369185440`（已配置于 `backend/samconfig.toml`）
+- 根目录 `.env`（可复制 `.env.example`），其中 `AWS_PROFILE` 等已配置；前端与脚本均从根目录读取
 
 ### 安装依赖
 

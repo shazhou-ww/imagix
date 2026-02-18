@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { BrowserRouter } from "react-router-dom";
 import { ThemeProvider } from "@mui/material";
 import { theme } from "./theme";
+import { AuthProvider } from "./auth/AuthContext";
 import App from "./App";
 
 describe("App", () => {
@@ -10,7 +11,9 @@ describe("App", () => {
     render(
       <ThemeProvider theme={theme}>
         <BrowserRouter>
-          <App />
+          <AuthProvider isConfigured={false}>
+            <App />
+          </AuthProvider>
         </BrowserRouter>
       </ThemeProvider>,
     );

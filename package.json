@@ -30,9 +30,12 @@
     "lint": "biome lint .",
     "lint:fix": "biome lint --write .",
     "markdownlint": "markdownlint '**/*.md' --ignore node_modules",
-    "markdownlint:fix": "markdownlint '**/*.md' --ignore node_modules --fix"
+    "markdownlint:fix": "markdownlint '**/*.md' --ignore node_modules --fix",
+    "cognito:setup": "bun run scripts/cognito-setup.ts",
+    "cognito:add-google": "bun run scripts/cognito-add-google.ts"
   },
   "devDependencies": {
+    "@aws-sdk/client-cognito-identity-provider": "^3.700.0",
     "@biomejs/biome": "^2.4.2",
     "concurrently": "^9.2.1",
     "markdownlint-cli": "^0.43.0",

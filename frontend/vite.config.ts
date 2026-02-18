@@ -4,6 +4,8 @@ import { resolve } from "node:path";
 
 export default defineConfig({
   plugins: [react()],
+  envPrefix: "IMAGIX_",
+  envDir: resolve(__dirname, ".."),
   resolve: {
     alias: {
       "@": resolve(__dirname, "./src"),

@@ -6,25 +6,45 @@ import TimelineIcon from "@mui/icons-material/Timeline";
 import {
   Box,
   Card,
+  CardActionArea,
   CardContent,
   CircularProgress,
   Grid,
   Typography,
 } from "@mui/material";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useWorld } from "@/api/hooks/useWorlds";
+import { useCharacters } from "@/api/hooks/useCharacters";
+import { useThings } from "@/api/hooks/useThings";
+import { useRelationships } from "@/api/hooks/useRelationships";
+import { useEvents } from "@/api/hooks/useEvents";
+import { useStories } from "@/api/hooks/useStories";
 
 const statCards = [
-  { label: "角色", icon: <PersonIcon />, color: "#B48EAD" },
-  { label: "事物", icon: <PlaceIcon />, color: "#88C0D0" },
-  { label: "关系", icon: <LinkIcon />, color: "#A3D9A5" },
-  { label: "事件", icon: <TimelineIcon />, color: "#EBCB8B" },
-  { label: "故事", icon: <AutoStoriesIcon />, color: "#E8A0BF" },
+  { label: "角色", icon: <PersonIcon />, color: "#B48EAD", path: "characters" },
+  { label: "事物", icon: <PlaceIcon />, color: "#88C0D0", path: "things" },
+  { label: "关系", icon: <LinkIcon />, color: "#A3D9A5", path: "relationships" },
+  { label: "事件", icon: <TimelineIcon />, color: "#EBCB8B", path: "events" },
+  { label: "故事", icon: <AutoStoriesIcon />, color: "#E8A0BF", path: "stories" },
 ];
 
 export default function WorldDashboardPage() {
   const { worldId } = useParams<{ worldId: string }>();
+  const navigate = useNavigate();
   const { data: world, isLoading } = useWorld(worldId);
+  const { data: characters } = useCharacters(worldId);
+  const { data: things } = useThings(worldId);
+  const { data: relationships } = useRelationships(worldId);
+  const { data: events } = useEvents(worldId);
+  const { data: stories } = useStories(worldId);
+
+  const counts: Record<string, number | undefined> = {
+    角色: characters?.length,
+    事物: things?.length,
+    关系: relationships?.length,
+    事件: events?.length,
+    故事: stories?.length,
+  };
 
   if (isLoading) {
     return (
@@ -53,15 +73,17 @@ export default function WorldDashboardPage() {
         {statCards.map((card) => (
           <Grid size={{ xs: 6, sm: 4, md: 2.4 }} key={card.label}>
             <Card>
-              <CardContent sx={{ textAlign: "center" }}>
-                <Box sx={{ color: card.color, mb: 1 }}>{card.icon}</Box>
-                <Typography variant="h5" fontWeight="bold">
-                  —
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {card.label}
-                </Typography>
-              </CardContent>
+              <CardActionArea onClick={() => navigate(`/worlds/${worldId}/${card.path}`)}>
+                <CardContent sx={{ textAlign: "center" }}>
+                  <Box sx={{ color: card.color, mb: 1 }}>{card.icon}</Box>
+                  <Typography variant="h5" fontWeight="bold">
+                    {counts[card.label] ?? "—"}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {card.label}
+                  </Typography>
+                </CardContent>
+              </CardActionArea>
             </Card>
           </Grid>
         ))}

@@ -25,6 +25,8 @@ export const relationshipSk = (relId: string) => `REL#${relId}`;
 export const eventSk = (time: number, eventId: string) =>
   `EVT#${padTime(time)}#${eventId}`;
 
+export const eventIndexSk = (eventId: string) => `EVT_IDX#${eventId}`;
+
 export const eventLinkSk = (eidA: string, eidB: string) =>
   `EVTLINK#${eidA}#${eidB}`;
 
@@ -63,6 +65,7 @@ export const PREFIX = {
   REL_TO: "REL_TO#",
   REL_ALL: "REL_",
   EVT: "EVT#",
+  EVT_IDX: "EVT_IDX#",
   EVTLINK: "EVTLINK#",
   STORY: "STORY#",
   CHAP: "CHAP#",

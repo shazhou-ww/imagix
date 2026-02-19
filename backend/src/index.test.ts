@@ -3,21 +3,17 @@ import { handler } from "./index";
 
 describe("handler", () => {
   it("returns 200 for health check", async () => {
-    const result = await handler({
+    const event = {
       httpMethod: "GET",
       path: "/api/health",
       body: null,
       headers: {},
       isBase64Encoded: false,
-      multiValueHeaders: {},
-      multiValueQueryStringParameters: {},
-      pathParameters: null,
-      queryStringParameters: null,
-      requestContext: {} as never,
+      requestContext: {},
       resource: "",
-      stageVariables: null,
-    });
+    };
+    const result = await handler(event as any);
     expect(result.statusCode).toBe(200);
-    expect(JSON.parse(result.body).status).toBe("ok");
+    expect(JSON.parse(result.body)).toMatchObject({ status: "ok" });
   });
 });

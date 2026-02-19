@@ -6,33 +6,50 @@ import { EntityPrefix, isValidId, isValidIdWithPrefix } from "./id.js";
 // ---------------------------------------------------------------------------
 
 /** 通用 ID：30 位字符串，格式由 isValidId 校验。 */
-const id = z.string().length(30).refine(isValidId, "Invalid ID format");
+export const id = z
+  .string()
+  .length(30)
+  .refine(isValidId, "Invalid ID format");
 
 /** 世界 ID */
-const wldId = id.refine((v) => isValidIdWithPrefix(v, EntityPrefix.World));
+export const wldId = id.refine((v) =>
+  isValidIdWithPrefix(v, EntityPrefix.World),
+);
 /** 分类节点 ID */
-const txnId = id.refine(
-  (v) => isValidIdWithPrefix(v, EntityPrefix.TaxonomyNode),
+export const txnId = id.refine((v) =>
+  isValidIdWithPrefix(v, EntityPrefix.TaxonomyNode),
 );
 /** 角色 ID */
-const chrId = id.refine((v) => isValidIdWithPrefix(v, EntityPrefix.Character));
+export const chrId = id.refine((v) =>
+  isValidIdWithPrefix(v, EntityPrefix.Character),
+);
 /** 事物 ID */
-const thgId = id.refine((v) => isValidIdWithPrefix(v, EntityPrefix.Thing));
+export const thgId = id.refine((v) =>
+  isValidIdWithPrefix(v, EntityPrefix.Thing),
+);
 /** 关系 ID */
-const relId = id.refine(
-  (v) => isValidIdWithPrefix(v, EntityPrefix.Relationship),
+export const relId = id.refine((v) =>
+  isValidIdWithPrefix(v, EntityPrefix.Relationship),
 );
 /** 事件 ID */
-const evtId = id.refine((v) => isValidIdWithPrefix(v, EntityPrefix.Event));
+export const evtId = id.refine((v) =>
+  isValidIdWithPrefix(v, EntityPrefix.Event),
+);
 /** 故事 ID */
-const styId = id.refine((v) => isValidIdWithPrefix(v, EntityPrefix.Story));
+export const styId = id.refine((v) =>
+  isValidIdWithPrefix(v, EntityPrefix.Story),
+);
 /** 章节 ID */
-const chpId = id.refine((v) => isValidIdWithPrefix(v, EntityPrefix.Chapter));
+export const chpId = id.refine((v) =>
+  isValidIdWithPrefix(v, EntityPrefix.Chapter),
+);
 /** 情节 ID */
-const pltId = id.refine((v) => isValidIdWithPrefix(v, EntityPrefix.Plot));
+export const pltId = id.refine((v) =>
+  isValidIdWithPrefix(v, EntityPrefix.Plot),
+);
 
 /** 任意实体 ID（不限定前缀），用于 from/to 等可指向多种实体的引用字段。 */
-const entityId = id;
+export const entityId = id;
 
 // ---------------------------------------------------------------------------
 // Taxonomy tree types — 分类体系

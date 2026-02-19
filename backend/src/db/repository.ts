@@ -4,6 +4,7 @@ import {
   GetCommand,
   PutCommand,
   QueryCommand,
+  UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
 import type {
   World,
@@ -27,6 +28,7 @@ import {
   thingSk,
   relationshipSk,
   eventSk,
+  eventIndexSk,
   eventLinkSk,
   storySk,
   storyPk,
@@ -100,6 +102,41 @@ async function queryGsi1(gsi1pk: string, skPrefix: string) {
   return res.Items ?? [];
 }
 
+/**
+ * Generic partial update via UpdateCommand.
+ * Builds SET expression from the provided fields.
+ */
+async function updateFields(
+  pk: string,
+  sk: string,
+  fields: Record<string, unknown>,
+) {
+  const names: Record<string, string> = {};
+  const values: Record<string, unknown> = {};
+  const parts: string[] = [];
+
+  for (const [key, val] of Object.entries(fields)) {
+    if (val === undefined) continue;
+    const alias = `#${key}`;
+    const placeholder = `:${key}`;
+    names[alias] = key;
+    values[placeholder] = val;
+    parts.push(`${alias} = ${placeholder}`);
+  }
+
+  if (parts.length === 0) return;
+
+  await docClient.send(
+    new UpdateCommand({
+      TableName: TABLE_NAME,
+      Key: { pk, sk },
+      UpdateExpression: `SET ${parts.join(", ")}`,
+      ExpressionAttributeNames: names,
+      ExpressionAttributeValues: values,
+    }),
+  );
+}
+
 // ---------------------------------------------------------------------------
 // World
 // ---------------------------------------------------------------------------
@@ -123,6 +160,13 @@ export async function listWorldsByUser(userId: string) {
   return queryGsi1(userGsi1pk(userId), PREFIX.WORLD);
 }
 
+export async function updateWorld(
+  worldId: string,
+  fields: Record<string, unknown>,
+) {
+  await updateFields(worldPk(worldId), worldSk(), fields);
+}
+
 export async function deleteWorld(worldId: string) {
   await del(worldPk(worldId), worldSk());
 }
@@ -139,6 +183,14 @@ export async function putTaxonomyNode(node: TaxonomyNode) {
   });
 }
 
+export async function getTaxonomyNode(
+  worldId: string,
+  tree: TaxonomyTree,
+  nodeId: string,
+) {
+  return get(worldPk(worldId), taxonomySk(tree, nodeId));
+}
+
 export async function getTaxonomyTree(worldId: string, tree: TaxonomyTree) {
   const prefix =
     tree === "CHAR"
@@ -147,6 +199,15 @@ export async function getTaxonomyTree(worldId: string, tree: TaxonomyTree) {
         ? PREFIX.TAXON_THING
         : PREFIX.TAXON_REL;
   return queryByPkPrefix(worldPk(worldId), prefix);
+}
+
+export async function updateTaxonomyNode(
+  worldId: string,
+  tree: TaxonomyTree,
+  nodeId: string,
+  fields: Record<string, unknown>,
+) {
+  await updateFields(worldPk(worldId), taxonomySk(tree, nodeId), fields);
 }
 
 export async function deleteTaxonomyNode(
@@ -177,6 +238,14 @@ export async function listCharacters(worldId: string) {
   return queryByPkPrefix(worldPk(worldId), PREFIX.CHAR);
 }
 
+export async function updateCharacter(
+  worldId: string,
+  charId: string,
+  fields: Record<string, unknown>,
+) {
+  await updateFields(worldPk(worldId), characterSk(charId), fields);
+}
+
 export async function deleteCharacter(worldId: string, charId: string) {
   await del(worldPk(worldId), characterSk(charId));
 }
@@ -199,6 +268,14 @@ export async function getThing(worldId: string, thingId: string) {
 
 export async function listThings(worldId: string) {
   return queryByPkPrefix(worldPk(worldId), PREFIX.THING);
+}
+
+export async function updateThing(
+  worldId: string,
+  thingId: string,
+  fields: Record<string, unknown>,
+) {
+  await updateFields(worldPk(worldId), thingSk(thingId), fields);
 }
 
 export async function deleteThing(worldId: string, thingId: string) {
@@ -282,7 +359,7 @@ export async function deleteRelationship(rel: Relationship) {
 }
 
 // ---------------------------------------------------------------------------
-// Event (with denormalized participant index items)
+// Event (with denormalized participant index + EVT_IDX for ID lookup)
 // ---------------------------------------------------------------------------
 
 export async function putEvent(evt: Event) {
@@ -291,6 +368,16 @@ export async function putEvent(evt: Event) {
 
   const items = [
     { PutRequest: { Item: { pk, sk, ...evt } } },
+    {
+      PutRequest: {
+        Item: {
+          pk,
+          sk: eventIndexSk(evt.id),
+          time: evt.time,
+          eventId: evt.id,
+        },
+      },
+    },
     ...evt.participantIds.map((pid) => ({
       PutRequest: {
         Item: {
@@ -303,7 +390,6 @@ export async function putEvent(evt: Event) {
     })),
   ];
 
-  // BatchWrite supports max 25 items per call
   for (let i = 0; i < items.length; i += 25) {
     await docClient.send(
       new BatchWriteCommand({
@@ -311,6 +397,13 @@ export async function putEvent(evt: Event) {
       }),
     );
   }
+}
+
+/** Look up event by ID without knowing the time. */
+export async function getEventById(worldId: string, eventId: string) {
+  const idx = await get(worldPk(worldId), eventIndexSk(eventId));
+  if (!idx) return null;
+  return get(worldPk(worldId), eventSk(idx.time as number, eventId));
 }
 
 export async function getEvent(worldId: string, time: number, eventId: string) {
@@ -351,6 +444,29 @@ export async function listEventsByEntity(
   return queryByPkPrefix(entityPk(entityId), PREFIX.EVT);
 }
 
+export async function deleteEvent(evt: Event) {
+  const pk = worldPk(evt.worldId);
+  const sk = eventSk(evt.time, evt.id);
+
+  const items = [
+    { DeleteRequest: { Key: { pk, sk } } },
+    { DeleteRequest: { Key: { pk, sk: eventIndexSk(evt.id) } } },
+    ...evt.participantIds.map((pid) => ({
+      DeleteRequest: {
+        Key: { pk: entityPk(pid), sk: eventSk(evt.time, evt.id) },
+      },
+    })),
+  ];
+
+  for (let i = 0; i < items.length; i += 25) {
+    await docClient.send(
+      new BatchWriteCommand({
+        RequestItems: { [TABLE_NAME]: items.slice(i, i + 25) },
+      }),
+    );
+  }
+}
+
 // ---------------------------------------------------------------------------
 // EventLink
 // ---------------------------------------------------------------------------
@@ -365,6 +481,14 @@ export async function putEventLink(link: EventLink) {
 
 export async function listEventLinks(worldId: string) {
   return queryByPkPrefix(worldPk(worldId), PREFIX.EVTLINK);
+}
+
+export async function deleteEventLink(
+  worldId: string,
+  eventIdA: string,
+  eventIdB: string,
+) {
+  await del(worldPk(worldId), eventLinkSk(eventIdA, eventIdB));
 }
 
 // ---------------------------------------------------------------------------
@@ -385,8 +509,20 @@ export async function getStory(worldId: string, storyId: string) {
   return get(worldPk(worldId), storySk(storyId));
 }
 
+export async function listStoriesByWorld(worldId: string) {
+  return queryByPkPrefix(worldPk(worldId), PREFIX.STORY);
+}
+
 export async function listStoriesByUser(userId: string) {
   return queryGsi1(userGsi1pk(userId), PREFIX.STORY);
+}
+
+export async function updateStory(
+  worldId: string,
+  storyId: string,
+  fields: Record<string, unknown>,
+) {
+  await updateFields(worldPk(worldId), storySk(storyId), fields);
 }
 
 export async function deleteStory(worldId: string, storyId: string) {
@@ -413,6 +549,14 @@ export async function listChapters(storyId: string) {
   return queryByPkPrefix(storyPk(storyId), PREFIX.CHAP);
 }
 
+export async function updateChapter(
+  storyId: string,
+  chapterId: string,
+  fields: Record<string, unknown>,
+) {
+  await updateFields(storyPk(storyId), chapterSk(chapterId), fields);
+}
+
 export async function deleteChapter(storyId: string, chapterId: string) {
   await del(storyPk(storyId), chapterSk(chapterId));
 }
@@ -435,6 +579,14 @@ export async function getPlot(storyId: string, plotId: string) {
 
 export async function listPlots(storyId: string) {
   return queryByPkPrefix(storyPk(storyId), PREFIX.PLOT);
+}
+
+export async function updatePlot(
+  storyId: string,
+  plotId: string,
+  fields: Record<string, unknown>,
+) {
+  await updateFields(storyPk(storyId), plotSk(plotId), fields);
 }
 
 export async function deletePlot(storyId: string, plotId: string) {

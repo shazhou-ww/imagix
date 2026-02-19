@@ -10,9 +10,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@imagix/shared": "workspace:*",
     "@aws-sdk/client-dynamodb": "^3.700.0",
-    "@aws-sdk/lib-dynamodb": "^3.700.0"
+    "@aws-sdk/lib-dynamodb": "^3.700.0",
+    "@imagix/shared": "workspace:*",
+    "hono": "^4.11.10"
   },
   "devDependencies": {
     "esbuild": "^0.24.0",

@@ -1,94 +1,48 @@
-import type { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
-import { WorldSchema, createId, EntityPrefix } from "@imagix/shared";
-import { putWorld, listWorldsByUser, getWorld } from "./db/repository.js";
+import { handle } from "hono/aws-lambda";
+import { createApp } from "./app.js";
 
-export async function handler(
-  event: APIGatewayProxyEvent,
-): Promise<APIGatewayProxyResult> {
-  const method = event.httpMethod;
-  const path = event.path.replace(/^\/prod/, "") || "/";
+import worldRoutes from "./routes/worlds.js";
+import taxonomyRoutes from "./routes/taxonomy.js";
+import characterRoutes from "./routes/characters.js";
+import thingRoutes from "./routes/things.js";
+import relationshipRoutes from "./routes/relationships.js";
+import entityRelRoutes from "./routes/entity-relationships.js";
+import eventRoutes from "./routes/events.js";
+import eventLinkRoutes from "./routes/event-links.js";
+import storyRoutes from "./routes/stories.js";
+import userStoryRoutes from "./routes/user-stories.js";
+import chapterRoutes from "./routes/chapters.js";
+import { plotCreateListRoutes, plotCrudRoutes } from "./routes/plots.js";
+import stateRoutes from "./routes/state.js";
 
-  const headers = {
-    "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
-  };
+const app = createApp();
 
-  const userId =
-    event.requestContext.authorizer?.claims?.sub ?? "anonymous";
+app.get("/api/health", (c) =>
+  c.json({ status: "ok", service: "imagix-api" }),
+);
 
-  try {
-    if (path === "/api/worlds" && method === "POST") {
-      const body = JSON.parse(event.body ?? "{}");
-      const id = createId(EntityPrefix.World);
-      const now = new Date().toISOString();
+app.route("/api/worlds", worldRoutes);
+app.route("/api/worlds/:worldId/taxonomy", taxonomyRoutes);
+app.route("/api/worlds/:worldId/characters", characterRoutes);
+app.route("/api/worlds/:worldId/things", thingRoutes);
+app.route("/api/worlds/:worldId/relationships", relationshipRoutes);
+app.route(
+  "/api/worlds/:worldId/entities/:entityId/relationships",
+  entityRelRoutes,
+);
+app.route("/api/worlds/:worldId/events", eventRoutes);
+app.route("/api/worlds/:worldId/event-links", eventLinkRoutes);
+app.route("/api/worlds/:worldId/stories", storyRoutes);
+app.route("/api/stories", userStoryRoutes);
+app.route("/api/stories/:storyId/chapters", chapterRoutes);
+app.route(
+  "/api/stories/:storyId/chapters/:chapterId/plots",
+  plotCreateListRoutes,
+);
+app.route("/api/stories/:storyId/plots", plotCrudRoutes);
+app.route(
+  "/api/worlds/:worldId/entities/:entityId/state",
+  stateRoutes,
+);
 
-      const world = WorldSchema.parse({
-        id,
-        userId,
-        name: body.name ?? "Untitled World",
-        description: body.description ?? "",
-        settings: body.settings ?? "",
-        epoch: body.epoch ?? "",
-        createdAt: now,
-        updatedAt: now,
-      });
-
-      await putWorld(world);
-
-      return {
-        statusCode: 201,
-        headers,
-        body: JSON.stringify(world),
-      };
-    }
-
-    if (path === "/api/worlds" && method === "GET") {
-      const worlds = await listWorldsByUser(userId);
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify(worlds),
-      };
-    }
-
-    if (path.match(/^\/api\/worlds\/[\w-]+$/) && method === "GET") {
-      const worldId = path.split("/").pop()!;
-      const world = await getWorld(worldId);
-      if (!world) {
-        return {
-          statusCode: 404,
-          headers,
-          body: JSON.stringify({ error: "World not found" }),
-        };
-      }
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify(world),
-      };
-    }
-
-    if (path === "/api/health" && method === "GET") {
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({ status: "ok", service: "imagix-api" }),
-      };
-    }
-
-    return {
-      statusCode: 404,
-      headers,
-      body: JSON.stringify({ error: "Not Found" }),
-    };
-  } catch (err) {
-    console.error(err);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({
-        error: err instanceof Error ? err.message : "Internal Server Error",
-      }),
-    };
-  }
-}
+export const handler = handle(app);

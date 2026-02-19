@@ -1,0 +1,54 @@
+import {
+  createId,
+  EntityPrefix,
+  TaxonomyNodeSchema,
+  type TaxonomyNode,
+  type TaxonomyTree,
+  type CreateTaxonomyNodeBody,
+  type UpdateTaxonomyNodeBody,
+} from "@imagix/shared";
+import * as repo from "../db/repository.js";
+import { AppError } from "./errors.js";
+
+export async function getTree(
+  worldId: string,
+  tree: TaxonomyTree,
+): Promise<TaxonomyNode[]> {
+  const items = await repo.getTaxonomyTree(worldId, tree);
+  return items as TaxonomyNode[];
+}
+
+export async function create(
+  worldId: string,
+  tree: TaxonomyTree,
+  body: CreateTaxonomyNodeBody,
+): Promise<TaxonomyNode> {
+  const node = TaxonomyNodeSchema.parse({
+    id: createId(EntityPrefix.TaxonomyNode),
+    worldId,
+    tree,
+    ...body,
+  });
+  await repo.putTaxonomyNode(node);
+  return node;
+}
+
+export async function update(
+  worldId: string,
+  tree: TaxonomyTree,
+  nodeId: string,
+  body: UpdateTaxonomyNodeBody,
+): Promise<TaxonomyNode> {
+  const existing = await repo.getTaxonomyNode(worldId, tree, nodeId);
+  if (!existing) throw AppError.notFound("TaxonomyNode");
+  await repo.updateTaxonomyNode(worldId, tree, nodeId, body);
+  return (await repo.getTaxonomyNode(worldId, tree, nodeId)) as TaxonomyNode;
+}
+
+export async function remove(
+  worldId: string,
+  tree: TaxonomyTree,
+  nodeId: string,
+): Promise<void> {
+  await repo.deleteTaxonomyNode(worldId, tree, nodeId);
+}

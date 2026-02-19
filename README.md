@@ -21,7 +21,7 @@ bun install --no-cache
 bun run dev:db
 
 # 另一终端：初始化表并启动后端
-./scripts/init-dynamodb-local.sh
+bun run scripts/init-dynamodb-local.ts
 bun run dev:backend
 
 # 另一终端：启动前端

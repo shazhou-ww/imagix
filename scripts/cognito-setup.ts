@@ -41,9 +41,9 @@ function getEnvOptional(name: string): string | undefined {
 async function main() {
   const profile = getEnv("AWS_PROFILE", DEFAULT_PROFILE);
   const redirectSignIn =
-    getEnv("IMAGIX_REDIRECT_SIGN_IN") ?? getEnv("REDIRECT_SIGN_IN", "http://localhost:5173/callback");
+    getEnv("IMAGIX_REDIRECT_SIGN_IN") ?? getEnv("REDIRECT_SIGN_IN", "http://localhost:4510/callback");
   const redirectSignOut =
-    getEnv("IMAGIX_REDIRECT_SIGN_OUT") ?? getEnv("REDIRECT_SIGN_OUT", "http://localhost:5173");
+    getEnv("IMAGIX_REDIRECT_SIGN_OUT") ?? getEnv("REDIRECT_SIGN_OUT", "http://localhost:4510");
   const googleClientId = getEnvOptional("GOOGLE_CLIENT_ID");
   const googleClientSecret = getEnvOptional("GOOGLE_CLIENT_SECRET");
 

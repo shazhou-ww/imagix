@@ -36,8 +36,7 @@ bun install --no-cache
 2. 初始化 DynamoDB 表（新终端）:
 
    ```bash
-   chmod +x scripts/init-dynamodb-local.sh
-   ./scripts/init-dynamodb-local.sh
+   bun run scripts/init-dynamodb-local.ts
    ```
 
 3. 启动后端 API（新终端）:
@@ -46,7 +45,7 @@ bun install --no-cache
    bun run dev:backend
    ```
 
-   API 将在 <http://127.0.0.1:3000>
+   API 将在 <http://127.0.0.1:4511>
 
 4. 启动前端（新终端）:
 
@@ -54,7 +53,7 @@ bun install --no-cache
    bun run dev:frontend
    ```
 
-   前端将在 <http://localhost:5173>，API 请求会代理到后端
+   前端将在 <http://localhost:4510>，API 请求会代理到后端
 
 或一次性启动所有服务：
 

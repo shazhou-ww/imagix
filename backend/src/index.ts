@@ -45,4 +45,22 @@ app.route(
   stateRoutes,
 );
 
-export const handler = handle(app);
+app.notFound((c) => {
+  console.log("[404]", c.req.method, c.req.path, c.req.url);
+  return c.json({ error: "Not Found" }, 404);
+});
+
+const honoHandler = handle(app);
+
+/** Strip API Gateway stage prefix (e.g. /prod) from path so Hono routes match. */
+export const handler = (event: any, context: any) => {
+  let path = event?.path ?? "";
+  const stage =
+    event?.requestContext?.stage ??
+    (path.startsWith("/prod/") ? "prod" : null);
+  if (stage && path.startsWith(`/${stage}/`)) {
+    path = path.slice(stage.length + 1) || "/";
+    event = { ...event, path };
+  }
+  return honoHandler(event, context);
+};

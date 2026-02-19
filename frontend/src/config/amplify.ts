@@ -1,18 +1,15 @@
 import { Amplify } from "aws-amplify";
 
-const {
-  IMAGIX_USER_POOL_ID,
-  IMAGIX_USER_POOL_CLIENT_ID,
-  IMAGIX_COGNITO_DOMAIN,
-  IMAGIX_REDIRECT_SIGN_IN,
-  IMAGIX_REDIRECT_SIGN_OUT,
-} = import.meta.env;
+const { IMAGIX_USER_POOL_ID, IMAGIX_USER_POOL_CLIENT_ID, IMAGIX_COGNITO_DOMAIN } =
+  import.meta.env;
 const userPoolId = IMAGIX_USER_POOL_ID;
 const userPoolClientId = IMAGIX_USER_POOL_CLIENT_ID;
 const cognitoDomain = IMAGIX_COGNITO_DOMAIN;
-const redirectSignIn =
-  IMAGIX_REDIRECT_SIGN_IN ?? "http://localhost:5173/callback";
-const redirectSignOut = IMAGIX_REDIRECT_SIGN_OUT ?? "http://localhost:5173";
+
+// 自动使用当前 origin，避免本地开发与生产 redirect 不一致
+const origin = window.location.origin;
+const redirectSignIn = `${origin}/callback`;
+const redirectSignOut = origin;
 
 export function configureAmplify() {
   if (!userPoolId || !userPoolClientId || !cognitoDomain) {

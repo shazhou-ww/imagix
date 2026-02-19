@@ -3,7 +3,7 @@ import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 
 const raw = new DynamoDBClient({
   ...(process.env.AWS_SAM_LOCAL && {
-    endpoint: "http://host.docker.internal:8000",
+    endpoint: "http://host.docker.internal:4512",
     region: "us-east-1",
   }),
 });

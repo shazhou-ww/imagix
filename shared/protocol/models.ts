@@ -82,6 +82,14 @@ export const TaxonomyNodeSchema = z.object({
   parentId: txnId.nullable(),
   /** 该节点追加的属性定义列表（子节点自动继承）。 */
   attributeDefinitions: z.array(AttributeDefinitionSchema).default([]),
+  /**
+   * 可选的 JSONata 时间派生公式（子节点继承，可覆盖）。
+   * 在事件溯源回放时，每个事件应用前先执行此公式，推算时间流逝导致的属性变化。
+   * 输入上下文: { attributes: Record<string, any>, lastTime: number, currentTime: number }
+   * 输出: Record<string, any>（需要变更的属性名→新值映射）
+   * 示例: `{ "年龄": attributes.年龄 + (currentTime - lastTime) }`
+   */
+  timeFormula: z.string().optional(),
 });
 
 export type AttributeDefinition = z.infer<typeof AttributeDefinitionSchema>;
@@ -106,7 +114,10 @@ export const WorldSchema = z.object({
   description: z.string().default(""),
   /** 世界设定：物理法则、力量体系、社会规则等。 */
   settings: z.string().default(""),
-  /** 时间纪元：标准化时间定义，如 "盘古历"、"公元纪年"。 */
+  /**
+   * 时间纪元描述：对 t=0 原点的文字说明，如 "盘古开天辟地"、"基督诞生"。
+   * 世界中应存在一个 time=0 的事件作为纪元原点，所有时间以毫秒为单位相对于此原点计算。
+   */
   epoch: z.string().default(""),
   /** 创建时间。 */
   createdAt: z.string(),
@@ -270,7 +281,10 @@ export const EventSchema = z.object({
   id: evtId,
   /** 所属世界 ID。 */
   worldId: wldId,
-  /** 世界纪元内的时间点（数值），用于事件排序与状态推算。 */
+  /**
+   * 世界纪元时间点，以毫秒为单位，相对于世界纪元原点 (t=0) 的偏移量。
+   * t=0 对应 World.epoch 描述的纪元原点事件。
+   */
   time: z.number(),
   /** 事件发生地点，引用某个事物（如地点类事物）；null 表示无明确地点。 */
   placeId: thgId.nullable(),
@@ -378,7 +392,8 @@ export type Chapter = z.infer<typeof ChapterSchema>;
 
 /**
  * 情节 Schema。
- * 对事件的文学化展开。情节不能超越事件本身设定的框架。
+ * 对单个事件的文学化展开。一个事件可生成多个不同版本的情节（一对多）。
+ * 情节不能超越事件本身设定的框架。
  */
 export const PlotSchema = z.object({
   /** 情节唯一标识。 */
@@ -387,8 +402,8 @@ export const PlotSchema = z.object({
   storyId: styId,
   /** 所属章节 ID。 */
   chapterId: chpId,
-  /** 关联的事件 ID 列表，情节展开这些事件的文学化描述。 */
-  eventIds: z.array(evtId).default([]),
+  /** 关联的事件 ID，情节展开此事件的文学化描述。一个事件可对应多个情节版本。 */
+  eventId: evtId,
   /** 视角角色 ID：从哪个角色的视角叙述；null 表示无特定视角（如上帝视角）。 */
   perspectiveCharacterId: chrId.nullable(),
   /** 文风：文学风格描述。 */

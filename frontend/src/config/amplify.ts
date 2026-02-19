@@ -10,7 +10,8 @@ const {
 const userPoolId = IMAGIX_USER_POOL_ID;
 const userPoolClientId = IMAGIX_USER_POOL_CLIENT_ID;
 const cognitoDomain = IMAGIX_COGNITO_DOMAIN;
-const redirectSignIn = IMAGIX_REDIRECT_SIGN_IN ?? "http://localhost:5173/callback";
+const redirectSignIn =
+  IMAGIX_REDIRECT_SIGN_IN ?? "http://localhost:5173/callback";
 const redirectSignOut = IMAGIX_REDIRECT_SIGN_OUT ?? "http://localhost:5173";
 
 export function configureAmplify() {

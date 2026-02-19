@@ -15,7 +15,7 @@ for (let i = 0; i < ENCODING.length; i++) {
 }
 
 const ID_LENGTH = 30;
-const ULID_LENGTH = 26;
+const _ULID_LENGTH = 26;
 const PREFIX_LENGTH = 3;
 
 export const EntityPrefix = {
@@ -33,7 +33,7 @@ export const EntityPrefix = {
 
 export type EntityPrefix = (typeof EntityPrefix)[keyof typeof EntityPrefix];
 
-const VALID_PREFIXES = new Set<string>(Object.values(EntityPrefix));
+const _VALID_PREFIXES = new Set<string>(Object.values(EntityPrefix));
 
 // ---------------------------------------------------------------------------
 // Crockford Base32 ULID encoding

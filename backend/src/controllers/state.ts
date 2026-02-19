@@ -1,6 +1,5 @@
 import type { Event, StateImpact } from "@imagix/shared";
 import * as repo from "../db/repository.js";
-import { AppError } from "./errors.js";
 
 export interface EntityState {
   entityId: string;

@@ -182,7 +182,7 @@ async function main() {
     if (!seen.has(k)) out.push(`${k}=${v}`);
   }
 
-  writeFileSync(envPath, out.join("\n") + "\n", "utf-8");
+  writeFileSync(envPath, `${out.join("\n")}\n`, "utf-8");
   console.log(`\nWrote ${envPath}:`);
   console.log(`  IMAGIX_USER_POOL_ID=${userPoolId}`);
   console.log(`  IMAGIX_USER_POOL_CLIENT_ID=${userPoolClientId}`);
@@ -191,7 +191,7 @@ async function main() {
   if (!googleClientId) {
     console.log("\nTo enable Google login:");
     console.log("  1. Create OAuth 2.0 credentials in Google Cloud Console.");
-    console.log("  2. Add redirect URI: https://" + cognitoDomain + "/oauth2/idpresponse");
+    console.log(`  2. Add redirect URI: https://${cognitoDomain}/oauth2/idpresponse`);
     console.log("  3. Run: GOOGLE_CLIENT_ID=... GOOGLE_CLIENT_SECRET=... bun run scripts/cognito-add-google.ts");
   }
 }

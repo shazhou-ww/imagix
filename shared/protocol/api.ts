@@ -7,7 +7,6 @@ import {
   entityId,
   AttributeDefinitionSchema,
   StateImpactSchema,
-  TaxonomyTree,
 } from "./models.js";
 
 // ---------------------------------------------------------------------------

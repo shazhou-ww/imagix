@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { Box, CircularProgress, Typography } from "@mui/material";
 import { getCurrentUser } from "aws-amplify/auth";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 export default function CallbackPage() {
   const navigate = useNavigate();

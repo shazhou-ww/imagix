@@ -16,7 +16,7 @@ const REGION = "us-east-1";
 const STACK_NAME = "imagix-frontend";
 const DEFAULT_PROFILE = "AdministratorAccess-914369185440";
 
-function getEnv(name: string): string | undefined {
+function _getEnv(name: string): string | undefined {
   return process.env[name]?.trim() || undefined;
 }
 

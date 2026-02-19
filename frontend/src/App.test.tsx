@@ -1,10 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { ThemeProvider } from "@mui/material";
 import { render, screen } from "@testing-library/react";
 import { BrowserRouter } from "react-router-dom";
-import { ThemeProvider } from "@mui/material";
-import { theme } from "./theme";
-import { AuthProvider } from "./auth/AuthContext";
+import { describe, expect, it } from "vitest";
 import App from "./App";
+import { AuthProvider } from "./auth/AuthContext";
+import { theme } from "./theme";
 
 describe("App", () => {
   it("renders Imagix title", () => {

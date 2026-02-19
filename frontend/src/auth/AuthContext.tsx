@@ -1,17 +1,17 @@
+import type { AuthUser } from "aws-amplify/auth";
+import {
+  signOut as amplifySignOut,
+  getCurrentUser,
+  signInWithRedirect,
+} from "aws-amplify/auth";
 import {
   createContext,
+  type ReactNode,
   useCallback,
   useContext,
   useEffect,
   useState,
-  type ReactNode,
 } from "react";
-import {
-  getCurrentUser,
-  signInWithRedirect,
-  signOut as amplifySignOut,
-} from "aws-amplify/auth";
-import type { AuthUser } from "aws-amplify/auth";
 
 type AuthState =
   | { status: "loading" }

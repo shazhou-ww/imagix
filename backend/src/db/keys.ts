@@ -6,10 +6,6 @@ function padTime(time: number): string {
   return String(time).padStart(TIME_PAD, "0");
 }
 
-function padSeq(seq: number, len = 6): string {
-  return String(seq).padStart(len, "0");
-}
-
 // ---------------------------------------------------------------------------
 // Primary keys (pk / sk)
 // ---------------------------------------------------------------------------
@@ -35,9 +31,8 @@ export const eventLinkSk = (eidA: string, eidB: string) =>
 export const storySk = (storyId: string) => `STORY#${storyId}`;
 
 export const storyPk = (storyId: string) => `STORY#${storyId}`;
-export const chapterSk = (seq: number) => `CHAP#${padSeq(seq)}`;
-export const plotSk = (chapterSeq: number, plotSeq: number) =>
-  `CHAP#${padSeq(chapterSeq)}#PLOT#${padSeq(plotSeq)}`;
+export const chapterSk = (chapterId: string) => `CHAP#${chapterId}`;
+export const plotSk = (plotId: string) => `PLOT#${plotId}`;
 
 // ---------------------------------------------------------------------------
 // Denormalized entity keys
@@ -71,5 +66,6 @@ export const PREFIX = {
   EVTLINK: "EVTLINK#",
   STORY: "STORY#",
   CHAP: "CHAP#",
+  PLOT: "PLOT#",
   WORLD: "WORLD#",
 } as const;

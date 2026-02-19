@@ -400,17 +400,21 @@ export async function deleteStory(worldId: string, storyId: string) {
 export async function putChapter(chapter: Chapter) {
   await put({
     pk: storyPk(chapter.storyId),
-    sk: chapterSk(chapter.seq),
+    sk: chapterSk(chapter.id),
     ...chapter,
   });
+}
+
+export async function getChapter(storyId: string, chapterId: string) {
+  return get(storyPk(storyId), chapterSk(chapterId));
 }
 
 export async function listChapters(storyId: string) {
   return queryByPkPrefix(storyPk(storyId), PREFIX.CHAP);
 }
 
-export async function deleteChapter(storyId: string, seq: number) {
-  await del(storyPk(storyId), chapterSk(seq));
+export async function deleteChapter(storyId: string, chapterId: string) {
+  await del(storyPk(storyId), chapterSk(chapterId));
 }
 
 // ---------------------------------------------------------------------------
@@ -420,20 +424,19 @@ export async function deleteChapter(storyId: string, seq: number) {
 export async function putPlot(plot: Plot) {
   await put({
     pk: storyPk(plot.storyId),
-    sk: plotSk(plot.chapterSeq, plot.plotSeq),
+    sk: plotSk(plot.id),
     ...plot,
   });
 }
 
-export async function listPlotsByChapter(storyId: string, chapterSeq: number) {
-  const prefix = `${PREFIX.CHAP}${String(chapterSeq).padStart(6, "0")}#PLOT#`;
-  return queryByPkPrefix(storyPk(storyId), prefix);
+export async function getPlot(storyId: string, plotId: string) {
+  return get(storyPk(storyId), plotSk(plotId));
 }
 
-export async function deletePlot(
-  storyId: string,
-  chapterSeq: number,
-  plotSeq: number,
-) {
-  await del(storyPk(storyId), plotSk(chapterSeq, plotSeq));
+export async function listPlots(storyId: string) {
+  return queryByPkPrefix(storyPk(storyId), PREFIX.PLOT);
+}
+
+export async function deletePlot(storyId: string, plotId: string) {
+  await del(storyPk(storyId), plotSk(plotId));
 }

@@ -1,4 +1,4 @@
-import type { Thing, TaxonomyNode } from "@imagix/shared";
+import type { Thing, TaxonomyNode, AttributeDefinition } from "@imagix/shared";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
@@ -7,6 +7,7 @@ import {
   Button,
   Card,
   CardContent,
+  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -30,6 +31,33 @@ import {
 import { useTaxonomyTree } from "@/api/hooks/useTaxonomy";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import EmptyState from "@/components/EmptyState";
+
+function getAncestorChain(nodeId: string, nodeMap: Map<string, TaxonomyNode>): TaxonomyNode[] {
+  const chain: TaxonomyNode[] = [];
+  let cur = nodeMap.get(nodeId);
+  while (cur) {
+    chain.unshift(cur);
+    cur = cur.parentId ? nodeMap.get(cur.parentId) : undefined;
+  }
+  return chain;
+}
+
+function collectAttributes(chain: TaxonomyNode[]): { attr: AttributeDefinition; from: string }[] {
+  const result: { attr: AttributeDefinition; from: string }[] = [];
+  for (const node of chain) {
+    for (const attr of node.attributeDefinitions) {
+      result.push({ attr, from: node.name });
+    }
+  }
+  return result;
+}
+
+const TYPE_LABELS: Record<string, string> = {
+  string: "文本",
+  number: "数字",
+  boolean: "布尔",
+  enum: "枚举",
+};
 
 export default function ThingListPage() {
   const { worldId } = useParams<{ worldId: string }>();
@@ -117,28 +145,57 @@ export default function ThingListPage() {
         <Grid container spacing={2}>
           {things.map((thing) => {
             const node = nodeMap.get(thing.categoryNodeId);
+            const chain = getAncestorChain(thing.categoryNodeId, nodeMap);
+            const allAttrs = collectAttributes(chain);
             return (
               <Grid size={{ xs: 12, sm: 6, md: 4 }} key={thing.id}>
                 <Card>
-                  <CardContent sx={{ display: "flex", alignItems: "center" }}>
-                    <Box sx={{ flex: 1 }}>
-                      <Typography variant="subtitle1" fontWeight="bold">
+                  <CardContent>
+                    <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
+                      <Typography variant="subtitle1" fontWeight="bold" sx={{ flex: 1 }}>
                         {node?.name ?? "未知分类"}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {thing.id}
-                      </Typography>
+                      <Tooltip title="编辑">
+                        <IconButton size="small" onClick={() => openEdit(thing)}>
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="删除">
+                        <IconButton size="small" color="error" onClick={() => setDeleteTarget(thing)}>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
                     </Box>
-                    <Tooltip title="编辑">
-                      <IconButton size="small" onClick={() => openEdit(thing)}>
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="删除">
-                      <IconButton size="small" color="error" onClick={() => setDeleteTarget(thing)}>
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
+                    {chain.length > 1 && (
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 1, flexWrap: "wrap" }}>
+                        {chain.map((n, i) => (
+                          <Box key={n.id} sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
+                            <Typography
+                              variant="caption"
+                              color={i === chain.length - 1 ? "primary.main" : "text.secondary"}
+                              fontWeight={i === chain.length - 1 ? 600 : 400}
+                            >
+                              {n.name}
+                            </Typography>
+                            {i < chain.length - 1 && (
+                              <Typography variant="caption" color="text.disabled">›</Typography>
+                            )}
+                          </Box>
+                        ))}
+                      </Box>
+                    )}
+                    {allAttrs.length > 0 && (
+                      <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
+                        {allAttrs.map(({ attr, from }, i) => (
+                          <Tooltip key={`${from}-${attr.name}-${i}`} title={`${attr.description ?? attr.name} (${TYPE_LABELS[attr.type]}，来自「${from}」)`}>
+                            <Chip label={attr.name} size="small" variant="outlined" sx={{ height: 22, fontSize: "0.75rem" }} />
+                          </Tooltip>
+                        ))}
+                      </Box>
+                    )}
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
+                      {thing.id}
+                    </Typography>
                   </CardContent>
                 </Card>
               </Grid>

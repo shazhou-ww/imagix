@@ -1,4 +1,4 @@
-import type { Character, TaxonomyNode, AttributeDefinition } from "@imagix/shared";
+import type { Character, TaxonomyNode } from "@imagix/shared";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
@@ -43,24 +43,6 @@ function getAncestorChain(nodeId: string, nodeMap: Map<string, TaxonomyNode>): T
   return chain;
 }
 
-/** Collect all inherited + own attributes along the ancestor chain. */
-function collectAttributes(chain: TaxonomyNode[]): { attr: AttributeDefinition; from: string }[] {
-  const result: { attr: AttributeDefinition; from: string }[] = [];
-  for (const node of chain) {
-    for (const attr of node.attributeDefinitions) {
-      result.push({ attr, from: node.name });
-    }
-  }
-  return result;
-}
-
-const TYPE_LABELS: Record<string, string> = {
-  string: "文本",
-  number: "数字",
-  boolean: "布尔",
-  enum: "枚举",
-};
-
 export default function CharacterListPage() {
   const { worldId } = useParams<{ worldId: string }>();
   const navigate = useNavigate();
@@ -72,6 +54,7 @@ export default function CharacterListPage() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingChar, setEditingChar] = useState<Character | null>(null);
+  const [charName, setCharName] = useState("");
   const [categoryNodeId, setCategoryNodeId] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<Character | null>(null);
 
@@ -83,26 +66,28 @@ export default function CharacterListPage() {
 
   const openCreate = () => {
     setEditingChar(null);
+    setCharName("");
     setCategoryNodeId(charNodes?.[0]?.id ?? "");
     setDialogOpen(true);
   };
 
   const openEdit = (char: Character) => {
     setEditingChar(char);
+    setCharName(char.name);
     setCategoryNodeId(char.categoryNodeId);
     setDialogOpen(true);
   };
 
   const handleSave = () => {
-    if (!categoryNodeId) return;
+    if (!charName.trim() || !categoryNodeId) return;
     if (editingChar) {
       updateChar.mutate(
-        { charId: editingChar.id, body: { categoryNodeId } },
+        { charId: editingChar.id, body: { name: charName.trim(), categoryNodeId } },
         { onSuccess: () => setDialogOpen(false) },
       );
     } else {
       createChar.mutate(
-        { categoryNodeId },
+        { name: charName.trim(), categoryNodeId },
         { onSuccess: () => setDialogOpen(false) },
       );
     }
@@ -149,14 +134,13 @@ export default function CharacterListPage() {
           {characters.map((char) => {
             const node = nodeMap.get(char.categoryNodeId);
             const chain = getAncestorChain(char.categoryNodeId, nodeMap);
-            const allAttrs = collectAttributes(chain);
             return (
               <Grid size={{ xs: 12, sm: 6, md: 4 }} key={char.id}>
                 <Card>
                   <CardContent>
                     <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
                       <Typography variant="subtitle1" fontWeight="bold" sx={{ flex: 1 }}>
-                        {node?.name ?? "未知分类"}
+                        {char.name}
                       </Typography>
                       <Tooltip title="编辑">
                         <IconButton size="small" onClick={() => openEdit(char)}>
@@ -170,34 +154,26 @@ export default function CharacterListPage() {
                       </Tooltip>
                     </Box>
                     {/* Classification path */}
-                    {chain.length > 1 && (
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 1, flexWrap: "wrap" }}>
-                        {chain.map((n, i) => (
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, flexWrap: "wrap" }}>
+                      {chain.length > 0 ? (
+                        chain.map((n, i) => (
                           <Box key={n.id} sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
-                            <Typography
-                              variant="caption"
-                              color={i === chain.length - 1 ? "primary.main" : "text.secondary"}
-                              fontWeight={i === chain.length - 1 ? 600 : 400}
-                            >
-                              {n.name}
-                            </Typography>
+                            <Chip
+                              label={n.name}
+                              size="small"
+                              variant={i === chain.length - 1 ? "filled" : "outlined"}
+                              color={i === chain.length - 1 ? "primary" : "default"}
+                              sx={{ height: 22, fontSize: "0.75rem" }}
+                            />
                             {i < chain.length - 1 && (
                               <Typography variant="caption" color="text.disabled">›</Typography>
                             )}
                           </Box>
-                        ))}
-                      </Box>
-                    )}
-                    {/* Attribute schema */}
-                    {allAttrs.length > 0 && (
-                      <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
-                        {allAttrs.map(({ attr, from }, i) => (
-                          <Tooltip key={`${from}-${attr.name}-${i}`} title={`${attr.description ?? attr.name} (${TYPE_LABELS[attr.type]}，来自「${from}」)`}>
-                            <Chip label={attr.name} size="small" variant="outlined" sx={{ height: 22, fontSize: "0.75rem" }} />
-                          </Tooltip>
-                        ))}
-                      </Box>
-                    )}
+                        ))
+                      ) : (
+                        <Chip label={node?.name ?? "未知分类"} size="small" variant="outlined" sx={{ height: 22, fontSize: "0.75rem" }} />
+                      )}
+                    </Box>
                     <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
                       {char.id}
                     </Typography>
@@ -213,6 +189,13 @@ export default function CharacterListPage() {
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{editingChar ? "编辑角色" : "添加角色"}</DialogTitle>
         <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}>
+          <TextField
+            label="角色名称"
+            value={charName}
+            onChange={(e) => setCharName(e.target.value)}
+            autoFocus
+            required
+          />
           {(charNodes ?? []).length === 0 ? (
             <Box sx={{ textAlign: "center", py: 2 }}>
               <Typography color="text.secondary" gutterBottom>
@@ -250,7 +233,7 @@ export default function CharacterListPage() {
           <Button
             variant="contained"
             onClick={handleSave}
-            disabled={!categoryNodeId || createChar.isPending || updateChar.isPending}
+            disabled={!charName.trim() || !categoryNodeId || createChar.isPending || updateChar.isPending}
           >
             {editingChar ? "保存" : "创建"}
           </Button>
@@ -261,7 +244,7 @@ export default function CharacterListPage() {
       <ConfirmDialog
         open={!!deleteTarget}
         title="删除角色"
-        message="确定要删除此角色吗？相关的事件和关系不会被删除。"
+        message={`确定要删除「${deleteTarget?.name}」吗？相关的事件和关系不会被删除。`}
         onConfirm={handleDelete}
         onClose={() => setDeleteTarget(null)}
       />

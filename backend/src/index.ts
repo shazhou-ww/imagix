@@ -3,6 +3,7 @@ import { createApp } from "./app.js";
 
 import worldRoutes from "./routes/worlds.js";
 import taxonomyRoutes from "./routes/taxonomy.js";
+import attributeDefinitionRoutes from "./routes/attribute-definitions.js";
 import characterRoutes from "./routes/characters.js";
 import thingRoutes from "./routes/things.js";
 import relationshipRoutes from "./routes/relationships.js";
@@ -23,6 +24,7 @@ app.get("/api/health", (c) =>
 
 app.route("/api/worlds", worldRoutes);
 app.route("/api/worlds/:worldId/taxonomy", taxonomyRoutes);
+app.route("/api/worlds/:worldId/attribute-definitions", attributeDefinitionRoutes);
 app.route("/api/worlds/:worldId/characters", characterRoutes);
 app.route("/api/worlds/:worldId/things", thingRoutes);
 app.route("/api/worlds/:worldId/relationships", relationshipRoutes);

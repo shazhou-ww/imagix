@@ -1,4 +1,4 @@
-import type { Thing, TaxonomyNode, AttributeDefinition } from "@imagix/shared";
+import type { Thing, TaxonomyNode } from "@imagix/shared";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
@@ -42,23 +42,6 @@ function getAncestorChain(nodeId: string, nodeMap: Map<string, TaxonomyNode>): T
   return chain;
 }
 
-function collectAttributes(chain: TaxonomyNode[]): { attr: AttributeDefinition; from: string }[] {
-  const result: { attr: AttributeDefinition; from: string }[] = [];
-  for (const node of chain) {
-    for (const attr of node.attributeDefinitions) {
-      result.push({ attr, from: node.name });
-    }
-  }
-  return result;
-}
-
-const TYPE_LABELS: Record<string, string> = {
-  string: "文本",
-  number: "数字",
-  boolean: "布尔",
-  enum: "枚举",
-};
-
 export default function ThingListPage() {
   const { worldId } = useParams<{ worldId: string }>();
   const navigate = useNavigate();
@@ -70,6 +53,7 @@ export default function ThingListPage() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingThing, setEditingThing] = useState<Thing | null>(null);
+  const [thingName, setThingName] = useState("");
   const [categoryNodeId, setCategoryNodeId] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<Thing | null>(null);
 
@@ -81,26 +65,28 @@ export default function ThingListPage() {
 
   const openCreate = () => {
     setEditingThing(null);
+    setThingName("");
     setCategoryNodeId(thingNodes?.[0]?.id ?? "");
     setDialogOpen(true);
   };
 
   const openEdit = (thing: Thing) => {
     setEditingThing(thing);
+    setThingName(thing.name);
     setCategoryNodeId(thing.categoryNodeId);
     setDialogOpen(true);
   };
 
   const handleSave = () => {
-    if (!categoryNodeId) return;
+    if (!thingName.trim() || !categoryNodeId) return;
     if (editingThing) {
       updateThing.mutate(
-        { thingId: editingThing.id, body: { categoryNodeId } },
+        { thingId: editingThing.id, body: { name: thingName.trim(), categoryNodeId } },
         { onSuccess: () => setDialogOpen(false) },
       );
     } else {
       createThing.mutate(
-        { categoryNodeId },
+        { name: thingName.trim(), categoryNodeId },
         { onSuccess: () => setDialogOpen(false) },
       );
     }
@@ -147,14 +133,13 @@ export default function ThingListPage() {
           {things.map((thing) => {
             const node = nodeMap.get(thing.categoryNodeId);
             const chain = getAncestorChain(thing.categoryNodeId, nodeMap);
-            const allAttrs = collectAttributes(chain);
             return (
               <Grid size={{ xs: 12, sm: 6, md: 4 }} key={thing.id}>
                 <Card>
                   <CardContent>
                     <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
                       <Typography variant="subtitle1" fontWeight="bold" sx={{ flex: 1 }}>
-                        {node?.name ?? "未知分类"}
+                        {thing.name}
                       </Typography>
                       <Tooltip title="编辑">
                         <IconButton size="small" onClick={() => openEdit(thing)}>
@@ -167,33 +152,27 @@ export default function ThingListPage() {
                         </IconButton>
                       </Tooltip>
                     </Box>
-                    {chain.length > 1 && (
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 1, flexWrap: "wrap" }}>
-                        {chain.map((n, i) => (
+                    {/* Classification path */}
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, flexWrap: "wrap" }}>
+                      {chain.length > 0 ? (
+                        chain.map((n, i) => (
                           <Box key={n.id} sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
-                            <Typography
-                              variant="caption"
-                              color={i === chain.length - 1 ? "primary.main" : "text.secondary"}
-                              fontWeight={i === chain.length - 1 ? 600 : 400}
-                            >
-                              {n.name}
-                            </Typography>
+                            <Chip
+                              label={n.name}
+                              size="small"
+                              variant={i === chain.length - 1 ? "filled" : "outlined"}
+                              color={i === chain.length - 1 ? "primary" : "default"}
+                              sx={{ height: 22, fontSize: "0.75rem" }}
+                            />
                             {i < chain.length - 1 && (
                               <Typography variant="caption" color="text.disabled">›</Typography>
                             )}
                           </Box>
-                        ))}
-                      </Box>
-                    )}
-                    {allAttrs.length > 0 && (
-                      <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
-                        {allAttrs.map(({ attr, from }, i) => (
-                          <Tooltip key={`${from}-${attr.name}-${i}`} title={`${attr.description ?? attr.name} (${TYPE_LABELS[attr.type]}，来自「${from}」)`}>
-                            <Chip label={attr.name} size="small" variant="outlined" sx={{ height: 22, fontSize: "0.75rem" }} />
-                          </Tooltip>
-                        ))}
-                      </Box>
-                    )}
+                        ))
+                      ) : (
+                        <Chip label={node?.name ?? "未知分类"} size="small" variant="outlined" sx={{ height: 22, fontSize: "0.75rem" }} />
+                      )}
+                    </Box>
                     <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
                       {thing.id}
                     </Typography>
@@ -209,6 +188,13 @@ export default function ThingListPage() {
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{editingThing ? "编辑事物" : "添加事物"}</DialogTitle>
         <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}>
+          <TextField
+            label="事物名称"
+            value={thingName}
+            onChange={(e) => setThingName(e.target.value)}
+            autoFocus
+            required
+          />
           {(thingNodes ?? []).length === 0 ? (
             <Box sx={{ textAlign: "center", py: 2 }}>
               <Typography color="text.secondary" gutterBottom>
@@ -246,7 +232,7 @@ export default function ThingListPage() {
           <Button
             variant="contained"
             onClick={handleSave}
-            disabled={!categoryNodeId || createThing.isPending || updateThing.isPending}
+            disabled={!thingName.trim() || !categoryNodeId || createThing.isPending || updateThing.isPending}
           >
             {editingThing ? "保存" : "创建"}
           </Button>
@@ -257,7 +243,7 @@ export default function ThingListPage() {
       <ConfirmDialog
         open={!!deleteTarget}
         title="删除事物"
-        message="确定要删除此事物吗？相关的事件和关系不会被删除。"
+        message={`确定要删除「${deleteTarget?.name}」吗？相关的事件和关系不会被删除。`}
         onConfirm={handleDelete}
         onClose={() => setDeleteTarget(null)}
       />

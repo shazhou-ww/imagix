@@ -19,6 +19,10 @@ export const wldId = id.refine((v) =>
 export const txnId = id.refine((v) =>
   isValidIdWithPrefix(v, EntityPrefix.TaxonomyNode),
 );
+/** 属性定义 ID */
+export const adfId = id.refine((v) =>
+  isValidIdWithPrefix(v, EntityPrefix.AttributeDefinition),
+);
 /** 角色 ID */
 export const chrId = id.refine((v) =>
   isValidIdWithPrefix(v, EntityPrefix.Character),
@@ -67,10 +71,14 @@ export type TaxonomyTree = z.infer<typeof TaxonomyTree>;
 
 /**
  * 属性定义 Schema。
- * 挂载在分类节点上，描述该分类（及其子分类）实体可拥有的一个属性。
- * 子节点自动继承父节点的所有属性定义。
+ * 世界级别的独立实体，作为属性术语的统一字典。
+ * 所有角色、事物、关系的属性值以此为准，确保术语一致。
  */
 export const AttributeDefinitionSchema = z.object({
+  /** 属性定义唯一标识。 */
+  id: adfId,
+  /** 所属世界 ID。 */
+  worldId: wldId,
   /** 属性名称，如 "修为境界"、"灵根"。 */
   name: z.string(),
   /** 属性值类型。enum 表示字符串枚举，需配合 enumValues 使用。 */
@@ -79,12 +87,16 @@ export const AttributeDefinitionSchema = z.object({
   enumValues: z.array(z.string()).min(1).optional(),
   /** 属性的可选说明。 */
   description: z.string().optional(),
+  /** 创建时间。 */
+  createdAt: z.string(),
+  /** 最后更新时间。 */
+  updatedAt: z.string(),
 });
 
 /**
  * 分类节点 Schema。
- * 分类体系以树形结构组织，每个节点可定义额外的属性 Schema，子节点继承父节点的所有属性定义。
- * 例如：生物 → 人类 → 修仙者，修仙者继承生物和人类定义的所有属性并可追加自己的属性。
+ * 分类体系以树形结构组织，提供角色、事物、关系的分类层级。
+ * 例如：生物 → 人类 → 修仙者。
  */
 export const TaxonomyNodeSchema = z.object({
   /** 分类节点唯一标识。 */
@@ -97,8 +109,6 @@ export const TaxonomyNodeSchema = z.object({
   name: z.string(),
   /** 父节点 ID，null 表示根节点。 */
   parentId: txnId.nullable(),
-  /** 该节点追加的属性定义列表（子节点自动继承）。 */
-  attributeDefinitions: z.array(AttributeDefinitionSchema).default([]),
   /**
    * 可选的 JSONata 时间派生公式（子节点继承，可覆盖）。
    * 在事件溯源回放时，每个事件应用前先执行此公式，推算时间流逝导致的属性变化。
@@ -158,6 +168,8 @@ export const CharacterSchema = z.object({
   id: chrId,
   /** 所属世界 ID。 */
   worldId: wldId,
+  /** 角色名称，如 "张三丰"、"林黛玉"。 */
+  name: z.string(),
   /** 角色分类节点引用，从角色分类树 (CHAR) 中选取。 */
   categoryNodeId: txnId,
   /** 创建时间。 */
@@ -182,6 +194,8 @@ export const ThingSchema = z.object({
   id: thgId,
   /** 所属世界 ID。 */
   worldId: wldId,
+  /** 事物名称，如 "轩辕剑"、"洛阳城"。 */
+  name: z.string(),
   /** 事物分类节点引用，从事物分类树 (THING) 中选取。 */
   categoryNodeId: txnId,
   /** 创建时间。 */

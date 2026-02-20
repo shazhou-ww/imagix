@@ -5,7 +5,6 @@ import {
   chrId,
   evtId,
   entityId,
-  AttributeDefinitionSchema,
   StateImpactSchema,
 } from "./models.js";
 
@@ -31,7 +30,6 @@ export type UpdateWorldBody = z.infer<typeof UpdateWorldBody>;
 export const CreateTaxonomyNodeBody = z.object({
   name: z.string().min(1),
   parentId: txnId.nullable().default(null),
-  attributeDefinitions: z.array(AttributeDefinitionSchema).optional(),
   timeFormula: z.string().optional(),
 });
 export const UpdateTaxonomyNodeBody = CreateTaxonomyNodeBody.partial();
@@ -40,10 +38,26 @@ export type CreateTaxonomyNodeBody = z.infer<typeof CreateTaxonomyNodeBody>;
 export type UpdateTaxonomyNodeBody = z.infer<typeof UpdateTaxonomyNodeBody>;
 
 // ---------------------------------------------------------------------------
+// AttributeDefinition（世界级属性术语字典）
+// ---------------------------------------------------------------------------
+
+export const CreateAttributeDefinitionBody = z.object({
+  name: z.string().min(1),
+  type: z.enum(["string", "number", "boolean", "enum"]),
+  enumValues: z.array(z.string()).min(1).optional(),
+  description: z.string().optional(),
+});
+export const UpdateAttributeDefinitionBody = CreateAttributeDefinitionBody.partial();
+
+export type CreateAttributeDefinitionBody = z.infer<typeof CreateAttributeDefinitionBody>;
+export type UpdateAttributeDefinitionBody = z.infer<typeof UpdateAttributeDefinitionBody>;
+
+// ---------------------------------------------------------------------------
 // Character
 // ---------------------------------------------------------------------------
 
 export const CreateCharacterBody = z.object({
+  name: z.string().min(1),
   categoryNodeId: txnId,
 });
 export const UpdateCharacterBody = CreateCharacterBody.partial();
@@ -56,6 +70,7 @@ export type UpdateCharacterBody = z.infer<typeof UpdateCharacterBody>;
 // ---------------------------------------------------------------------------
 
 export const CreateThingBody = z.object({
+  name: z.string().min(1),
   categoryNodeId: txnId,
 });
 export const UpdateThingBody = CreateThingBody.partial();

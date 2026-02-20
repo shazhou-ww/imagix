@@ -1,4 +1,4 @@
-import type { TaxonomyTree, TaxonomyNode, AttributeDefinition } from "@imagix/shared";
+import type { TaxonomyTree, TaxonomyNode } from "@imagix/shared";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
@@ -39,13 +39,6 @@ const TREES: { value: TaxonomyTree; label: string }[] = [
   { value: "THING", label: "事物分类" },
   { value: "REL", label: "关系类型" },
 ];
-
-const TYPE_LABELS: Record<string, string> = {
-  string: "文本",
-  number: "数字",
-  boolean: "布尔",
-  enum: "枚举",
-};
 
 // ---------------------------------------------------------------------------
 // Tree node renderer (left panel)
@@ -102,9 +95,9 @@ function TreeNodeItem({ node, nodes, depth, selectedId, onSelect, onAddChild }: 
         >
           {node.name}
         </Typography>
-        {node.attributeDefinitions.length > 0 && (
+        {children.length > 0 && (
           <Chip
-            label={`${node.attributeDefinitions.length} 属性`}
+            label={`${children.length}`}
             size="small"
             variant="outlined"
             sx={{ mr: 0.5, height: 20, fontSize: "0.7rem" }}
@@ -139,78 +132,6 @@ function TreeNodeItem({ node, nodes, depth, selectedId, onSelect, onAddChild }: 
 }
 
 // ---------------------------------------------------------------------------
-// Attribute editor row
-// ---------------------------------------------------------------------------
-
-function AttrRow({
-  attr,
-  onChange,
-  onRemove,
-}: {
-  attr: AttributeDefinition;
-  onChange: (field: keyof AttributeDefinition, value: any) => void;
-  onRemove: () => void;
-}) {
-  return (
-    <Paper variant="outlined" sx={{ p: 1.5, display: "flex", flexDirection: "column", gap: 1 }}>
-      <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-        <TextField
-          size="small"
-          label="属性名称"
-          value={attr.name}
-          onChange={(e) => onChange("name", e.target.value)}
-          sx={{ flex: 1 }}
-          required
-        />
-        <TextField
-          size="small"
-          label="类型"
-          value={attr.type}
-          onChange={(e) => onChange("type", e.target.value)}
-          select
-          sx={{ width: 120 }}
-        >
-          <MenuItem value="string">文本</MenuItem>
-          <MenuItem value="number">数字</MenuItem>
-          <MenuItem value="boolean">布尔</MenuItem>
-          <MenuItem value="enum">枚举</MenuItem>
-        </TextField>
-        <Tooltip title="移除此属性">
-          <IconButton size="small" color="error" onClick={onRemove}>
-            <DeleteIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-      </Box>
-      <TextField
-        size="small"
-        label="属性说明 (可选)"
-        value={attr.description ?? ""}
-        onChange={(e) => onChange("description", e.target.value || undefined)}
-        fullWidth
-      />
-      {attr.type === "enum" && (
-        <TextField
-          size="small"
-          label="枚举可选值 (逗号分隔)"
-          value={(attr.enumValues ?? []).join(", ")}
-          onChange={(e) =>
-            onChange(
-              "enumValues",
-              e.target.value
-                .split(",")
-                .map((s) => s.trim())
-                .filter(Boolean),
-            )
-          }
-          fullWidth
-          helperText="例如: 金, 木, 水, 火, 土"
-        />
-      )}
-    </Paper>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Detail panel (right side)
 // ---------------------------------------------------------------------------
 
@@ -228,19 +149,15 @@ function NodeDetailPanel({
   saving: boolean;
 }) {
   const [name, setName] = useState(node.name);
-  const [attrs, setAttrs] = useState<AttributeDefinition[]>([...node.attributeDefinitions]);
   const [timeFormula, setTimeFormula] = useState(node.timeFormula ?? "");
   const [dirty, setDirty] = useState(false);
 
-  // Reset form when selected node changes
   const resetToNode = useCallback((n: TaxonomyNode) => {
     setName(n.name);
-    setAttrs([...n.attributeDefinitions]);
     setTimeFormula(n.timeFormula ?? "");
     setDirty(false);
   }, []);
 
-  // Use key-based reset: track node.id
   const nodeKey = node.id;
   const [lastKey, setLastKey] = useState(nodeKey);
   if (nodeKey !== lastKey) {
@@ -248,7 +165,6 @@ function NodeDetailPanel({
     setLastKey(nodeKey);
   }
 
-  // Compute ancestor path
   const ancestorPath = useMemo(() => {
     const path: TaxonomyNode[] = [];
     let current: TaxonomyNode | undefined = node;
@@ -262,48 +178,13 @@ function NodeDetailPanel({
     return path;
   }, [node, nodes]);
 
-  // Compute inherited attributes from ancestors
-  const inheritedAttrs = useMemo(() => {
-    const result: { attr: AttributeDefinition; from: string }[] = [];
-    const nodeMap = new Map(nodes.map((n) => [n.id, n]));
-    const chain: TaxonomyNode[] = [];
-    let cur: TaxonomyNode | undefined = node;
-    while (cur?.parentId) {
-      const parent = nodeMap.get(cur.parentId);
-      if (!parent) break;
-      chain.unshift(parent);
-      cur = parent;
-    }
-    for (const ancestor of chain) {
-      for (const attr of ancestor.attributeDefinitions) {
-        result.push({ attr, from: ancestor.name });
-      }
-    }
-    return result;
-  }, [node, nodes]);
-
   const markDirty = () => setDirty(true);
-
-  const addAttr = () => {
-    setAttrs([...attrs, { name: "", type: "string" }]);
-    markDirty();
-  };
-  const removeAttr = (idx: number) => {
-    setAttrs(attrs.filter((_, i) => i !== idx));
-    markDirty();
-  };
-  const updateAttr = (idx: number, field: keyof AttributeDefinition, value: any) => {
-    setAttrs(attrs.map((a, i) => (i === idx ? { ...a, [field]: value } : a)));
-    markDirty();
-  };
 
   const handleSave = () => {
     if (!name.trim()) return;
-    const validAttrs = attrs.filter((a) => a.name.trim());
     onSave(node.id, {
       name: name.trim(),
       parentId: node.parentId,
-      attributeDefinitions: validAttrs,
       timeFormula: timeFormula.trim() || undefined,
     });
     setDirty(false);
@@ -342,15 +223,11 @@ function NodeDetailPanel({
             <Box key={a.id} sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
               <Chip label={a.name} size="small" variant="outlined" sx={{ height: 22, fontSize: "0.75rem" }} />
               {i < ancestorPath.length - 1 && (
-                <Typography variant="caption" color="text.secondary">
-                  ›
-                </Typography>
+                <Typography variant="caption" color="text.secondary">›</Typography>
               )}
             </Box>
           ))}
-          <Typography variant="caption" color="text.secondary">
-            ›
-          </Typography>
+          <Typography variant="caption" color="text.secondary">›</Typography>
           <Chip label={node.name} size="small" color="primary" sx={{ height: 22, fontSize: "0.75rem" }} />
         </Box>
       )}
@@ -359,85 +236,10 @@ function NodeDetailPanel({
       <TextField
         label="分类名称"
         value={name}
-        onChange={(e) => {
-          setName(e.target.value);
-          markDirty();
-        }}
+        onChange={(e) => { setName(e.target.value); markDirty(); }}
         size="small"
         required
       />
-
-      <Divider />
-
-      {/* Inherited attributes (read-only) */}
-      {inheritedAttrs.length > 0 && (
-        <Box>
-          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-            继承的属性 ({inheritedAttrs.length})
-          </Typography>
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-            {inheritedAttrs.map(({ attr, from }, i) => (
-              <Paper
-                key={`${from}-${attr.name}-${i}`}
-                variant="outlined"
-                sx={{ p: 1.5, bgcolor: "action.hover", opacity: 0.85 }}
-              >
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
-                  <Typography variant="body2" fontWeight={600}>
-                    {attr.name}
-                  </Typography>
-                  <Chip label={TYPE_LABELS[attr.type] ?? attr.type} size="small" sx={{ height: 20, fontSize: "0.7rem" }} />
-                  {attr.type === "enum" && attr.enumValues && (
-                    <Typography variant="caption" color="text.secondary">
-                      [{attr.enumValues.join(", ")}]
-                    </Typography>
-                  )}
-                  <Box sx={{ flex: 1 }} />
-                  <Chip
-                    label={`来自「${from}」`}
-                    size="small"
-                    variant="outlined"
-                    sx={{ height: 20, fontSize: "0.65rem" }}
-                  />
-                </Box>
-                {attr.description && (
-                  <Typography variant="caption" color="text.secondary">
-                    {attr.description}
-                  </Typography>
-                )}
-              </Paper>
-            ))}
-          </Box>
-        </Box>
-      )}
-
-      {/* Own attributes (editable) */}
-      <Box>
-        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1 }}>
-          <Typography variant="subtitle2">
-            本节点属性 ({attrs.length})
-          </Typography>
-          <Button size="small" startIcon={<AddIcon />} onClick={addAttr}>
-            添加属性
-          </Button>
-        </Box>
-        {attrs.length === 0 ? (
-          <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
-            此节点未定义额外属性。子节点仍会继承祖先节点的属性。
-          </Typography>
-        ) : (
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-            {attrs.map((attr, idx) => (
-              <AttrRow
-                key={idx}
-                attr={attr}
-                onChange={(field, value) => updateAttr(idx, field, value)}
-                onRemove={() => removeAttr(idx)}
-              />
-            ))}
-          </Box>
-        )}
-      </Box>
 
       <Divider />
 
@@ -449,10 +251,7 @@ function NodeDetailPanel({
         <TextField
           size="small"
           value={timeFormula}
-          onChange={(e) => {
-            setTimeFormula(e.target.value);
-            markDirty();
-          }}
+          onChange={(e) => { setTimeFormula(e.target.value); markDirty(); }}
           multiline
           rows={3}
           fullWidth
@@ -489,7 +288,6 @@ export default function TaxonomyPage() {
     [nodes],
   );
 
-  // Keep selectedNode in sync with fresh data
   const activeNode = useMemo(() => {
     if (!selectedNode || !nodes) return null;
     return nodes.find((n) => n.id === selectedNode.id) ?? null;
@@ -559,7 +357,7 @@ export default function TaxonomyPage() {
       ) : !rootNodes.length ? (
         <EmptyState
           title="暂无分类节点"
-          description={`为「${TREES.find((t) => t.value === currentTree)?.label}」添加分类层级，定义属性 Schema`}
+          description={`为「${TREES.find((t) => t.value === currentTree)?.label}」添加分类层级`}
           action={
             <Button variant="outlined" onClick={() => openCreate()}>
               添加根节点
@@ -607,14 +405,14 @@ export default function TaxonomyPage() {
                   color: "text.secondary",
                 }}
               >
-                <Typography>← 选择一个分类节点查看详情与属性设置</Typography>
+                <Typography>← 选择一个分类节点查看详情</Typography>
               </Box>
             )}
           </Paper>
         </Box>
       )}
 
-      {/* Create Node Dialog (simple: name + parent) */}
+      {/* Create Node Dialog */}
       <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle>添加分类节点</DialogTitle>
         <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}>

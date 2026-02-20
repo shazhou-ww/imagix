@@ -1,4 +1,5 @@
 import AccountTreeIcon from "@mui/icons-material/AccountTree";
+import AssignmentIcon from "@mui/icons-material/Assignment";
 import AutoStoriesIcon from "@mui/icons-material/AutoStories";
 import CableTwoToneIcon from "@mui/icons-material/CableTwoTone";
 import LinkIcon from "@mui/icons-material/Link";
@@ -44,6 +45,11 @@ function getWorldNavItems(worldId: string): NavItem[] {
       label: "分类体系",
       icon: <AccountTreeIcon />,
       path: `${base}/taxonomy/CHAR`,
+    },
+    {
+      label: "属性词典",
+      icon: <AssignmentIcon />,
+      path: `${base}/attributes`,
     },
     { label: "角色", icon: <PersonIcon />, path: `${base}/characters` },
     { label: "事物", icon: <PlaceIcon />, path: `${base}/things` },

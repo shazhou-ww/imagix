@@ -16,6 +16,8 @@ export const worldSk = () => "#META";
 export const taxonomySk = (tree: TaxonomyTree, nodeId: string) =>
   `TAXON#${tree}#${nodeId}`;
 
+export const attributeDefinitionSk = (adfId: string) => `ATTRDEF#${adfId}`;
+
 export const characterSk = (charId: string) => `CHAR#${charId}`;
 
 export const thingSk = (thingId: string) => `THING#${thingId}`;
@@ -58,6 +60,7 @@ export const PREFIX = {
   TAXON_CHAR: "TAXON#CHAR#",
   TAXON_THING: "TAXON#THING#",
   TAXON_REL: "TAXON#REL#",
+  ATTRDEF: "ATTRDEF#",
   CHAR: "CHAR#",
   THING: "THING#",
   REL: "REL#",

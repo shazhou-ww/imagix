@@ -21,6 +21,7 @@ const PREFIX_LENGTH = 3;
 export const EntityPrefix = {
   World: "wld",
   TaxonomyNode: "txn",
+  AttributeDefinition: "adf",
   Character: "chr",
   Thing: "thg",
   Relationship: "rel",

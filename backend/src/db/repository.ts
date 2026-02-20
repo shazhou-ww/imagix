@@ -10,6 +10,7 @@ import type {
   World,
   TaxonomyNode,
   TaxonomyTree,
+  AttributeDefinition,
   Character,
   Thing,
   Relationship,
@@ -24,6 +25,7 @@ import {
   worldPk,
   worldSk,
   taxonomySk,
+  attributeDefinitionSk,
   characterSk,
   thingSk,
   relationshipSk,
@@ -216,6 +218,38 @@ export async function deleteTaxonomyNode(
   nodeId: string,
 ) {
   await del(worldPk(worldId), taxonomySk(tree, nodeId));
+}
+
+// ---------------------------------------------------------------------------
+// AttributeDefinition
+// ---------------------------------------------------------------------------
+
+export async function putAttributeDefinition(attr: AttributeDefinition) {
+  await put({
+    pk: worldPk(attr.worldId),
+    sk: attributeDefinitionSk(attr.id),
+    ...attr,
+  });
+}
+
+export async function getAttributeDefinition(worldId: string, adfId: string) {
+  return get(worldPk(worldId), attributeDefinitionSk(adfId));
+}
+
+export async function listAttributeDefinitions(worldId: string) {
+  return queryByPkPrefix(worldPk(worldId), PREFIX.ATTRDEF);
+}
+
+export async function updateAttributeDefinition(
+  worldId: string,
+  adfId: string,
+  fields: Record<string, unknown>,
+) {
+  await updateFields(worldPk(worldId), attributeDefinitionSk(adfId), fields);
+}
+
+export async function deleteAttributeDefinition(worldId: string, adfId: string) {
+  await del(worldPk(worldId), attributeDefinitionSk(adfId));
 }
 
 // ---------------------------------------------------------------------------

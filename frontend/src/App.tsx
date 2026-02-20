@@ -2,6 +2,7 @@ import { Box, CircularProgress } from "@mui/material";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "@/auth/AuthContext";
 import AppLayout from "@/components/AppLayout";
+import AttributeDefinitionPage from "@/pages/AttributeDefinitionPage";
 import CallbackPage from "@/pages/CallbackPage";
 import CharacterListPage from "@/pages/CharacterListPage";
 import EventLinkPage from "@/pages/EventLinkPage";
@@ -28,6 +29,10 @@ function AuthenticatedRoutes() {
         <Route
           path="/worlds/:worldId/taxonomy/:tree"
           element={<TaxonomyPage />}
+        />
+        <Route
+          path="/worlds/:worldId/attributes"
+          element={<AttributeDefinitionPage />}
         />
         <Route
           path="/worlds/:worldId/characters"

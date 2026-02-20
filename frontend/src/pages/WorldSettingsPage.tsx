@@ -1,27 +1,45 @@
+import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
+import DownloadIcon from "@mui/icons-material/Download";
 import SaveIcon from "@mui/icons-material/Save";
+import UploadIcon from "@mui/icons-material/Upload";
 import {
   Alert,
   Box,
   Button,
   CircularProgress,
+  Divider,
   Snackbar,
   TextField,
   Typography,
 } from "@mui/material";
-import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
-import { useWorld, useUpdateWorld } from "@/api/hooks/useWorlds";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { api } from "@/api/client";
+import { useWorld, useDeleteWorld, useUpdateWorld } from "@/api/hooks/useWorlds";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 export default function WorldSettingsPage() {
   const { worldId } = useParams<{ worldId: string }>();
+  const navigate = useNavigate();
   const { data: world, isLoading } = useWorld(worldId);
   const updateWorld = useUpdateWorld(worldId!);
+  const deleteWorld = useDeleteWorld();
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [settings, setSettings] = useState("");
   const [epoch, setEpoch] = useState("");
   const [saved, setSaved] = useState(false);
+
+  // Delete
+  const [deleteOpen, setDeleteOpen] = useState(false);
+
+  // Export / Import
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [snackMsg, setSnackMsg] = useState("");
 
   useEffect(() => {
     if (world) {
@@ -43,6 +61,54 @@ export default function WorldSettingsPage() {
       },
       { onSuccess: () => setSaved(true) },
     );
+  };
+
+  const handleDelete = () => {
+    deleteWorld.mutate(worldId!, {
+      onSuccess: () => navigate("/"),
+    });
+  };
+
+  const handleExport = async () => {
+    try {
+      const data = await api.get<Record<string, unknown>>(`/worlds/${worldId}/export`);
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${world?.name ?? "world"}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setSnackMsg("导出成功");
+    } catch {
+      setSnackMsg("导出失败");
+    }
+  };
+
+  const handleImportSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImportFile(file);
+      setImportOpen(true);
+    }
+    e.target.value = "";
+  };
+
+  const handleImportConfirm = async () => {
+    if (!importFile) return;
+    setImporting(true);
+    try {
+      const text = await importFile.text();
+      const data = JSON.parse(text);
+      await api.post(`/worlds/${worldId}/import`, data);
+      setSnackMsg("导入成功，请刷新页面查看");
+      setImportOpen(false);
+      setImportFile(null);
+    } catch {
+      setSnackMsg("导入失败，请检查文件格式");
+    } finally {
+      setImporting(false);
+    }
   };
 
   if (isLoading) {
@@ -71,7 +137,7 @@ export default function WorldSettingsPage() {
           required
         />
         <TextField
-          label="世界观描述"
+          label="世界描述"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           multiline
@@ -101,16 +167,99 @@ export default function WorldSettingsPage() {
             保存设定
           </Button>
         </Box>
+
+        <Divider sx={{ my: 1 }} />
+
+        {/* Export & Import */}
+        <Typography variant="h6" fontWeight="bold">
+          数据导出 / 导入
+        </Typography>
+        <Box sx={{ display: "flex", gap: 2 }}>
+          <Button variant="outlined" startIcon={<DownloadIcon />} onClick={handleExport}>
+            导出世界数据
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<UploadIcon />}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            导入世界数据
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json"
+            hidden
+            onChange={handleImportSelect}
+          />
+        </Box>
+        <Typography variant="body2" color="text.secondary">
+          导出当前世界的全部数据为 JSON 文件；导入时相同 ID 的实体将被覆盖。
+        </Typography>
+
+        <Divider sx={{ my: 1 }} />
+
+        {/* Danger zone */}
+        <Typography variant="h6" fontWeight="bold" color="error">
+          危险区域
+        </Typography>
+        <Box>
+          <Button
+            variant="outlined"
+            color="error"
+            startIcon={<DeleteForeverIcon />}
+            onClick={() => setDeleteOpen(true)}
+          >
+            删除世界
+          </Button>
+        </Box>
+        <Typography variant="body2" color="text.secondary">
+          删除后无法恢复，世界中的所有数据将被永久移除。
+        </Typography>
       </Box>
 
+      {/* Delete confirm dialog */}
+      <ConfirmDialog
+        open={deleteOpen}
+        title="确认删除世界"
+        message={`确定要删除「${world?.name}」吗？此操作不可恢复，世界中的所有角色、事件、关系等数据将被永久移除。`}
+        confirmLabel="删除"
+        onConfirm={handleDelete}
+        onClose={() => setDeleteOpen(false)}
+        loading={deleteWorld.isPending}
+      />
+
+      {/* Import confirm dialog */}
+      <ConfirmDialog
+        open={importOpen}
+        title="确认导入"
+        message={`将导入文件「${importFile?.name}」中的数据。相同 ID 的实体将被覆盖，确定继续吗？`}
+        confirmLabel="导入"
+        onConfirm={handleImportConfirm}
+        onClose={() => {
+          setImportOpen(false);
+          setImportFile(null);
+        }}
+        loading={importing}
+      />
+
       <Snackbar
-        open={saved}
+        open={saved || !!snackMsg}
         autoHideDuration={3000}
-        onClose={() => setSaved(false)}
+        onClose={() => {
+          setSaved(false);
+          setSnackMsg("");
+        }}
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
-        <Alert severity="success" onClose={() => setSaved(false)}>
-          世界设定已保存
+        <Alert
+          severity={snackMsg.includes("失败") ? "error" : "success"}
+          onClose={() => {
+            setSaved(false);
+            setSnackMsg("");
+          }}
+        >
+          {snackMsg || "世界设定已保存"}
         </Alert>
       </Snackbar>
     </Box>

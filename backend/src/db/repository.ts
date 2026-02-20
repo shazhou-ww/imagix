@@ -76,7 +76,7 @@ async function queryByPkPrefix(
   };
 
   if (opts?.skLte) {
-    skCondition = "sk >= :prefix AND sk <= :skLte";
+    skCondition = "sk BETWEEN :prefix AND :skLte";
     exprValues[":skLte"] = opts.skLte;
   }
 

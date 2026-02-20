@@ -202,15 +202,17 @@ function NodeDetailPanel({
           size="small"
           startIcon={<SaveIcon />}
           onClick={handleSave}
-          disabled={!dirty || !name.trim() || saving}
+          disabled={!dirty || !name.trim() || saving || node.system}
         >
           保存
         </Button>
-        <Tooltip title="删除此节点">
-          <IconButton size="small" color="error" onClick={() => onDelete(node)}>
-            <DeleteIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
+        {!node.system && (
+          <Tooltip title="删除此节点">
+            <IconButton size="small" color="error" onClick={() => onDelete(node)}>
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
       </Box>
 
       {/* Classification path */}
@@ -239,6 +241,7 @@ function NodeDetailPanel({
         onChange={(e) => { setName(e.target.value); markDirty(); }}
         size="small"
         required
+        disabled={node.system}
       />
 
       <Divider />
@@ -255,8 +258,9 @@ function NodeDetailPanel({
           multiline
           rows={3}
           fullWidth
+          disabled={node.system}
           placeholder='例如: { "年龄": attributes.年龄 + (currentTime - lastTime) }'
-          helperText="JSONata 表达式，事件溯源回放时自动执行。子节点继承，可覆盖。"
+          helperText={node.system ? "系统预置公式，不可修改" : "JSONata 表达式，事件溯源回放时自动执行。子节点继承，可覆盖。"}
         />
       </Box>
     </Box>

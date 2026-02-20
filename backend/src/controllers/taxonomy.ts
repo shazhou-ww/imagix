@@ -41,6 +41,7 @@ export async function update(
 ): Promise<TaxonomyNode> {
   const existing = await repo.getTaxonomyNode(worldId, tree, nodeId);
   if (!existing) throw AppError.notFound("TaxonomyNode");
+  if ((existing as TaxonomyNode).system) throw AppError.forbidden("系统预置节点不可编辑");
   await repo.updateTaxonomyNode(worldId, tree, nodeId, body);
   return (await repo.getTaxonomyNode(worldId, tree, nodeId)) as TaxonomyNode;
 }
@@ -50,5 +51,7 @@ export async function remove(
   tree: TaxonomyTree,
   nodeId: string,
 ): Promise<void> {
+  const existing = await repo.getTaxonomyNode(worldId, tree, nodeId);
+  if (existing && (existing as TaxonomyNode).system) throw AppError.forbidden("系统预置节点不可删除");
   await repo.deleteTaxonomyNode(worldId, tree, nodeId);
 }

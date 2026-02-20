@@ -81,12 +81,14 @@ export const AttributeDefinitionSchema = z.object({
   worldId: wldId,
   /** 属性名称，如 "修为境界"、"灵根"。 */
   name: z.string(),
-  /** 属性值类型。enum 表示字符串枚举，需配合 enumValues 使用。 */
-  type: z.enum(["string", "number", "boolean", "enum"]),
+  /** 属性值类型。enum 表示字符串枚举，需配合 enumValues 使用；time 使用世界纪元毫秒数。 */
+  type: z.enum(["string", "number", "boolean", "enum", "time"]),
   /** 当 type 为 "enum" 时，可选值列表（至少 1 项）。其他类型时忽略。 */
   enumValues: z.array(z.string()).min(1).optional(),
   /** 属性的可选说明。 */
   description: z.string().optional(),
+  /** 系统预置属性，不可编辑或删除。 */
+  system: z.boolean().default(false),
   /** 创建时间。 */
   createdAt: z.string(),
   /** 最后更新时间。 */
@@ -117,6 +119,8 @@ export const TaxonomyNodeSchema = z.object({
    * 示例: `{ "年龄": attributes.年龄 + (currentTime - lastTime) }`
    */
   timeFormula: z.string().optional(),
+  /** 系统预置节点，不可编辑或删除。 */
+  system: z.boolean().default(false),
 });
 
 export type AttributeDefinition = z.infer<typeof AttributeDefinitionSchema>;
@@ -137,7 +141,7 @@ export const WorldSchema = z.object({
   userId: z.string(),
   /** 世界名称。 */
   name: z.string(),
-  /** 世界观描述。 */
+  /** 世界描述。 */
   description: z.string().default(""),
   /** 世界设定：物理法则、力量体系、社会规则等。 */
   settings: z.string().default(""),
@@ -329,6 +333,8 @@ export const EventSchema = z.object({
     relationshipChanges: [],
     relationshipAttributeChanges: [],
   }),
+  /** 系统预置事件，不可编辑或删除。 */
+  system: z.boolean().default(false),
   /** 创建时间。 */
   createdAt: z.string(),
   /** 最后更新时间。 */

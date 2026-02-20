@@ -308,7 +308,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             required
           />
           <TextField
-            label="世界观描述"
+            label="世界描述"
             value={newDesc}
             onChange={(e) => setNewDesc(e.target.value)}
             multiline

@@ -14,4 +14,8 @@ export class AppError extends Error {
   static badRequest(message: string) {
     return new AppError(400, message);
   }
+
+  static forbidden(message: string) {
+    return new AppError(403, message);
+  }
 }

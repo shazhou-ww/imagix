@@ -25,7 +25,7 @@ export async function create(
   });
   await repo.putCharacter(char);
 
-  // 自动创建出生事件
+  // 自动创建出生事件（含年龄=0 的属性变更）
   const birthEvent = EventSchema.parse({
     id: createId(EntityPrefix.Event),
     worldId,
@@ -34,7 +34,14 @@ export async function create(
     participantIds: [char.id],
     content: `${body.name}出生`,
     impacts: {
-      attributeChanges: [],
+      attributeChanges: [
+        {
+          entityType: "character",
+          entityId: char.id,
+          attribute: "年龄",
+          value: 0,
+        },
+      ],
       relationshipChanges: [],
       relationshipAttributeChanges: [],
     },

@@ -13,6 +13,7 @@ import {
   CardContent,
   Chip,
   CircularProgress,
+  Collapse,
   Dialog,
   DialogActions,
   DialogContent,
@@ -38,9 +39,11 @@ import {
 import { useCharacters } from "@/api/hooks/useCharacters";
 import { useThings } from "@/api/hooks/useThings";
 import { useAttributeDefinitions } from "@/api/hooks/useAttributeDefinitions";
+import { useEntitiesState } from "@/api/hooks/useEntityState";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import EpochTimeInput from "@/components/EpochTimeInput";
 import EmptyState from "@/components/EmptyState";
-import { formatEpochMs } from "@/utils/time";
+import { formatEpochMs, formatDuration, parseEpochMs } from "@/utils/time";
 
 // Group flat AttributeChange[] by entityId for grouped UI rendering
 interface AttrChangeGroup {
@@ -78,8 +81,10 @@ export default function EventListPage() {
   const [editingEvent, setEditingEvent] = useState<WorldEvent | null>(null);
   const [time, setTime] = useState<number>(0);
   const [content, setContent] = useState("");
+  const [participantIds, setParticipantIds] = useState<string[]>([]);
   const [attrChanges, setAttrChanges] = useState<AttributeChange[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<WorldEvent | null>(null);
+  const [showStates, setShowStates] = useState(false);
 
   // Build entity options for autocomplete
   const entityOptions = useMemo(() => {
@@ -88,6 +93,13 @@ export default function EventListPage() {
     for (const t of things ?? []) opts.push({ id: t.id, name: t.name, type: "thing" });
     return opts;
   }, [characters, things]);
+
+  // Fetch participant states at current event time (only when dialog open & showStates)
+  const { data: participantStates } = useEntitiesState(
+    dialogOpen && showStates ? worldId : undefined,
+    dialogOpen && showStates ? participantIds : undefined,
+    dialogOpen && showStates ? time : undefined,
+  );
 
   // Grouped view of attribute changes
   const groupedAttrChanges = useMemo(() => groupByEntity(attrChanges), [attrChanges]);
@@ -147,7 +159,9 @@ export default function EventListPage() {
     setEditingEvent(null);
     setTime(0);
     setContent("");
+    setParticipantIds([]);
     setAttrChanges([]);
+    setShowStates(false);
     setDialogOpen(true);
   };
 
@@ -155,7 +169,9 @@ export default function EventListPage() {
     setEditingEvent(evt);
     setTime(evt.time);
     setContent(evt.content);
+    setParticipantIds(evt.participantIds ?? []);
     setAttrChanges(evt.impacts?.attributeChanges ?? []);
+    setShowStates(false);
     setDialogOpen(true);
   };
 
@@ -168,12 +184,12 @@ export default function EventListPage() {
     };
     if (editingEvent) {
       updateEvent.mutate(
-        { eventId: editingEvent.id, body: { time, content: content.trim(), impacts } },
+        { eventId: editingEvent.id, body: { time, content: content.trim(), participantIds, impacts } },
         { onSuccess: () => setDialogOpen(false) },
       );
     } else {
       createEvent.mutate(
-        { time, content: content.trim(), impacts },
+        { time, content: content.trim(), participantIds, impacts },
         { onSuccess: () => setDialogOpen(false) },
       );
     }
@@ -222,7 +238,7 @@ export default function EventListPage() {
               <CardContent sx={{ display: "flex", gap: 2, alignItems: "flex-start" }}>
                 <Box
                   sx={{
-                    minWidth: 140,
+                    width: 120,
                     px: 1.5,
                     py: 0.5,
                     bgcolor: "primary.50",
@@ -231,25 +247,54 @@ export default function EventListPage() {
                     flexShrink: 0,
                   }}
                 >
-                  <Typography variant="body2" fontWeight="bold" color="primary.main">
-                    {formatEpochMs(evt.time)}
-                  </Typography>
+                  {(() => {
+                    const t = parseEpochMs(evt.time);
+                    const prefix = evt.time < 0 ? "前" : "";
+                    const dateLine = `${prefix}${Math.abs(t.years)}/${t.months + 1}/${t.days + 1}`;
+                    const timeLine = `${String(t.hours).padStart(2, "0")}:${String(t.minutes).padStart(2, "0")}`;
+                    return (
+                      <>
+                        <Typography variant="body2" fontWeight="bold" color="primary.main" noWrap>
+                          {dateLine}
+                        </Typography>
+                        <Typography variant="caption" color="primary.main">
+                          {timeLine}
+                        </Typography>
+                      </>
+                    );
+                  })()}
                 </Box>
                 <Box sx={{ flex: 1 }}>
                   <Typography variant="body1">{evt.content}</Typography>
                   {evt.participantIds.length > 0 && (
-                    <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
-                      参与者: {evt.participantIds.length} 个实体
-                    </Typography>
+                    <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", mt: 0.5 }}>
+                      {evt.participantIds.map((pid) => {
+                        const entity = entityOptions.find((e) => e.id === pid);
+                        return (
+                          <Chip
+                            key={pid}
+                            label={entity?.name ?? pid.slice(0, 8)}
+                            size="small"
+                            variant="outlined"
+                            color={entity?.type === "character" ? "primary" : "secondary"}
+                            sx={{ height: 22, fontSize: "0.75rem" }}
+                          />
+                        );
+                      })}
+                    </Box>
                   )}
                   {evt.impacts?.attributeChanges?.length > 0 && (
                     <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", mt: 0.5 }}>
                       {evt.impacts.attributeChanges.map((ac, i) => {
                         const entity = entityOptions.find((e) => e.id === ac.entityId);
+                        const def = attrDefs?.find((d) => d.name === ac.attribute);
+                        const displayValue = def?.type === "time" && typeof ac.value === "number"
+                          ? formatDuration(ac.value)
+                          : String(ac.value);
                         return (
                           <Chip
                             key={`${ac.entityId}-${ac.attribute}-${i}`}
-                            label={`${entity?.name ?? ac.entityId.slice(0, 8)}·${ac.attribute}=${String(ac.value)}`}
+                            label={`${entity?.name ?? ac.entityId.slice(0, 8)}·${ac.attribute}=${displayValue}`}
                             size="small"
                             variant="outlined"
                             color="info"
@@ -266,11 +311,13 @@ export default function EventListPage() {
                       <EditIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>
+                  {!evt.system && (
                   <Tooltip title="删除">
                     <IconButton size="small" color="error" onClick={() => setDeleteTarget(evt)}>
                       <DeleteIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>
+                  )}
                 </Box>
               </CardContent>
             </Card>
@@ -279,17 +326,86 @@ export default function EventListPage() {
       )}
 
       {/* Create / Edit Dialog */}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="lg" fullWidth>
         <DialogTitle>{editingEvent ? "编辑事件" : "添加事件"}</DialogTitle>
         <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}>
-          <TextField
-            label="时间 (毫秒，相对纪元原点)"
-            type="number"
-            value={time}
-            onChange={(e) => setTime(Number(e.target.value))}
-            helperText={`预览: ${formatEpochMs(time)}`}
-            required
+          <EpochTimeInput value={time} onChange={setTime} showPreview disabled={!!editingEvent?.system} />
+
+          {/* Participant selector */}
+          <Autocomplete
+            multiple
+            size="small"
+            options={entityOptions}
+            groupBy={(o) => (o.type === "character" ? "角色" : "事物")}
+            getOptionLabel={(o) => o.name}
+            value={entityOptions.filter((e) => participantIds.includes(e.id))}
+            onChange={(_, selected) => setParticipantIds(selected.map((s) => s.id))}
+            isOptionEqualToValue={(opt, val) => opt.id === val.id}
+            renderInput={(params) => (
+              <TextField {...params} label="参与者" placeholder="选择参与的角色或事物" />
+            )}
+            renderTags={(value, getTagProps) =>
+              value.map((option, index) => (
+                <Chip
+                  {...getTagProps({ index })}
+                  key={option.id}
+                  label={option.name}
+                  size="small"
+                  color={option.type === "character" ? "primary" : "secondary"}
+                  variant="outlined"
+                />
+              ))
+            }
           />
+
+          {/* Participant state at event time */}
+          {participantIds.length > 0 && (
+            <Box>
+              <Button
+                size="small"
+                onClick={() => setShowStates((v) => !v)}
+                sx={{ mb: 0.5 }}
+              >
+                {showStates ? "隐藏参与者属性" : "查看参与者当前属性"}
+              </Button>
+              <Collapse in={showStates}>
+                {participantStates?.map((state) => {
+                  const entity = entityOptions.find((e) => e.id === state.entityId);
+                  const entries = Object.entries(state.attributes);
+                  if (entries.length === 0) return null;
+                  return (
+                    <Paper
+                      key={state.entityId}
+                      variant="outlined"
+                      sx={{ p: 1, mb: 1 }}
+                    >
+                      <Typography variant="caption" fontWeight="bold">
+                        {entity?.name ?? state.entityId.slice(0, 10)} 在 {formatEpochMs(time)} 时的属性
+                      </Typography>
+                      <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", mt: 0.5 }}>
+                        {entries.map(([attr, val]) => {
+                          const def = attrDefs?.find((d) => d.name === attr);
+                          const display = def?.type === "time" && typeof val === "number"
+                            ? formatDuration(val)
+                            : String(val);
+                          return (
+                            <Chip
+                              key={attr}
+                              label={`${attr}=${display}`}
+                              size="small"
+                              variant="outlined"
+                              sx={{ height: 22, fontSize: "0.75rem" }}
+                            />
+                          );
+                        })}
+                      </Box>
+                    </Paper>
+                  );
+                })}
+              </Collapse>
+            </Box>
+          )}
+
           <TextField
             label="事件内容"
             value={content}
@@ -306,6 +422,9 @@ export default function EventListPage() {
           {groupedAttrChanges.map((group) => {
             const entity = entityOptions.find((e) => e.id === group.entityId);
             const isChar = group.entityType === "character";
+            const hasLockedRows = group.changes.some(
+              (ch) => attrDefs?.find((d) => d.name === ch.attribute)?.system,
+            );
             return (
               <Paper
                 key={group.entityId}
@@ -329,20 +448,23 @@ export default function EventListPage() {
                     variant="outlined"
                     sx={{ height: 20, fontSize: "0.7rem" }}
                   />
-                  <Tooltip title="移除该实体的所有变更">
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={() => removeEntityGroup(group.entityId)}
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
+                  {!hasLockedRows && (
+                    <Tooltip title="移除该实体的所有变更">
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => removeEntityGroup(group.entityId)}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  )}
                 </Box>
 
                 {/* Attribute rows */}
                 {group.changes.map((ch) => {
                   const selectedAttrDef = attrDefs?.find((d) => d.name === ch.attribute);
+                  const isLocked = !!selectedAttrDef?.system;
                   return (
                     <Box
                       key={ch.flatIdx}
@@ -355,10 +477,11 @@ export default function EventListPage() {
                         select
                         slotProps={{ inputLabel: { htmlFor: undefined } }}
                         value={ch.attribute}
+                        disabled={isLocked}
                         onChange={(e) => {
                           const def = attrDefs?.find((d) => d.name === e.target.value);
                           let defaultValue: string | number | boolean = "";
-                          if (def?.type === "number") defaultValue = 0;
+                          if (def?.type === "number" || def?.type === "time") defaultValue = 0;
                           if (def?.type === "boolean") defaultValue = false;
                           if (def?.type === "enum") defaultValue = def.enumValues?.[0] ?? "";
                           updateAttrRow(ch.flatIdx, { attribute: e.target.value, value: defaultValue });
@@ -373,7 +496,11 @@ export default function EventListPage() {
                       </TextField>
 
                       {/* Value input — adapts to attribute type */}
-                      {selectedAttrDef?.type === "boolean" ? (
+                      {isLocked ? (
+                        <Typography variant="body2" color="text.secondary" sx={{ minWidth: 80 }}>
+                          {selectedAttrDef?.type === "time" ? formatDuration(typeof ch.value === "number" ? ch.value : 0) : String(ch.value)}
+                        </Typography>
+                      ) : selectedAttrDef?.type === "boolean" ? (
                         <FormControlLabel
                           control={
                             <Switch
@@ -405,6 +532,13 @@ export default function EventListPage() {
                             </MenuItem>
                           ))}
                         </TextField>
+                      ) : selectedAttrDef?.type === "time" ? (
+                        <EpochTimeInput
+                          value={typeof ch.value === "number" ? ch.value : 0}
+                          onChange={(ms) => updateAttrRow(ch.flatIdx, { value: ms })}
+                          size="small"
+                          showPreview={false}
+                        />
                       ) : selectedAttrDef?.type === "number" ? (
                         <TextField
                           size="small"
@@ -429,13 +563,15 @@ export default function EventListPage() {
                       )}
 
                       {/* Remove single attribute row */}
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={() => removeAttrRow(ch.flatIdx)}
-                      >
-                        <RemoveCircleOutlineIcon fontSize="small" />
-                      </IconButton>
+                      {!isLocked && (
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => removeAttrRow(ch.flatIdx)}
+                        >
+                          <RemoveCircleOutlineIcon fontSize="small" />
+                        </IconButton>
+                      )}
                     </Box>
                   );
                 })}

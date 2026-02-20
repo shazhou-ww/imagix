@@ -39,6 +39,7 @@ export async function update(
 ): Promise<AttributeDefinition> {
   const existing = await repo.getAttributeDefinition(worldId, adfId);
   if (!existing) throw AppError.notFound("AttributeDefinition");
+  if ((existing as AttributeDefinition).system) throw AppError.forbidden("系统预置属性不可编辑");
   await repo.updateAttributeDefinition(worldId, adfId, {
     ...body,
     updatedAt: new Date().toISOString(),
@@ -50,5 +51,7 @@ export async function remove(
   worldId: string,
   adfId: string,
 ): Promise<void> {
+  const existing = await repo.getAttributeDefinition(worldId, adfId);
+  if (existing && (existing as AttributeDefinition).system) throw AppError.forbidden("系统预置属性不可删除");
   await repo.deleteAttributeDefinition(worldId, adfId);
 }

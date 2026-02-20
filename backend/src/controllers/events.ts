@@ -59,9 +59,15 @@ export async function update(
   if (!existing) throw AppError.notFound("Event");
 
   const old = existing as Event;
+
+  // 系统预置事件只允许修改描述、参与者和属性影响（时间不可变）
+  const safeBody = old.system
+    ? { content: body.content, participantIds: body.participantIds, impacts: body.impacts }
+    : body;
+
   const merged = EventSchema.parse({
     ...old,
-    ...body,
+    ...safeBody,
     updatedAt: new Date().toISOString(),
   });
 
@@ -79,5 +85,7 @@ export async function remove(
 ): Promise<void> {
   const existing = await repo.getEventById(worldId, eventId);
   if (!existing) throw AppError.notFound("Event");
-  await repo.deleteEvent(existing as Event);
+  const evt = existing as Event;
+  if (evt.system) throw AppError.forbidden("系统预置事件不可删除");
+  await repo.deleteEvent(evt);
 }

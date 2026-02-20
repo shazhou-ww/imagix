@@ -44,7 +44,7 @@ export type UpdateTaxonomyNodeBody = z.infer<typeof UpdateTaxonomyNodeBody>;
 
 export const CreateAttributeDefinitionBody = z.object({
   name: z.string().min(1),
-  type: z.enum(["string", "number", "boolean", "enum"]),
+  type: z.enum(["string", "number", "boolean", "enum", "time"]),
   enumValues: z.array(z.string()).min(1).optional(),
   description: z.string().optional(),
 });

@@ -34,6 +34,7 @@ import EmptyState from "@/components/EmptyState";
 const TYPE_OPTIONS: { value: string; label: string }[] = [
   { value: "string", label: "文本" },
   { value: "number", label: "数字" },
+  { value: "time", label: "时间" },
   { value: "boolean", label: "布尔" },
   { value: "enum", label: "枚举" },
 ];
@@ -41,6 +42,7 @@ const TYPE_OPTIONS: { value: string; label: string }[] = [
 const TYPE_LABELS: Record<string, string> = {
   string: "文本",
   number: "数字",
+  time: "时间",
   boolean: "布尔",
   enum: "枚举",
 };
@@ -167,16 +169,20 @@ export default function AttributeDefinitionPage() {
                       variant="outlined"
                       sx={{ height: 22, fontSize: "0.75rem", mr: 0.5 }}
                     />
-                    <Tooltip title="编辑">
-                      <IconButton size="small" onClick={() => openEdit(attr)}>
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="删除">
-                      <IconButton size="small" color="error" onClick={() => setDeleteTarget(attr)}>
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
+                    {!attr.system && (
+                      <>
+                        <Tooltip title="编辑">
+                          <IconButton size="small" onClick={() => openEdit(attr)}>
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="删除">
+                          <IconButton size="small" color="error" onClick={() => setDeleteTarget(attr)}>
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </>
+                    )}
                   </Box>
                   {attr.description && (
                     <Typography

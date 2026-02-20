@@ -27,6 +27,15 @@ const app = new Hono<AppEnv>()
   .delete("/:worldId", async (c) => {
     await ctrl.remove(p(c, "worldId"));
     return c.json({ ok: true });
+  })
+  .get("/:worldId/export", async (c) => {
+    const data = await ctrl.exportWorld(p(c, "worldId"));
+    return c.json(data);
+  })
+  .post("/:worldId/import", async (c) => {
+    const body = await c.req.json();
+    await ctrl.importWorld(p(c, "worldId"), body);
+    return c.json({ ok: true });
   });
 
 export default app;

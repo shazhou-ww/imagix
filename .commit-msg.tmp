@@ -1,25 +1,15 @@
-feat: migrate to SST v3, add three-env setup, and improve frontend UI
+feat: 时间类型、系统实体、世界管理、事件编辑增强
 
-Infrastructure:
-- Migrate from SAM/CloudFormation to SST v3 (Ion)
-- Add sst.config.ts with infra modules (database, auth, api, frontend)
-- Remove SAM artifacts (template.yaml, samconfig.toml, Makefile, etc.)
-- Remove legacy scripts (cognito-setup, deploy-frontend, build-backend)
-- Remove CloudFormation frontend-hosting.yaml
-
-Dev Environment:
-- Split DynamoDB into test (port 4512, in-memory) and dev (port 4513, persisted)
-- Add Bun-based local dev server (backend/src/server.ts, port 4511)
-- Update docker-compose.yml for two DynamoDB instances
-- Update package.json scripts for new dev/test workflow
-
-Frontend Improvements:
-- Fix aria-hidden warning: intercept MUI Modal and use inert attribute
-- Fix label-for mismatch on select TextFields across 6 pages
-- Change enum value input to editable chip list
-- Fix attribute card heights (140px) with ellipsis overflow
-- Add attribute change editor to events, grouped by entity
-- Restructure sidebar: world list with collapsible sub-nav
-- Add create world dialog in sidebar
-- Remove WorldListPage route, default redirect to first world
-- Fix sidebar worldId extraction (regex from pathname)
+- 新增 time 属性类型，EpochTimeInput 组件（年/月/日/时/分/秒输入）
+- 虚拟历法：1年=12月x30天=360天，月日1-based显示
+- 新增 formatDuration 用于时间差（如年龄）0-based 显示
+- system 标志：AttributeDefinition、TaxonomyNode、Event
+- 世界创建自动预置：角色/事物根节点、年龄属性、纪元事件（均 system:true）
+- 出生事件自动包含年龄=0 属性变更
+- 系统实体后端403保护，前端隐藏/禁用编辑删除
+- 纪元事件允许编辑描述、参与者、属性影响，禁止修改时间和删除
+- 世界设定页：删除世界（确认对话框）、导出/导入 JSON
+- 事件编辑对话框：参与者多选、查看参与者当前属性快照
+- 事件列表时间显示改为两行 年/月/日 + 时:分
+- 世界描述/世界设定 命名优化
+- 修复 DynamoDB KeyConditionExpression BETWEEN 查询

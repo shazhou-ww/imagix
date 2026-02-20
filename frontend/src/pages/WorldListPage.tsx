@@ -160,7 +160,7 @@ export default function WorldListPage() {
             required
           />
           <TextField
-            label="世界观描述"
+            label="世界描述"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             multiline

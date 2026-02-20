@@ -31,6 +31,7 @@ import {
 import { useTaxonomyTree } from "@/api/hooks/useTaxonomy";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import EmptyState from "@/components/EmptyState";
+import { formatEpochMs } from "@/utils/time";
 
 /** Build ancestor chain for a node (bottom-up, returned top-down). */
 function getAncestorChain(nodeId: string, nodeMap: Map<string, TaxonomyNode>): TaxonomyNode[] {
@@ -56,6 +57,7 @@ export default function CharacterListPage() {
   const [editingChar, setEditingChar] = useState<Character | null>(null);
   const [charName, setCharName] = useState("");
   const [categoryNodeId, setCategoryNodeId] = useState("");
+  const [birthTime, setBirthTime] = useState<number>(0);
   const [deleteTarget, setDeleteTarget] = useState<Character | null>(null);
 
   const nodeMap = useMemo(() => {
@@ -68,12 +70,13 @@ export default function CharacterListPage() {
     setEditingChar(null);
     setCharName("");
     setCategoryNodeId(charNodes?.[0]?.id ?? "");
+    setBirthTime(0);
     setDialogOpen(true);
   };
 
   const openEdit = (char: Character) => {
     setEditingChar(char);
-    setCharName(char.name);
+    setCharName(char.name ?? "");
     setCategoryNodeId(char.categoryNodeId);
     setDialogOpen(true);
   };
@@ -87,7 +90,7 @@ export default function CharacterListPage() {
       );
     } else {
       createChar.mutate(
-        { name: charName.trim(), categoryNodeId },
+        { name: charName.trim(), categoryNodeId, birthTime },
         { onSuccess: () => setDialogOpen(false) },
       );
     }
@@ -226,6 +229,16 @@ export default function CharacterListPage() {
                 </MenuItem>
               ))}
             </TextField>
+          )}
+          {!editingChar && (
+            <TextField
+              label="出生时间（毫秒，相对纪元原点）"
+              type="number"
+              value={birthTime}
+              onChange={(e) => setBirthTime(Number(e.target.value))}
+              required
+              helperText={`预览: ${formatEpochMs(birthTime)}。创建后会自动生成出生事件。`}
+            />
           )}
         </DialogContent>
         <DialogActions>

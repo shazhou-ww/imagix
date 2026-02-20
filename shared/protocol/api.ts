@@ -16,7 +16,8 @@ export const CreateWorldBody = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
   settings: z.string().optional(),
-  epoch: z.string().optional(),
+  /** 纪元描述，如 "盘古开天辟地"。创建时必填，后端会自动创建 time=0 的纪元事件。 */
+  epoch: z.string().min(1),
 });
 export const UpdateWorldBody = CreateWorldBody.partial();
 
@@ -59,6 +60,8 @@ export type UpdateAttributeDefinitionBody = z.infer<typeof UpdateAttributeDefini
 export const CreateCharacterBody = z.object({
   name: z.string().min(1),
   categoryNodeId: txnId,
+  /** 出生时间（相对纪元的毫秒数）。后端会自动创建出生事件。 */
+  birthTime: z.number(),
 });
 export const UpdateCharacterBody = CreateCharacterBody.partial();
 

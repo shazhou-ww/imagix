@@ -2,6 +2,7 @@ import {
   createId,
   EntityPrefix,
   CharacterSchema,
+  EventSchema,
   type Character,
   type CreateCharacterBody,
   type UpdateCharacterBody,
@@ -17,11 +18,31 @@ export async function create(
   const char = CharacterSchema.parse({
     id: createId(EntityPrefix.Character),
     worldId,
-    ...body,
+    name: body.name,
+    categoryNodeId: body.categoryNodeId,
     createdAt: now,
     updatedAt: now,
   });
   await repo.putCharacter(char);
+
+  // 自动创建出生事件
+  const birthEvent = EventSchema.parse({
+    id: createId(EntityPrefix.Event),
+    worldId,
+    time: body.birthTime,
+    placeId: null,
+    participantIds: [char.id],
+    content: `${body.name}出生`,
+    impacts: {
+      attributeChanges: [],
+      relationshipChanges: [],
+      relationshipAttributeChanges: [],
+    },
+    createdAt: now,
+    updatedAt: now,
+  });
+  await repo.putEvent(birthEvent);
+
   return char;
 }
 

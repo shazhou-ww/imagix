@@ -2,6 +2,7 @@ import {
   createId,
   EntityPrefix,
   WorldSchema,
+  EventSchema,
   type World,
   type CreateWorldBody,
   type UpdateWorldBody,
@@ -19,6 +20,25 @@ export async function create(userId: string, body: CreateWorldBody): Promise<Wor
     updatedAt: now,
   });
   await repo.putWorld(world);
+
+  // 自动创建 time=0 的纪元事件
+  const epochEvent = EventSchema.parse({
+    id: createId(EntityPrefix.Event),
+    worldId: world.id,
+    time: 0,
+    placeId: null,
+    participantIds: [],
+    content: body.epoch,
+    impacts: {
+      attributeChanges: [],
+      relationshipChanges: [],
+      relationshipAttributeChanges: [],
+    },
+    createdAt: now,
+    updatedAt: now,
+  });
+  await repo.putEvent(epochEvent);
+
   return world;
 }
 

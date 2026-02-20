@@ -72,7 +72,7 @@ export default function ThingListPage() {
 
   const openEdit = (thing: Thing) => {
     setEditingThing(thing);
-    setThingName(thing.name);
+    setThingName(thing.name ?? "");
     setCategoryNodeId(thing.categoryNodeId);
     setDialogOpen(true);
   };

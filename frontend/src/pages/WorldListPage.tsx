@@ -26,16 +26,18 @@ export default function WorldListPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [epoch, setEpoch] = useState("");
 
   const handleCreate = () => {
-    if (!name.trim()) return;
+    if (!name.trim() || !epoch.trim()) return;
     createWorld.mutate(
-      { name: name.trim(), description: description.trim() || undefined },
+      { name: name.trim(), description: description.trim() || undefined, epoch: epoch.trim() },
       {
         onSuccess: (world) => {
           setDialogOpen(false);
           setName("");
           setDescription("");
+          setEpoch("");
           navigate(`/worlds/${world.id}`);
         },
       },
@@ -154,13 +156,20 @@ export default function WorldListPage() {
             multiline
             rows={3}
           />
+          <TextField
+            label="纪元描述"
+            value={epoch}
+            onChange={(e) => setEpoch(e.target.value)}
+            required
+            helperText="定义世界的时间原点（t=0），如「盘古开天辟地」。创建后会自动生成纪元事件。"
+          />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)}>取消</Button>
           <Button
             variant="contained"
             onClick={handleCreate}
-            disabled={!name.trim() || createWorld.isPending}
+            disabled={!name.trim() || !epoch.trim() || createWorld.isPending}
           >
             创建
           </Button>

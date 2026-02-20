@@ -1,3 +1,4 @@
+import AccountTreeIcon from "@mui/icons-material/AccountTree";
 import AutoStoriesIcon from "@mui/icons-material/AutoStories";
 import LinkIcon from "@mui/icons-material/Link";
 import PersonIcon from "@mui/icons-material/Person";
@@ -19,8 +20,10 @@ import { useThings } from "@/api/hooks/useThings";
 import { useRelationships } from "@/api/hooks/useRelationships";
 import { useEvents } from "@/api/hooks/useEvents";
 import { useStories } from "@/api/hooks/useStories";
+import { useTaxonomyTree } from "@/api/hooks/useTaxonomy";
 
 const statCards = [
+  { label: "分类体系", icon: <AccountTreeIcon />, color: "#5E81AC", path: "taxonomy/CHAR" },
   { label: "角色", icon: <PersonIcon />, color: "#B48EAD", path: "characters" },
   { label: "事物", icon: <PlaceIcon />, color: "#88C0D0", path: "things" },
   { label: "关系", icon: <LinkIcon />, color: "#A3D9A5", path: "relationships" },
@@ -37,8 +40,14 @@ export default function WorldDashboardPage() {
   const { data: relationships } = useRelationships(worldId);
   const { data: events } = useEvents(worldId);
   const { data: stories } = useStories(worldId);
+  const { data: charNodes } = useTaxonomyTree(worldId, "CHAR");
+  const { data: thingNodes } = useTaxonomyTree(worldId, "THING");
+  const { data: relNodes } = useTaxonomyTree(worldId, "REL");
+
+  const taxonomyTotal = (charNodes?.length ?? 0) + (thingNodes?.length ?? 0) + (relNodes?.length ?? 0);
 
   const counts: Record<string, number | undefined> = {
+    分类体系: taxonomyTotal,
     角色: characters?.length,
     事物: things?.length,
     关系: relationships?.length,

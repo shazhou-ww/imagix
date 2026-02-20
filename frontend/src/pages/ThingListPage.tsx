@@ -21,7 +21,7 @@ import {
   Typography,
 } from "@mui/material";
 import { useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   useThings,
   useCreateThing,
@@ -61,6 +61,7 @@ const TYPE_LABELS: Record<string, string> = {
 
 export default function ThingListPage() {
   const { worldId } = useParams<{ worldId: string }>();
+  const navigate = useNavigate();
   const { data: things, isLoading } = useThings(worldId);
   const { data: thingNodes } = useTaxonomyTree(worldId, "THING");
   const createThing = useCreateThing(worldId!);
@@ -208,20 +209,37 @@ export default function ThingListPage() {
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{editingThing ? "编辑事物" : "添加事物"}</DialogTitle>
         <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}>
-          <TextField
-            label="事物分类"
-            value={categoryNodeId}
-            onChange={(e) => setCategoryNodeId(e.target.value)}
-            select
-            required
-            helperText="请先在分类体系中定义事物分类树"
-          >
-            {(thingNodes ?? []).map((n) => (
-              <MenuItem key={n.id} value={n.id}>
-                {n.name}
-              </MenuItem>
-            ))}
-          </TextField>
+          {(thingNodes ?? []).length === 0 ? (
+            <Box sx={{ textAlign: "center", py: 2 }}>
+              <Typography color="text.secondary" gutterBottom>
+                还没有事物分类节点
+              </Typography>
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  setDialogOpen(false);
+                  navigate(`/worlds/${worldId}/taxonomy/THING`);
+                }}
+              >
+                去创建分类
+              </Button>
+            </Box>
+          ) : (
+            <TextField
+              label="事物分类"
+              value={categoryNodeId}
+              onChange={(e) => setCategoryNodeId(e.target.value)}
+              select
+              required
+              helperText="选择事物所属的分类节点"
+            >
+              {thingNodes!.map((n) => (
+                <MenuItem key={n.id} value={n.id}>
+                  {n.name}
+                </MenuItem>
+              ))}
+            </TextField>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)}>取消</Button>

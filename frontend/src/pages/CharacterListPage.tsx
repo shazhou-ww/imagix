@@ -21,7 +21,7 @@ import {
   Typography,
 } from "@mui/material";
 import { useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   useCharacters,
   useCreateCharacter,
@@ -63,6 +63,7 @@ const TYPE_LABELS: Record<string, string> = {
 
 export default function CharacterListPage() {
   const { worldId } = useParams<{ worldId: string }>();
+  const navigate = useNavigate();
   const { data: characters, isLoading } = useCharacters(worldId);
   const { data: charNodes } = useTaxonomyTree(worldId, "CHAR");
   const createChar = useCreateCharacter(worldId!);
@@ -212,20 +213,37 @@ export default function CharacterListPage() {
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{editingChar ? "编辑角色" : "添加角色"}</DialogTitle>
         <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}>
-          <TextField
-            label="角色分类"
-            value={categoryNodeId}
-            onChange={(e) => setCategoryNodeId(e.target.value)}
-            select
-            required
-            helperText="请先在分类体系中定义角色分类树"
-          >
-            {(charNodes ?? []).map((n) => (
-              <MenuItem key={n.id} value={n.id}>
-                {n.name}
-              </MenuItem>
-            ))}
-          </TextField>
+          {(charNodes ?? []).length === 0 ? (
+            <Box sx={{ textAlign: "center", py: 2 }}>
+              <Typography color="text.secondary" gutterBottom>
+                还没有角色分类节点
+              </Typography>
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  setDialogOpen(false);
+                  navigate(`/worlds/${worldId}/taxonomy/CHAR`);
+                }}
+              >
+                去创建分类
+              </Button>
+            </Box>
+          ) : (
+            <TextField
+              label="角色分类"
+              value={categoryNodeId}
+              onChange={(e) => setCategoryNodeId(e.target.value)}
+              select
+              required
+              helperText="选择角色所属的分类节点"
+            >
+              {charNodes!.map((n) => (
+                <MenuItem key={n.id} value={n.id}>
+                  {n.name}
+                </MenuItem>
+              ))}
+            </TextField>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)}>取消</Button>

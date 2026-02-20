@@ -170,6 +170,7 @@ export default function RelationshipListPage() {
             value={typeNodeId}
             onChange={(e) => setTypeNodeId(e.target.value)}
             select
+            slotProps={{ inputLabel: { htmlFor: undefined } }}
             required
             helperText="请先在分类体系中定义关系类型树"
           >
@@ -184,6 +185,7 @@ export default function RelationshipListPage() {
             value={fromId}
             onChange={(e) => setFromId(e.target.value)}
             select
+            slotProps={{ inputLabel: { htmlFor: undefined } }}
             required
           >
             {entityOptions.map((o) => (
@@ -197,6 +199,7 @@ export default function RelationshipListPage() {
             value={toId}
             onChange={(e) => setToId(e.target.value)}
             select
+            slotProps={{ inputLabel: { htmlFor: undefined } }}
             required
           >
             {entityOptions.map((o) => (

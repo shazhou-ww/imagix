@@ -15,18 +15,28 @@ import {
   Typography,
 } from "@mui/material";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useCreateWorld, useWorlds } from "@/api/hooks/useWorlds";
 import EmptyState from "@/components/EmptyState";
 
 export default function WorldListPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { data: worlds, isLoading } = useWorlds();
   const createWorld = useCreateWorld();
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(searchParams.get("create") === "1");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [epoch, setEpoch] = useState("");
+
+  const closeDialog = () => {
+    setDialogOpen(false);
+    // Clean up query param
+    if (searchParams.has("create")) {
+      searchParams.delete("create");
+      setSearchParams(searchParams, { replace: true });
+    }
+  };
 
   const handleCreate = () => {
     if (!name.trim() || !epoch.trim()) return;
@@ -34,7 +44,7 @@ export default function WorldListPage() {
       { name: name.trim(), description: description.trim() || undefined, epoch: epoch.trim() },
       {
         onSuccess: (world) => {
-          setDialogOpen(false);
+          closeDialog();
           setName("");
           setDescription("");
           setEpoch("");
@@ -129,7 +139,7 @@ export default function WorldListPage() {
       {/* Create World Dialog */}
       <Dialog
         open={dialogOpen}
-        onClose={() => setDialogOpen(false)}
+        onClose={closeDialog}
         maxWidth="sm"
         fullWidth
       >
@@ -165,7 +175,7 @@ export default function WorldListPage() {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>取消</Button>
+          <Button onClick={closeDialog}>取消</Button>
           <Button
             variant="contained"
             onClick={handleCreate}

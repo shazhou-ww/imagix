@@ -10,5 +10,5 @@
     "resolveJsonModule": true,
     "isolatedModules": true
   },
-  "exclude": ["node_modules", "dist", ".aws-sam"]
+  "exclude": ["node_modules", "dist", ".aws-sam", ".sst"]
 }

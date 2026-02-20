@@ -1,53 +1,60 @@
 #!/usr/bin/env bun
 /**
- * Initialize DynamoDB local with tables. Run after docker compose up.
- * Cross-platform: run with `bun run scripts/init-dynamodb-local.ts`
+ * Create the `imagix` table in a local DynamoDB instance.
+ *
+ * Usage:
+ *   bun run scripts/init-dynamodb-local.ts              # defaults to port 4513 (dev)
+ *   bun run scripts/init-dynamodb-local.ts --port 4512  # test instance
+ *   DYNAMODB_PORT=4512 bun run scripts/init-dynamodb-local.ts
  */
-import { DynamoDBClient, CreateTableCommand, ListTablesCommand } from "@aws-sdk/client-dynamodb";
 
-const ENDPOINT = "http://localhost:4512";
-const TABLE_NAME = "imagix";
-const MAX_WAIT_MS = 30_000;
-const POLL_MS = 500;
+import {
+  CreateTableCommand,
+  DynamoDBClient,
+  ListTablesCommand,
+  ResourceInUseException,
+} from "@aws-sdk/client-dynamodb";
+
+const port =
+  process.argv.includes("--port")
+    ? process.argv[process.argv.indexOf("--port") + 1]
+    : process.env.DYNAMODB_PORT ?? "4513";
+
+const endpoint = `http://127.0.0.1:${port}`;
 
 const client = new DynamoDBClient({
-  endpoint: ENDPOINT,
+  endpoint,
   region: "us-east-1",
+  credentials: { accessKeyId: "local", secretAccessKey: "local" },
 });
 
-async function waitForDynamo(): Promise<void> {
-  const deadline = Date.now() + MAX_WAIT_MS;
-  while (Date.now() < deadline) {
+async function waitForDynamo(retries = 30, intervalMs = 1000) {
+  for (let i = 0; i < retries; i++) {
     try {
       await client.send(new ListTablesCommand({}));
-      console.log("DynamoDB local is up.");
       return;
-    } catch (e) {
-      await new Promise((r) => setTimeout(r, POLL_MS));
+    } catch {
+      if (i === retries - 1) throw new Error(`DynamoDB not reachable at ${endpoint}`);
+      await new Promise((r) => setTimeout(r, intervalMs));
     }
   }
-  throw new Error("Timeout waiting for DynamoDB local at " + ENDPOINT);
 }
 
-async function main(): Promise<void> {
-  console.log("Waiting for DynamoDB local at", ENDPOINT, "...");
-  await waitForDynamo();
-
-  console.log("Creating imagix table...");
+async function createTable() {
   try {
     await client.send(
       new CreateTableCommand({
-        TableName: TABLE_NAME,
+        TableName: "imagix",
         BillingMode: "PAY_PER_REQUEST",
+        KeySchema: [
+          { AttributeName: "pk", KeyType: "HASH" },
+          { AttributeName: "sk", KeyType: "RANGE" },
+        ],
         AttributeDefinitions: [
           { AttributeName: "pk", AttributeType: "S" },
           { AttributeName: "sk", AttributeType: "S" },
           { AttributeName: "gsi1pk", AttributeType: "S" },
           { AttributeName: "gsi1sk", AttributeType: "S" },
-        ],
-        KeySchema: [
-          { AttributeName: "pk", KeyType: "HASH" },
-          { AttributeName: "sk", KeyType: "RANGE" },
         ],
         GlobalSecondaryIndexes: [
           {
@@ -61,20 +68,16 @@ async function main(): Promise<void> {
         ],
       }),
     );
-    console.log("Table imagix created.");
-  } catch (e: unknown) {
-    const err = e as { name?: string };
-    if (err.name === "ResourceInUseException") {
-      console.log("Table imagix already exists.");
+    console.log(`✓ Created table "imagix" on ${endpoint}`);
+  } catch (e) {
+    if (e instanceof ResourceInUseException) {
+      console.log(`✓ Table "imagix" already exists on ${endpoint}`);
     } else {
       throw e;
     }
   }
-
-  console.log("DynamoDB local ready.");
 }
 
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+console.log(`Waiting for DynamoDB Local on ${endpoint}...`);
+await waitForDynamo();
+await createTable();

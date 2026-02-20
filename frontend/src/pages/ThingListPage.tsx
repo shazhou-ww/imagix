@@ -216,6 +216,7 @@ export default function ThingListPage() {
               value={categoryNodeId}
               onChange={(e) => setCategoryNodeId(e.target.value)}
               select
+              slotProps={{ inputLabel: { htmlFor: undefined } }}
               required
               helperText="选择事物所属的分类节点"
             >

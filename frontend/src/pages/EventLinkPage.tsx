@@ -153,6 +153,7 @@ export default function EventLinkPage() {
             value={eventIdA}
             onChange={(e) => setEventIdA(e.target.value)}
             select
+            slotProps={{ inputLabel: { htmlFor: undefined } }}
             required
           >
             {(events ?? []).map((evt) => (
@@ -166,6 +167,7 @@ export default function EventLinkPage() {
             value={eventIdB}
             onChange={(e) => setEventIdB(e.target.value)}
             select
+            slotProps={{ inputLabel: { htmlFor: undefined } }}
             required
           >
             {(events ?? [])

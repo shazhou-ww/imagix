@@ -1,0 +1,25 @@
+feat: migrate to SST v3, add three-env setup, and improve frontend UI
+
+Infrastructure:
+- Migrate from SAM/CloudFormation to SST v3 (Ion)
+- Add sst.config.ts with infra modules (database, auth, api, frontend)
+- Remove SAM artifacts (template.yaml, samconfig.toml, Makefile, etc.)
+- Remove legacy scripts (cognito-setup, deploy-frontend, build-backend)
+- Remove CloudFormation frontend-hosting.yaml
+
+Dev Environment:
+- Split DynamoDB into test (port 4512, in-memory) and dev (port 4513, persisted)
+- Add Bun-based local dev server (backend/src/server.ts, port 4511)
+- Update docker-compose.yml for two DynamoDB instances
+- Update package.json scripts for new dev/test workflow
+
+Frontend Improvements:
+- Fix aria-hidden warning: intercept MUI Modal and use inert attribute
+- Fix label-for mismatch on select TextFields across 6 pages
+- Change enum value input to editable chip list
+- Fix attribute card heights (140px) with ellipsis overflow
+- Add attribute change editor to events, grouped by entity
+- Restructure sidebar: world list with collapsible sub-nav
+- Add create world dialog in sidebar
+- Remove WorldListPage route, default redirect to first world
+- Fix sidebar worldId extraction (regex from pathname)

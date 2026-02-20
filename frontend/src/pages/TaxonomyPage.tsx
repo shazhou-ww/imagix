@@ -428,6 +428,7 @@ export default function TaxonomyPage() {
             value={createParentId ?? ""}
             onChange={(e) => setCreateParentId(e.target.value || null)}
             select
+            slotProps={{ inputLabel: { htmlFor: undefined } }}
           >
             <MenuItem value="">无（根节点）</MenuItem>
             {(nodes ?? []).map((n) => (

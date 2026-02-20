@@ -1,6 +1,0 @@
-{
-  "ApiFunction": {
-    "TABLE_NAME": "imagix",
-    "AWS_SAM_LOCAL": "true"
-  }
-}

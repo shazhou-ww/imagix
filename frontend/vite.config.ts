@@ -15,9 +15,8 @@ export default defineConfig({
     port: 4510,
     proxy: {
       "/api": {
-        target: "http://127.0.0.1:4511",
+        target: process.env.IMAGIX_API_URL || "http://127.0.0.1:4511",
         changeOrigin: true,
-        rewrite: (path) => `/prod${path}`,
       },
     },
   },

@@ -13,14 +13,27 @@ import StoryListPage from "@/pages/StoryListPage";
 import TaxonomyPage from "@/pages/TaxonomyPage";
 import ThingListPage from "@/pages/ThingListPage";
 import WorldDashboardPage from "@/pages/WorldDashboardPage";
-import WorldListPage from "@/pages/WorldListPage";
 import WorldSettingsPage from "@/pages/WorldSettingsPage";
+import { useWorlds } from "@/api/hooks/useWorlds";
+import EmptyState from "@/components/EmptyState";
+
+/** Redirect to the first world's dashboard, or show empty state */
+function DefaultRedirect() {
+  const { data: worlds, isLoading } = useWorlds();
+  if (isLoading) return <CircularProgress />;
+  if (worlds?.length) return <Navigate to={`/worlds/${worlds[0].id}`} replace />;
+  return (
+    <EmptyState
+      title="还没有世界"
+      description="点击左侧「创建世界」按钮，开始构建你的故事世界"
+    />
+  );
+}
 
 function AuthenticatedRoutes() {
   return (
     <AppLayout>
       <Routes>
-        <Route path="/worlds" element={<WorldListPage />} />
         <Route path="/worlds/:worldId" element={<WorldDashboardPage />} />
         <Route
           path="/worlds/:worldId/settings"
@@ -49,7 +62,7 @@ function AuthenticatedRoutes() {
           element={<EventLinkPage />}
         />
         <Route path="/worlds/:worldId/stories" element={<StoryListPage />} />
-        <Route path="*" element={<Navigate to="/worlds" replace />} />
+        <Route path="*" element={<DefaultRedirect />} />
       </Routes>
     </AppLayout>
   );

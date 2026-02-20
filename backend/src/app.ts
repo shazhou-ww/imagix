@@ -16,7 +16,27 @@ export type AppEnv = {
 };
 
 export const auth = createMiddleware<AppEnv>(async (c, next) => {
-  const claims = (c.env.event?.requestContext as any)?.authorizer?.claims;
+  // Try API Gateway authorizer claims first (v1 or v2),
+  // then fall back to decoding the JWT from the Authorization header.
+  const authorizer = (c.env.event?.requestContext as any)?.authorizer;
+  let claims = authorizer?.jwt?.claims ?? authorizer?.claims;
+
+  if (!claims?.sub) {
+    // No API Gateway authorizer — decode JWT from Authorization header
+    const header = c.req.header("authorization") ?? c.req.header("Authorization");
+    if (header?.startsWith("Bearer ")) {
+      try {
+        const token = header.slice(7);
+        const payload = token.split(".")[1];
+        claims = JSON.parse(
+          Buffer.from(payload, "base64url").toString("utf-8"),
+        );
+      } catch {
+        // Invalid token, fall through to anonymous
+      }
+    }
+  }
+
   const userId = claims?.sub ?? "anonymous";
   c.set("userId", userId);
   await next();

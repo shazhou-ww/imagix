@@ -1,7 +1,10 @@
 import AccountTreeIcon from "@mui/icons-material/AccountTree";
+import AddIcon from "@mui/icons-material/Add";
 import AssignmentIcon from "@mui/icons-material/Assignment";
 import AutoStoriesIcon from "@mui/icons-material/AutoStories";
 import CableTwoToneIcon from "@mui/icons-material/CableTwoTone";
+import ExpandLessIcon from "@mui/icons-material/ExpandLess";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import LinkIcon from "@mui/icons-material/Link";
 import LogoutIcon from "@mui/icons-material/Logout";
 import MenuIcon from "@mui/icons-material/Menu";
@@ -14,6 +17,12 @@ import {
   AppBar,
   Avatar,
   Box,
+  Button,
+  Collapse,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   Drawer,
   IconButton,
@@ -21,14 +30,16 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  TextField,
   Toolbar,
   Typography,
   useMediaQuery,
   useTheme,
 } from "@mui/material";
 import { type ReactNode, useState } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/auth/AuthContext";
+import { useCreateWorld, useWorlds } from "@/api/hooks/useWorlds";
 
 const DRAWER_WIDTH = 240;
 
@@ -71,8 +82,34 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { worldId } = useParams<{ worldId: string }>();
+  // Extract worldId from pathname since AppLayout wraps <Routes> and isn't inside a :worldId route
+  const worldIdMatch = location.pathname.match(/^\/worlds\/([^/]+)/);
+  const worldId = worldIdMatch?.[1];
   const { authState, signOut } = useAuth();
+  const { data: worlds } = useWorlds();
+  const createWorld = useCreateWorld();
+
+  // Create world dialog state
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newDesc, setNewDesc] = useState("");
+  const [newEpoch, setNewEpoch] = useState("");
+
+  const handleCreateWorld = () => {
+    if (!newName.trim() || !newEpoch.trim()) return;
+    createWorld.mutate(
+      { name: newName.trim(), description: newDesc.trim() || undefined, epoch: newEpoch.trim() },
+      {
+        onSuccess: (world) => {
+          setCreateOpen(false);
+          setNewName("");
+          setNewDesc("");
+          setNewEpoch("");
+          navigate(`/worlds/${world.id}`);
+        },
+      },
+    );
+  };
 
   const handleNav = (path: string) => {
     navigate(path);
@@ -94,35 +131,63 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       </Toolbar>
       <Divider />
 
-      {/* World nav */}
-      <List sx={{ flex: 1, px: 1 }}>
-        <ListItemButton
-          selected={location.pathname === "/worlds"}
-          onClick={() => handleNav("/worlds")}
-          sx={{ borderRadius: 2, mb: 0.5 }}
-        >
-          <ListItemIcon>
-            <PublicIcon />
-          </ListItemIcon>
-          <ListItemText primary="我的世界" />
-        </ListItemButton>
-
-        {worldId && (
-          <>
-            <Divider sx={{ my: 1 }} />
-            {getWorldNavItems(worldId).map((item) => (
+      {/* World list + sub-nav */}
+      <List sx={{ flex: 1, px: 1, overflowY: "auto" }}>
+        {(worlds ?? []).map((world) => {
+          const isActive = worldId === world.id;
+          const basePath = `/worlds/${world.id}`;
+          return (
+            <Box key={world.id}>
               <ListItemButton
-                key={item.path}
-                selected={location.pathname.startsWith(item.path)}
-                onClick={() => handleNav(item.path)}
+                selected={isActive && location.pathname === basePath}
+                onClick={() => handleNav(basePath)}
                 sx={{ borderRadius: 2, mb: 0.5 }}
               >
-                <ListItemIcon>{item.icon}</ListItemIcon>
-                <ListItemText primary={item.label} />
+                <ListItemIcon>
+                  <PublicIcon />
+                </ListItemIcon>
+                <ListItemText
+                  primary={world.name}
+                  primaryTypographyProps={{
+                    noWrap: true,
+                    fontSize: "0.9rem",
+                  }}
+                />
+                {isActive ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
               </ListItemButton>
-            ))}
-          </>
-        )}
+
+              <Collapse in={isActive} timeout="auto" unmountOnExit>
+                <List disablePadding>
+                  {getWorldNavItems(world.id).map((item) => (
+                    <ListItemButton
+                      key={item.path}
+                      selected={location.pathname.startsWith(item.path)}
+                      onClick={() => handleNav(item.path)}
+                      sx={{ borderRadius: 2, mb: 0.25, pl: 4 }}
+                    >
+                      <ListItemIcon sx={{ minWidth: 32 }}>{item.icon}</ListItemIcon>
+                      <ListItemText
+                        primary={item.label}
+                        primaryTypographyProps={{ fontSize: "0.85rem" }}
+                      />
+                    </ListItemButton>
+                  ))}
+                </List>
+              </Collapse>
+            </Box>
+          );
+        })}
+
+        {/* Create world button */}
+        <Button
+          size="small"
+          startIcon={<AddIcon />}
+          onClick={() => setCreateOpen(true)}
+          sx={{ mt: 1, ml: 1, justifyContent: "flex-start", textTransform: "none" }}
+          fullWidth
+        >
+          创建世界
+        </Button>
       </List>
 
       {/* User / Sign out */}
@@ -230,6 +295,44 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       >
         {children}
       </Box>
+
+      {/* Create World Dialog */}
+      <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>创建世界</DialogTitle>
+        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}>
+          <TextField
+            label="世界名称"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            autoFocus
+            required
+          />
+          <TextField
+            label="世界观描述"
+            value={newDesc}
+            onChange={(e) => setNewDesc(e.target.value)}
+            multiline
+            rows={3}
+          />
+          <TextField
+            label="纪元描述"
+            value={newEpoch}
+            onChange={(e) => setNewEpoch(e.target.value)}
+            required
+            helperText="定义世界的时间原点（t=0），如「盘古开天辟地」。创建后会自动生成纪元事件。"
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCreateOpen(false)}>取消</Button>
+          <Button
+            variant="contained"
+            onClick={handleCreateWorld}
+            disabled={!newName.trim() || !newEpoch.trim() || createWorld.isPending}
+          >
+            创建
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

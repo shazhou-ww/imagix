@@ -1,4 +1,14 @@
-import { handle } from "hono/aws-lambda";
+#!/usr/bin/env bun
+/**
+ * Local dev server — runs the Hono app directly on Bun's HTTP server.
+ * Routes and middleware are identical to the Lambda handler.
+ *
+ * Environment variables:
+ *   DYNAMODB_ENDPOINT — DynamoDB Local endpoint (default: http://localhost:4513)
+ *   TABLE_NAME        — DynamoDB table name       (default: imagix)
+ *   PORT              — server listen port         (default: 4511)
+ */
+
 import { createApp } from "./app.js";
 
 import worldRoutes from "./routes/worlds.js";
@@ -19,7 +29,7 @@ import stateRoutes from "./routes/state.js";
 const app = createApp();
 
 app.get("/api/health", (c) =>
-  c.json({ status: "ok", service: "imagix-api" }),
+  c.json({ status: "ok", service: "imagix-api", env: "local" }),
 );
 
 app.route("/api/worlds", worldRoutes);
@@ -52,4 +62,12 @@ app.notFound((c) => {
   return c.json({ error: "Not Found" }, 404);
 });
 
-export const handler = handle(app);
+const port = Number(process.env.PORT ?? 4511);
+console.log(`🚀 imagix-api dev server on http://localhost:${port}`);
+console.log(`   DynamoDB: ${process.env.DYNAMODB_ENDPOINT}`);
+console.log(`   Table:    ${process.env.TABLE_NAME}`);
+
+export default {
+  port,
+  fetch: app.fetch,
+};

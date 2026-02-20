@@ -220,6 +220,7 @@ export default function CharacterListPage() {
               value={categoryNodeId}
               onChange={(e) => setCategoryNodeId(e.target.value)}
               select
+              slotProps={{ inputLabel: { htmlFor: undefined } }}
               required
               helperText="选择角色所属的分类节点"
             >

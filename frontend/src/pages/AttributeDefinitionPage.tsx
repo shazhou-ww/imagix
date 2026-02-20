@@ -57,7 +57,8 @@ export default function AttributeDefinitionPage() {
   const [name, setName] = useState("");
   const [type, setType] = useState<string>("string");
   const [description, setDescription] = useState("");
-  const [enumValues, setEnumValues] = useState("");
+  const [enumValues, setEnumValues] = useState<string[]>([]);
+  const [newEnumValue, setNewEnumValue] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<AttributeDefinition | null>(null);
 
   const openCreate = () => {
@@ -65,7 +66,8 @@ export default function AttributeDefinitionPage() {
     setName("");
     setType("string");
     setDescription("");
-    setEnumValues("");
+    setEnumValues([]);
+    setNewEnumValue("");
     setDialogOpen(true);
   };
 
@@ -74,7 +76,8 @@ export default function AttributeDefinitionPage() {
     setName(attr.name);
     setType(attr.type);
     setDescription(attr.description ?? "");
-    setEnumValues((attr.enumValues ?? []).join(", "));
+    setEnumValues(attr.enumValues ?? []);
+    setNewEnumValue("");
     setDialogOpen(true);
   };
 
@@ -86,11 +89,7 @@ export default function AttributeDefinitionPage() {
       description: description.trim() || undefined,
     };
     if (type === "enum") {
-      const vals = enumValues
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
-      if (vals.length > 0) body.enumValues = vals;
+      if (enumValues.length > 0) body.enumValues = enumValues;
     }
 
     if (editing) {
@@ -150,10 +149,15 @@ export default function AttributeDefinitionPage() {
         <Grid container spacing={2}>
           {attrs.map((attr) => (
             <Grid size={{ xs: 12, sm: 6, md: 4 }} key={attr.id}>
-              <Card>
-                <CardContent>
+              <Card sx={{ height: 140, display: "flex", flexDirection: "column" }}>
+                <CardContent sx={{ flex: 1, overflow: "hidden" }}>
                   <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
-                    <Typography variant="subtitle1" fontWeight="bold" sx={{ flex: 1 }}>
+                    <Typography
+                      variant="subtitle1"
+                      fontWeight="bold"
+                      noWrap
+                      sx={{ flex: 1 }}
+                    >
                       {attr.name}
                     </Typography>
                     <Chip
@@ -175,12 +179,23 @@ export default function AttributeDefinitionPage() {
                     </Tooltip>
                   </Box>
                   {attr.description && (
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{
+                        mb: 1,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        display: "-webkit-box",
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: "vertical",
+                      }}
+                    >
                       {attr.description}
                     </Typography>
                   )}
                   {attr.type === "enum" && attr.enumValues && (
-                    <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
+                    <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", overflow: "hidden", maxHeight: 28 }}>
                       {attr.enumValues.map((v) => (
                         <Chip key={v} label={v} size="small" variant="outlined" sx={{ height: 22, fontSize: "0.75rem" }} />
                       ))}
@@ -198,6 +213,7 @@ export default function AttributeDefinitionPage() {
         <DialogTitle>{editing ? "编辑属性" : "添加属性"}</DialogTitle>
         <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}>
           <TextField
+            id="attr-name"
             label="属性名称"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -211,6 +227,7 @@ export default function AttributeDefinitionPage() {
             onChange={(e) => setType(e.target.value)}
             select
             required
+            slotProps={{ inputLabel: { htmlFor: undefined } }}
           >
             {TYPE_OPTIONS.map((o) => (
               <MenuItem key={o.value} value={o.value}>
@@ -219,15 +236,56 @@ export default function AttributeDefinitionPage() {
             ))}
           </TextField>
           {type === "enum" && (
-            <TextField
-              label="枚举可选值"
-              value={enumValues}
-              onChange={(e) => setEnumValues(e.target.value)}
-              placeholder="逗号分隔，如：金, 木, 水, 火, 土"
-              helperText="多个值用逗号分隔"
-            />
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>枚举可选值</Typography>
+              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 1, minHeight: 32 }}>
+                {enumValues.map((v, i) => (
+                  <Chip
+                    key={v}
+                    label={v}
+                    onDelete={() => setEnumValues(enumValues.filter((_, j) => j !== i))}
+                    size="small"
+                  />
+                ))}
+              </Box>
+              <Box sx={{ display: "flex", gap: 1 }}>
+                <TextField
+                  id="attr-enum-new"
+                  size="small"
+                  placeholder="输入新的枚举值"
+                  value={newEnumValue}
+                  onChange={(e) => setNewEnumValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      const v = newEnumValue.trim();
+                      if (v && !enumValues.includes(v)) {
+                        setEnumValues([...enumValues, v]);
+                        setNewEnumValue("");
+                      }
+                    }
+                  }}
+                  sx={{ flex: 1 }}
+                />
+                <Button
+                  size="small"
+                  variant="outlined"
+                  disabled={!newEnumValue.trim() || enumValues.includes(newEnumValue.trim())}
+                  onClick={() => {
+                    const v = newEnumValue.trim();
+                    if (v && !enumValues.includes(v)) {
+                      setEnumValues([...enumValues, v]);
+                      setNewEnumValue("");
+                    }
+                  }}
+                >
+                  添加
+                </Button>
+              </Box>
+            </Box>
           )}
           <TextField
+            id="attr-description"
             label="说明 (可选)"
             value={description}
             onChange={(e) => setDescription(e.target.value)}

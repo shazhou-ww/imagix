@@ -7,29 +7,38 @@ export const auth = (() => {
     transform: {
       userPool: {
         schemas: [
-          { name: "email", required: true, mutable: true, attributeDataType: "String" },
-          { name: "name", required: false, mutable: true, attributeDataType: "String" },
+          {
+            name: "email",
+            required: true,
+            mutable: true,
+            attributeDataType: "String",
+          },
+          {
+            name: "name",
+            required: false,
+            mutable: true,
+            attributeDataType: "String",
+          },
         ],
         autoVerifiedAttributes: ["email"],
       },
     },
   });
 
-  const identityProvider =
-    new aws.cognito.IdentityProvider("ImagixGoogleIdP", {
-      userPoolId: userPool.id,
-      providerName: "Google",
-      providerType: "Google",
-      providerDetails: {
-        client_id: googleClientId.value,
-        client_secret: googleClientSecret.value,
-        authorize_scopes: "openid email profile",
-      },
-      attributeMapping: {
-        email: "email",
-        username: "sub",
-      },
-    });
+  const identityProvider = new aws.cognito.IdentityProvider("ImagixGoogleIdP", {
+    userPoolId: userPool.id,
+    providerName: "Google",
+    providerType: "Google",
+    providerDetails: {
+      client_id: googleClientId.value,
+      client_secret: googleClientSecret.value,
+      authorize_scopes: "openid email profile",
+    },
+    attributeMapping: {
+      email: "email",
+      username: "sub",
+    },
+  });
 
   const domain = new aws.cognito.UserPoolDomain("ImagixCognitoDomain", {
     userPoolId: userPool.id,
@@ -38,8 +47,14 @@ export const auth = (() => {
 
   const callbackUrls =
     $app.stage === "prod"
-      ? ["https://imagix.shazhou.me/callback", "https://api.imagix.shazhou.me/mcp/oauth/callback"]
-      : ["http://localhost:4510/callback", "http://localhost:4511/mcp/oauth/callback"];
+      ? [
+          "https://imagix.shazhou.me/callback",
+          "https://api.imagix.shazhou.me/mcp/oauth/callback",
+        ]
+      : [
+          "http://localhost:4510/callback",
+          "http://localhost:4511/mcp/oauth/callback",
+        ];
   const logoutUrls =
     $app.stage === "prod"
       ? ["https://imagix.shazhou.me"]

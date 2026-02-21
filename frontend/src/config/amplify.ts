@@ -1,7 +1,10 @@
 import { Amplify } from "aws-amplify";
 
-const { IMAGIX_USER_POOL_ID, IMAGIX_USER_POOL_CLIENT_ID, IMAGIX_COGNITO_DOMAIN } =
-  import.meta.env;
+const {
+  IMAGIX_USER_POOL_ID,
+  IMAGIX_USER_POOL_CLIENT_ID,
+  IMAGIX_COGNITO_DOMAIN,
+} = import.meta.env;
 const userPoolId = IMAGIX_USER_POOL_ID;
 const userPoolClientId = IMAGIX_USER_POOL_CLIENT_ID;
 const cognitoDomain = IMAGIX_COGNITO_DOMAIN;

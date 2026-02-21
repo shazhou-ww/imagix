@@ -1,8 +1,8 @@
 import type { AuthUser } from "aws-amplify/auth";
 import {
   signOut as amplifySignOut,
-  getCurrentUser,
   fetchAuthSession,
+  getCurrentUser,
   signInWithRedirect,
 } from "aws-amplify/auth";
 import {

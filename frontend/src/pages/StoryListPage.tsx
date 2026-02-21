@@ -1,4 +1,4 @@
-import type { Story, Chapter, Plot } from "@imagix/shared";
+import type { Chapter, Plot, Story } from "@imagix/shared";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
@@ -27,21 +27,21 @@ import {
 } from "@mui/material";
 import { useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
+import { useCharacters } from "@/api/hooks/useCharacters";
+import { useEvents } from "@/api/hooks/useEvents";
 import {
-  useStories,
-  useCreateStory,
-  useUpdateStory,
-  useDeleteStory,
   useChapters,
   useCreateChapter,
-  useDeleteChapter,
-  usePlots,
   useCreatePlot,
-  useUpdatePlot,
+  useCreateStory,
+  useDeleteChapter,
   useDeletePlot,
+  useDeleteStory,
+  usePlots,
+  useStories,
+  useUpdatePlot,
+  useUpdateStory,
 } from "@/api/hooks/useStories";
-import { useEvents } from "@/api/hooks/useEvents";
-import { useCharacters } from "@/api/hooks/useCharacters";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import EmptyState from "@/components/EmptyState";
 
@@ -76,7 +76,10 @@ function PlotItem({
 
   const handleSave = () => {
     updatePlot.mutate(
-      { plotId: plot.id, body: { style: style.trim(), content: content.trim() } },
+      {
+        plotId: plot.id,
+        body: { style: style.trim(), content: content.trim() },
+      },
       { onSuccess: () => setEditing(false) },
     );
   };
@@ -100,7 +103,12 @@ function PlotItem({
           variant="outlined"
         />
         {plot.style && (
-          <Chip label={plot.style} size="small" variant="outlined" color="secondary" />
+          <Chip
+            label={plot.style}
+            size="small"
+            variant="outlined"
+            color="secondary"
+          />
         )}
         <Box sx={{ flex: 1 }} />
         <Tooltip title="查看内容">
@@ -114,7 +122,11 @@ function PlotItem({
           </IconButton>
         </Tooltip>
         <Tooltip title="删除">
-          <IconButton size="small" color="error" onClick={() => setDeleteConfirm(true)}>
+          <IconButton
+            size="small"
+            color="error"
+            onClick={() => setDeleteConfirm(true)}
+          >
             <DeleteIcon fontSize="small" />
           </IconButton>
         </Tooltip>
@@ -136,7 +148,12 @@ function PlotItem({
       )}
 
       {/* View dialog */}
-      <Dialog open={viewing} onClose={() => setViewing(false)} maxWidth="md" fullWidth>
+      <Dialog
+        open={viewing}
+        onClose={() => setViewing(false)}
+        maxWidth="md"
+        fullWidth
+      >
         <DialogTitle>
           情节 — {eventName}
           {plot.style && ` · ${plot.style}`}
@@ -155,10 +172,26 @@ function PlotItem({
       </Dialog>
 
       {/* Edit dialog */}
-      <Dialog open={editing} onClose={() => setEditing(false)} maxWidth="md" fullWidth>
+      <Dialog
+        open={editing}
+        onClose={() => setEditing(false)}
+        maxWidth="md"
+        fullWidth
+      >
         <DialogTitle>编辑情节</DialogTitle>
-        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}>
-          <TextField label="文风" value={style} onChange={(e) => setStyle(e.target.value)} />
+        <DialogContent
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+            pt: "8px !important",
+          }}
+        >
+          <TextField
+            label="文风"
+            value={style}
+            onChange={(e) => setStyle(e.target.value)}
+          />
           <TextField
             label="内容"
             value={content}
@@ -169,7 +202,11 @@ function PlotItem({
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setEditing(false)}>取消</Button>
-          <Button variant="contained" onClick={handleSave} disabled={updatePlot.isPending}>
+          <Button
+            variant="contained"
+            onClick={handleSave}
+            disabled={updatePlot.isPending}
+          >
             保存
           </Button>
         </DialogActions>
@@ -180,7 +217,11 @@ function PlotItem({
         open={deleteConfirm}
         title="删除情节"
         message="确定要删除此情节吗？"
-        onConfirm={() => deletePlot.mutate(plot.id, { onSuccess: () => setDeleteConfirm(false) })}
+        onConfirm={() =>
+          deletePlot.mutate(plot.id, {
+            onSuccess: () => setDeleteConfirm(false),
+          })
+        }
         onClose={() => setDeleteConfirm(false)}
       />
     </Box>
@@ -206,8 +247,14 @@ function ChapterPlots({
   const createPlot = useCreatePlot(story.id, chapter.id);
 
   const [addOpen, setAddOpen] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState<{ id: string; label: string } | null>(null);
-  const [selectedChar, setSelectedChar] = useState<{ id: string; name: string } | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<{
+    id: string;
+    label: string;
+  } | null>(null);
+  const [selectedChar, setSelectedChar] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const [plotStyle, setPlotStyle] = useState("");
   const [plotContent, setPlotContent] = useState("");
 
@@ -219,7 +266,8 @@ function ChapterPlots({
   const eventMap = useMemo(() => {
     const m: Record<string, string> = {};
     for (const e of events ?? [])
-      m[e.id] = e.content.length > 40 ? `${e.content.slice(0, 40)}…` : e.content;
+      m[e.id] =
+        e.content.length > 40 ? `${e.content.slice(0, 40)}…` : e.content;
     return m;
   }, [events]);
 
@@ -280,7 +328,7 @@ function ChapterPlots({
               eventName={eventMap[plot.eventId] ?? plot.eventId}
               characterName={
                 plot.perspectiveCharacterId
-                  ? charMap[plot.perspectiveCharacterId] ?? "未知角色"
+                  ? (charMap[plot.perspectiveCharacterId] ?? "未知角色")
                   : "上帝视角"
               }
             />
@@ -288,14 +336,30 @@ function ChapterPlots({
         </Box>
       )}
 
-      <Button size="small" startIcon={<AddIcon />} onClick={() => setAddOpen(true)}>
+      <Button
+        size="small"
+        startIcon={<AddIcon />}
+        onClick={() => setAddOpen(true)}
+      >
         添加情节
       </Button>
 
       {/* Add plot dialog */}
-      <Dialog open={addOpen} onClose={() => setAddOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>添加情节</DialogTitle>
-        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}>
+        <DialogContent
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+            pt: "8px !important",
+          }}
+        >
           <Autocomplete
             options={eventOptions}
             getOptionLabel={(o) => o.label}
@@ -370,11 +434,22 @@ function StoryChapters({ story, worldId }: { story: Story; worldId: string }) {
 
   return (
     <Box>
-      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1 }}>
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          mb: 1,
+        }}
+      >
         <Typography variant="subtitle2" color="text.secondary">
           章节 ({chapters?.length ?? 0})
         </Typography>
-        <Button size="small" startIcon={<AddIcon />} onClick={() => setAddOpen(true)}>
+        <Button
+          size="small"
+          startIcon={<AddIcon />}
+          onClick={() => setAddOpen(true)}
+        >
           添加章节
         </Button>
       </Box>
@@ -386,9 +461,16 @@ function StoryChapters({ story, worldId }: { story: Story; worldId: string }) {
         </Typography>
       ) : (
         chapters.map((ch) => (
-          <Accordion key={ch.id} variant="outlined" disableGutters sx={{ mb: 1 }}>
+          <Accordion
+            key={ch.id}
+            variant="outlined"
+            disableGutters
+            sx={{ mb: 1 }}
+          >
             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Box sx={{ display: "flex", alignItems: "center", flex: 1, mr: 2 }}>
+              <Box
+                sx={{ display: "flex", alignItems: "center", flex: 1, mr: 2 }}
+              >
                 <Typography fontWeight="bold" sx={{ flex: 1 }}>
                   {ch.title}
                 </Typography>
@@ -421,7 +503,12 @@ function StoryChapters({ story, worldId }: { story: Story; worldId: string }) {
       )}
 
       {/* Add Chapter Dialog */}
-      <Dialog open={addOpen} onClose={() => setAddOpen(false)} maxWidth="xs" fullWidth>
+      <Dialog
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
         <DialogTitle>添加章节</DialogTitle>
         <DialogContent sx={{ pt: "8px !important" }}>
           <TextField
@@ -466,9 +553,9 @@ function StoryChapters({ story, worldId }: { story: Story; worldId: string }) {
 export default function StoryListPage() {
   const { worldId } = useParams<{ worldId: string }>();
   const { data: stories, isLoading } = useStories(worldId);
-  const createStory = useCreateStory(worldId!);
-  const updateStory = useUpdateStory(worldId!);
-  const deleteStory = useDeleteStory(worldId!);
+  const createStory = useCreateStory(worldId ?? "");
+  const updateStory = useUpdateStory(worldId ?? "");
+  const deleteStory = useDeleteStory(worldId ?? "");
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingStory, setEditingStory] = useState<Story | null>(null);
@@ -529,11 +616,22 @@ export default function StoryListPage() {
 
   return (
     <Box>
-      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          mb: 2,
+        }}
+      >
         <Typography variant="h4" fontWeight="bold">
           故事
         </Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={openCreate}
+        >
           创建故事
         </Button>
       </Box>
@@ -545,7 +643,15 @@ export default function StoryListPage() {
             placeholder="搜索故事"
             value={filterTitle}
             onChange={(e) => setFilterTitle(e.target.value)}
-            slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> } }}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              },
+            }}
             sx={{ minWidth: 220 }}
           />
         </Box>
@@ -554,12 +660,20 @@ export default function StoryListPage() {
       {!filteredStories.length ? (
         <EmptyState
           title={stories?.length ? "无匹配故事" : "暂无故事"}
-          description={stories?.length ? "尝试调整搜索关键词" : "创建故事，用章节和情节将世界事件编织成叙事"}
+          description={
+            stories?.length
+              ? "尝试调整搜索关键词"
+              : "创建故事，用章节和情节将世界事件编织成叙事"
+          }
           action={
             stories?.length ? (
-              <Button variant="outlined" onClick={() => setFilterTitle("")}>清除搜索</Button>
+              <Button variant="outlined" onClick={() => setFilterTitle("")}>
+                清除搜索
+              </Button>
             ) : (
-              <Button variant="outlined" onClick={openCreate}>创建故事</Button>
+              <Button variant="outlined" onClick={openCreate}>
+                创建故事
+              </Button>
             )
           }
         />
@@ -568,12 +682,18 @@ export default function StoryListPage() {
           {filteredStories.map((story) => (
             <Accordion key={story.id} defaultExpanded={false}>
               <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Box sx={{ display: "flex", alignItems: "center", flex: 1, mr: 2 }}>
+                <Box
+                  sx={{ display: "flex", alignItems: "center", flex: 1, mr: 2 }}
+                >
                   <MenuBookIcon color="primary" sx={{ mr: 1.5 }} />
                   <Typography fontWeight="bold" sx={{ flex: 1 }}>
                     {story.title}
                   </Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ mr: 2 }}>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ mr: 2 }}
+                  >
                     {story.chapterIds.length} 章
                   </Typography>
                   <Tooltip title="编辑标题">
@@ -604,7 +724,7 @@ export default function StoryListPage() {
                 </Box>
               </AccordionSummary>
               <AccordionDetails>
-                <StoryChapters story={story} worldId={worldId!} />
+                <StoryChapters story={story} worldId={worldId ?? ""} />
               </AccordionDetails>
             </Accordion>
           ))}
@@ -612,9 +732,21 @@ export default function StoryListPage() {
       )}
 
       {/* Create / Edit Dialog */}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>{editingStory ? "编辑故事" : "创建故事"}</DialogTitle>
-        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}>
+        <DialogContent
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+            pt: "8px !important",
+          }}
+        >
           <TextField
             label="故事标题"
             value={title}
@@ -628,7 +760,9 @@ export default function StoryListPage() {
           <Button
             variant="contained"
             onClick={handleSave}
-            disabled={!title.trim() || createStory.isPending || updateStory.isPending}
+            disabled={
+              !title.trim() || createStory.isPending || updateStory.isPending
+            }
           >
             {editingStory ? "保存" : "创建"}
           </Button>

@@ -1,30 +1,34 @@
 import {
+  AttributeDefinitionSchema,
+  ChapterSchema,
+  CharacterSchema,
+  type CreateWorldBody,
   createId,
   EntityPrefix,
-  WorldSchema,
-  EventSchema,
-  TaxonomyNodeSchema,
-  AttributeDefinitionSchema,
-  CharacterSchema,
-  ThingSchema,
-  PlaceSchema,
-  RelationshipSchema,
   EventLinkSchema,
-  StorySchema,
-  ChapterSchema,
+  EventSchema,
+  PlaceSchema,
   PlotSchema,
-  type World,
-  type CreateWorldBody,
-  type UpdateWorldBody,
+  RelationshipSchema,
   type Story,
+  StorySchema,
+  TaxonomyNodeSchema,
+  ThingSchema,
+  type UpdateWorldBody,
+  type World,
+  WorldSchema,
 } from "@imagix/shared";
 import * as repo from "../db/repository.js";
 import { AppError } from "./errors.js";
 
 /** 所有根分类节点预置的 JSONata 时间公式：随时间流逝自动递增 $age（存续时间） */
-const AGE_TIME_FORMULA = '{ "$age": attributes.`$age` + (currentTime - lastTime) }';
+const AGE_TIME_FORMULA =
+  '{ "$age": attributes.`$age` + (currentTime - lastTime) }';
 
-export async function create(userId: string, body: CreateWorldBody): Promise<World> {
+export async function create(
+  userId: string,
+  body: CreateWorldBody,
+): Promise<World> {
   const now = new Date().toISOString();
   const world = WorldSchema.parse({
     id: createId(EntityPrefix.World),
@@ -107,7 +111,8 @@ export async function create(userId: string, body: CreateWorldBody): Promise<Wor
     worldId: world.id,
     name: "$age",
     type: "timespan",
-    description: "存续时间。角色诞生 / 事物创建 / 关系建立时自动设为 0，随时间流逝自动递增。",
+    description:
+      "存续时间。角色诞生 / 事物创建 / 关系建立时自动设为 0，随时间流逝自动递增。",
     system: true,
     createdAt: now,
     updatedAt: now,
@@ -161,13 +166,23 @@ export async function update(
   await repo.getWorld(worldId).then((w) => {
     if (!w) throw AppError.notFound("World");
   });
-  await repo.updateWorld(worldId, { ...body, updatedAt: new Date().toISOString() });
+  await repo.updateWorld(worldId, {
+    ...body,
+    updatedAt: new Date().toISOString(),
+  });
 
   // 若修改了纪元描述，同步更新纪元事件的 content
   if (body.epoch !== undefined) {
-    const eventsAtZero = await repo.listEvents(worldId, { timeFrom: 0, timeTo: 0 });
+    const eventsAtZero = await repo.listEvents(worldId, {
+      timeFrom: 0,
+      timeTo: 0,
+    });
     const epochEvt = eventsAtZero.find(
-      (e) => (e as any).system === true && ((e as any).impacts?.attributeChanges?.length ?? 0) === 0,
+      (e) =>
+        // biome-ignore lint/suspicious/noExplicitAny: dynamic event properties
+        (e as any).system === true &&
+        // biome-ignore lint/suspicious/noExplicitAny: dynamic event properties
+        ((e as any).impacts?.attributeChanges?.length ?? 0) === 0,
     );
     if (epochEvt) {
       const merged = EventSchema.parse({
@@ -271,11 +286,16 @@ export async function exportWorld(worldId: string) {
 
   return {
     world: (() => {
-      const { pk, sk, gsi1pk, gsi1sk, ...rest } = world as Record<string, unknown>;
+      const { pk, sk, gsi1pk, gsi1sk, ...rest } = world as Record<
+        string,
+        unknown
+      >;
       return rest;
     })(),
     taxonomy: strip(taxonomy as Record<string, unknown>[]),
-    attributeDefinitions: strip(attributeDefinitions as Record<string, unknown>[]),
+    attributeDefinitions: strip(
+      attributeDefinitions as Record<string, unknown>[],
+    ),
     characters: strip(characters as Record<string, unknown>[]),
     things: strip(things as Record<string, unknown>[]),
     places: strip(places as Record<string, unknown>[]),
@@ -307,7 +327,10 @@ export async function importWorld(
   }
 
   // Attribute definitions
-  const attrDefs = (data.attributeDefinitions ?? []) as Record<string, unknown>[];
+  const attrDefs = (data.attributeDefinitions ?? []) as Record<
+    string,
+    unknown
+  >[];
   for (const raw of attrDefs) {
     const attr = AttributeDefinitionSchema.parse({ ...raw, worldId });
     await repo.putAttributeDefinition(attr);
@@ -359,7 +382,11 @@ export async function importWorld(
   const existingWorld = existing as { userId: string };
   const stories = (data.stories ?? []) as Record<string, unknown>[];
   for (const raw of stories) {
-    const story = StorySchema.parse({ ...raw, worldId, userId: (raw as { userId?: string }).userId ?? existingWorld.userId }) as Story;
+    const story = StorySchema.parse({
+      ...raw,
+      worldId,
+      userId: (raw as { userId?: string }).userId ?? existingWorld.userId,
+    }) as Story;
     await repo.putStory(story);
   }
 

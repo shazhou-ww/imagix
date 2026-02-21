@@ -1,5 +1,5 @@
-import { type ToolRegistry, jsonResult } from "../registry.js";
 import * as stateCtrl from "../../controllers/state.js";
+import { jsonResult, type ToolRegistry } from "../registry.js";
 
 export function registerStateTools(registry: ToolRegistry) {
   registry.register({
@@ -13,8 +13,15 @@ export function registerStateTools(registry: ToolRegistry) {
       properties: {
         worldId: { type: "string", description: "World ID" },
         entityId: { type: "string", description: "Entity ID (chr/thg/rel)" },
-        time: { type: "number", description: "Point in time to compute state at (epoch ms)" },
-        forEvent: { type: "string", description: "Exclude this event ID from computation (optional, for pre-event state)" },
+        time: {
+          type: "number",
+          description: "Point in time to compute state at (epoch ms)",
+        },
+        forEvent: {
+          type: "string",
+          description:
+            "Exclude this event ID from computation (optional, for pre-event state)",
+        },
       },
       required: ["worldId", "entityId", "time"],
     },

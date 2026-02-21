@@ -12,7 +12,8 @@
       "!**/dist",
       "!**/.aws-sam",
       "!**/*.template.yaml",
-      "!**/*.template.yml"
+      "!**/*.template.yml",
+      "!**/sst-env.d.ts"
     ]
   },
   "formatter": {

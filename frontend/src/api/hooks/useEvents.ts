@@ -1,5 +1,5 @@
+import type { CreateEventBody, Event, UpdateEventBody } from "@imagix/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Event, CreateEventBody, UpdateEventBody } from "@imagix/shared";
 import { api } from "../client";
 
 export const eventKeys = {
@@ -9,7 +9,7 @@ export const eventKeys = {
 
 export function useEvents(worldId?: string) {
   return useQuery<Event[]>({
-    queryKey: eventKeys.all(worldId!),
+    queryKey: eventKeys.all(worldId ?? ""),
     queryFn: () => api.get(`/worlds/${worldId}/events`),
     enabled: !!worldId,
   });
@@ -17,7 +17,7 @@ export function useEvents(worldId?: string) {
 
 export function useEvent(worldId?: string, eventId?: string) {
   return useQuery<Event>({
-    queryKey: eventKeys.detail(worldId!, eventId!),
+    queryKey: eventKeys.detail(worldId ?? "", eventId ?? ""),
     queryFn: () => api.get(`/worlds/${worldId}/events/${eventId}`),
     enabled: !!worldId && !!eventId,
   });
@@ -35,8 +35,13 @@ export function useCreateEvent(worldId: string) {
 export function useUpdateEvent(worldId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ eventId, body }: { eventId: string; body: UpdateEventBody }) =>
-      api.put<Event>(`/worlds/${worldId}/events/${eventId}`, body),
+    mutationFn: ({
+      eventId,
+      body,
+    }: {
+      eventId: string;
+      body: UpdateEventBody;
+    }) => api.put<Event>(`/worlds/${worldId}/events/${eventId}`, body),
     onSuccess: () => qc.invalidateQueries({ queryKey: eventKeys.all(worldId) }),
   });
 }

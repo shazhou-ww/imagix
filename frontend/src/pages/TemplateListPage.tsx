@@ -21,11 +21,11 @@ import {
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  useTemplates,
   useCreateTemplate,
-  useDeleteTemplate,
-  useUpdateTemplate,
   useCreateWorldFromTemplate,
+  useDeleteTemplate,
+  useTemplates,
+  useUpdateTemplate,
 } from "@/api/hooks/useTemplates";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import EmptyState from "@/components/EmptyState";
@@ -172,7 +172,9 @@ export default function TemplateListPage() {
                     <Typography variant="h6" fontWeight="bold" gutterBottom>
                       {tpl.name}
                     </Typography>
-                    <Box sx={{ display: "flex", gap: 0.5, ml: 1, flexShrink: 0 }}>
+                    <Box
+                      sx={{ display: "flex", gap: 0.5, ml: 1, flexShrink: 0 }}
+                    >
                       <Tooltip title="编辑模板">
                         <IconButton
                           size="small"
@@ -207,7 +209,9 @@ export default function TemplateListPage() {
                       {tpl.description}
                     </Typography>
                   )}
-                  <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mt: 1 }}>
+                  <Box
+                    sx={{ display: "flex", gap: 1, flexWrap: "wrap", mt: 1 }}
+                  >
                     <Typography variant="caption" color="text.secondary">
                       分类节点: {tpl.snapshot.taxonomy.length}
                     </Typography>

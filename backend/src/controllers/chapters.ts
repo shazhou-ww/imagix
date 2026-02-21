@@ -1,10 +1,10 @@
 import {
+  type Chapter,
+  ChapterSchema,
+  type CreateChapterBody,
   createId,
   EntityPrefix,
-  ChapterSchema,
-  type Chapter,
   type Story,
-  type CreateChapterBody,
   type UpdateChapterBody,
 } from "@imagix/shared";
 import * as repo from "../db/repository.js";

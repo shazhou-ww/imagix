@@ -1,4 +1,4 @@
-import type { Thing, TaxonomyNode, Event as WorldEvent } from "@imagix/shared";
+import type { TaxonomyNode, Thing, Event as WorldEvent } from "@imagix/shared";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
@@ -28,22 +28,25 @@ import {
 } from "@mui/material";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import {
-  useThings,
-  useCreateThing,
-  useUpdateThing,
-  useDeleteThing,
-  useEndThing,
-  useUndoEndThing,
-} from "@/api/hooks/useThings";
 import { useEvents } from "@/api/hooks/useEvents";
 import { useTaxonomyTree } from "@/api/hooks/useTaxonomy";
+import {
+  useCreateThing,
+  useDeleteThing,
+  useEndThing,
+  useThings,
+  useUndoEndThing,
+  useUpdateThing,
+} from "@/api/hooks/useThings";
 import ConfirmDialog from "@/components/ConfirmDialog";
-import EpochTimeInput from "@/components/EpochTimeInput";
 import EmptyState from "@/components/EmptyState";
+import EpochTimeInput from "@/components/EpochTimeInput";
 import { parseEpochMs } from "@/utils/time";
 
-function getAncestorChain(nodeId: string, nodeMap: Map<string, TaxonomyNode>): TaxonomyNode[] {
+function getAncestorChain(
+  nodeId: string,
+  nodeMap: Map<string, TaxonomyNode>,
+): TaxonomyNode[] {
   const chain: TaxonomyNode[] = [];
   let cur = nodeMap.get(nodeId);
   while (cur) {
@@ -60,11 +63,11 @@ export default function ThingListPage() {
   const scrolledRef = useRef(false);
   const { data: things, isLoading } = useThings(worldId);
   const { data: thingNodes } = useTaxonomyTree(worldId, "THING");
-  const createThing = useCreateThing(worldId!);
-  const updateThing = useUpdateThing(worldId!);
-  const deleteThing = useDeleteThing(worldId!);
-  const endThing = useEndThing(worldId!);
-  const undoEndThing = useUndoEndThing(worldId!);
+  const createThing = useCreateThing(worldId ?? "");
+  const updateThing = useUpdateThing(worldId ?? "");
+  const deleteThing = useDeleteThing(worldId ?? "");
+  const endThing = useEndThing(worldId ?? "");
+  const undoEndThing = useUndoEndThing(worldId ?? "");
   const { data: events } = useEvents(worldId);
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -80,14 +83,18 @@ export default function ThingListPage() {
   // Filter state
   const [filterName, setFilterName] = useState("");
   const [filterCategoryId, setFilterCategoryId] = useState("");
-  const [filterStatus, setFilterStatus] = useState<"all" | "alive" | "ended">("all");
+  const [filterStatus, setFilterStatus] = useState<"all" | "alive" | "ended">(
+    "all",
+  );
 
   const birthEventMap = useMemo(() => {
     const map = new Map<string, WorldEvent>();
     for (const evt of events ?? []) {
-      const birthAc = evt.system && evt.impacts?.attributeChanges?.find(
-        (ac) => ac.attribute === "$alive" && ac.value === true,
-      );
+      const birthAc =
+        evt.system &&
+        evt.impacts?.attributeChanges?.find(
+          (ac) => ac.attribute === "$alive" && ac.value === true,
+        );
       if (birthAc) map.set(birthAc.entityId, evt);
     }
     return map;
@@ -114,12 +121,18 @@ export default function ThingListPage() {
     }
     if (filterCategoryId) {
       const ids = new Set<string>();
-      const collect = (nid: string) => { ids.add(nid); for (const n of thingNodes ?? []) { if (n.parentId === nid) collect(n.id); } };
+      const collect = (nid: string) => {
+        ids.add(nid);
+        for (const n of thingNodes ?? []) {
+          if (n.parentId === nid) collect(n.id);
+        }
+      };
       collect(filterCategoryId);
       result = result.filter((t) => ids.has(t.categoryNodeId));
     }
     if (filterStatus === "alive") result = result.filter((t) => !t.endEventId);
-    else if (filterStatus === "ended") result = result.filter((t) => !!t.endEventId);
+    else if (filterStatus === "ended")
+      result = result.filter((t) => !!t.endEventId);
     return result;
   }, [things, filterName, filterCategoryId, filterStatus, thingNodes]);
 
@@ -135,7 +148,9 @@ export default function ThingListPage() {
       el.style.outline = "2px solid";
       el.style.outlineColor = "var(--mui-palette-primary-main, #1976d2)";
       el.style.borderRadius = "8px";
-      setTimeout(() => { el.style.outline = "none"; }, 2000);
+      setTimeout(() => {
+        el.style.outline = "none";
+      }, 2000);
     }
   }, [location.hash, things]);
 
@@ -158,7 +173,10 @@ export default function ThingListPage() {
     if (!thingName.trim() || !categoryNodeId) return;
     if (editingThing) {
       updateThing.mutate(
-        { thingId: editingThing.id, body: { name: thingName.trim(), categoryNodeId } },
+        {
+          thingId: editingThing.id,
+          body: { name: thingName.trim(), categoryNodeId },
+        },
         { onSuccess: () => setDialogOpen(false) },
       );
     } else {
@@ -185,7 +203,10 @@ export default function ThingListPage() {
   const handleEnd = () => {
     if (!endTarget) return;
     endThing.mutate(
-      { thingId: endTarget.id, body: { time: endTime, content: endContent.trim() || undefined } },
+      {
+        thingId: endTarget.id,
+        body: { time: endTime, content: endContent.trim() || undefined },
+      },
       { onSuccess: () => setEndTarget(null) },
     );
   };
@@ -214,11 +235,22 @@ export default function ThingListPage() {
 
   return (
     <Box>
-      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          mb: 2,
+        }}
+      >
         <Typography variant="h4" fontWeight="bold">
           事物
         </Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={openCreate}
+        >
           添加事物
         </Button>
       </Box>
@@ -230,7 +262,15 @@ export default function ThingListPage() {
             placeholder="搜索事物"
             value={filterName}
             onChange={(e) => setFilterName(e.target.value)}
-            slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> } }}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              },
+            }}
             sx={{ minWidth: 180 }}
           />
           <TextField
@@ -244,7 +284,9 @@ export default function ThingListPage() {
           >
             <MenuItem value="">全部</MenuItem>
             {(thingNodes ?? []).map((n) => (
-              <MenuItem key={n.id} value={n.id}>{n.name}</MenuItem>
+              <MenuItem key={n.id} value={n.id}>
+                {n.name}
+              </MenuItem>
             ))}
           </TextField>
           <TextField
@@ -252,7 +294,9 @@ export default function ThingListPage() {
             select
             label="状态"
             value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value as "all" | "alive" | "ended")}
+            onChange={(e) =>
+              setFilterStatus(e.target.value as "all" | "alive" | "ended")
+            }
             sx={{ minWidth: 120 }}
             slotProps={{ inputLabel: { htmlFor: undefined } }}
           >
@@ -266,12 +310,27 @@ export default function ThingListPage() {
       {!filteredThings.length ? (
         <EmptyState
           title={things?.length ? "无匹配事物" : "暂无事物"}
-          description={things?.length ? "尝试调整筛选条件" : "先在分类体系中定义事物分类，然后添加事物"}
+          description={
+            things?.length
+              ? "尝试调整筛选条件"
+              : "先在分类体系中定义事物分类，然后添加事物"
+          }
           action={
             things?.length ? (
-              <Button variant="outlined" onClick={() => { setFilterName(""); setFilterCategoryId(""); setFilterStatus("all"); }}>清除筛选</Button>
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  setFilterName("");
+                  setFilterCategoryId("");
+                  setFilterStatus("all");
+                }}
+              >
+                清除筛选
+              </Button>
             ) : (
-              <Button variant="outlined" onClick={openCreate}>添加事物</Button>
+              <Button variant="outlined" onClick={openCreate}>
+                添加事物
+              </Button>
             )
           }
         />
@@ -285,43 +344,90 @@ export default function ThingListPage() {
                 <Card id={thing.id}>
                   <CardContent>
                     <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
-                      <Typography variant="subtitle1" fontWeight="bold" sx={{ flex: 1 }}>
+                      <Typography
+                        variant="subtitle1"
+                        fontWeight="bold"
+                        sx={{ flex: 1 }}
+                      >
                         {thing.name}
                       </Typography>
                       <Tooltip title="编辑">
-                        <IconButton size="small" onClick={() => openEdit(thing)}>
+                        <IconButton
+                          size="small"
+                          onClick={() => openEdit(thing)}
+                        >
                           <EditIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
                       <Tooltip title="删除">
-                        <IconButton size="small" color="error" onClick={() => setDeleteTarget(thing)}>
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => setDeleteTarget(thing)}
+                        >
                           <DeleteIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
                     </Box>
                     {/* Classification path */}
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, flexWrap: "wrap" }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 0.5,
+                        flexWrap: "wrap",
+                      }}
+                    >
                       {chain.length > 0 ? (
                         chain.map((n, i) => (
-                          <Box key={n.id} sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
+                          <Box
+                            key={n.id}
+                            sx={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 0.5,
+                            }}
+                          >
                             <Chip
                               label={n.name}
                               size="small"
-                              variant={i === chain.length - 1 ? "filled" : "outlined"}
-                              color={i === chain.length - 1 ? "primary" : "default"}
+                              variant={
+                                i === chain.length - 1 ? "filled" : "outlined"
+                              }
+                              color={
+                                i === chain.length - 1 ? "primary" : "default"
+                              }
                               sx={{ height: 22, fontSize: "0.75rem" }}
                             />
                             {i < chain.length - 1 && (
-                              <Typography variant="caption" color="text.disabled">›</Typography>
+                              <Typography
+                                variant="caption"
+                                color="text.disabled"
+                              >
+                                ›
+                              </Typography>
                             )}
                           </Box>
                         ))
                       ) : (
-                        <Chip label={node?.name ?? "未知分类"} size="small" variant="outlined" sx={{ height: 22, fontSize: "0.75rem" }} />
+                        <Chip
+                          label={node?.name ?? "未知分类"}
+                          size="small"
+                          variant="outlined"
+                          sx={{ height: 22, fontSize: "0.75rem" }}
+                        />
                       )}
                     </Box>
                     {/* Lifecycle events */}
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, flexWrap: "wrap", mt: 1 }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 0.5,
+                        flexWrap: "wrap",
+                        mt: 1,
+                      }}
+                    >
                       {(() => {
                         const birth = birthEventMap.get(thing.id);
                         return birth ? (
@@ -331,8 +437,14 @@ export default function ThingListPage() {
                             size="small"
                             color="success"
                             variant="outlined"
-                            sx={{ height: 22, fontSize: "0.75rem", cursor: "pointer" }}
-                            onClick={() => navigate(`/worlds/${worldId}/events#${birth.id}`)}
+                            sx={{
+                              height: 22,
+                              fontSize: "0.75rem",
+                              cursor: "pointer",
+                            }}
+                            onClick={() =>
+                              navigate(`/worlds/${worldId}/events#${birth.id}`)
+                            }
                           />
                         ) : null;
                       })()}
@@ -340,12 +452,23 @@ export default function ThingListPage() {
                         <>
                           <Chip
                             icon={<HighlightOffIcon sx={{ fontSize: 14 }} />}
-                            label={`消亡 ${(() => { const e = eventMap.get(thing.endEventId); return e ? fmtTime(e.time) : ""; })()}`}
+                            label={`消亡 ${(() => {
+                              const e = eventMap.get(thing.endEventId);
+                              return e ? fmtTime(e.time) : "";
+                            })()}`}
                             size="small"
                             color="error"
                             variant="outlined"
-                            sx={{ height: 22, fontSize: "0.75rem", cursor: "pointer" }}
-                            onClick={() => navigate(`/worlds/${worldId}/events#${thing.endEventId}`)}
+                            sx={{
+                              height: 22,
+                              fontSize: "0.75rem",
+                              cursor: "pointer",
+                            }}
+                            onClick={() =>
+                              navigate(
+                                `/worlds/${worldId}/events#${thing.endEventId}`,
+                              )
+                            }
                           />
                           <Tooltip title="撤销消亡">
                             <IconButton
@@ -364,11 +487,19 @@ export default function ThingListPage() {
                           variant="outlined"
                           color="default"
                           onClick={() => openEndDialog(thing)}
-                          sx={{ height: 22, fontSize: "0.75rem", cursor: "pointer" }}
+                          sx={{
+                            height: 22,
+                            fontSize: "0.75rem",
+                            cursor: "pointer",
+                          }}
                         />
                       )}
                     </Box>
-                    <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ mt: 1, display: "block" }}
+                    >
                       {thing.id}
                     </Typography>
                   </CardContent>
@@ -380,9 +511,21 @@ export default function ThingListPage() {
       )}
 
       {/* Create / Edit Dialog */}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>{editingThing ? "编辑事物" : "添加事物"}</DialogTitle>
-        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}>
+        <DialogContent
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+            pt: "8px !important",
+          }}
+        >
           <TextField
             label="事物名称"
             value={thingName}
@@ -415,7 +558,7 @@ export default function ThingListPage() {
               required
               helperText="选择事物所属的分类节点"
             >
-              {thingNodes!.map((n) => (
+              {thingNodes?.map((n) => (
                 <MenuItem key={n.id} value={n.id}>
                   {n.name}
                 </MenuItem>
@@ -424,9 +567,19 @@ export default function ThingListPage() {
           )}
           {!editingThing && (
             <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>创建时间</Typography>
-              <EpochTimeInput value={creationTime} onChange={setCreationTime} showPreview />
-              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                创建时间
+              </Typography>
+              <EpochTimeInput
+                value={creationTime}
+                onChange={setCreationTime}
+                showPreview
+              />
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ mt: 0.5, display: "block" }}
+              >
                 创建后会自动生成「创建」事件。
               </Typography>
             </Box>
@@ -437,7 +590,12 @@ export default function ThingListPage() {
           <Button
             variant="contained"
             onClick={handleSave}
-            disabled={!thingName.trim() || !categoryNodeId || createThing.isPending || updateThing.isPending}
+            disabled={
+              !thingName.trim() ||
+              !categoryNodeId ||
+              createThing.isPending ||
+              updateThing.isPending
+            }
           >
             {editingThing ? "保存" : "创建"}
           </Button>
@@ -454,12 +612,26 @@ export default function ThingListPage() {
       />
 
       {/* End (Destruction) Dialog */}
-      <Dialog open={!!endTarget} onClose={() => setEndTarget(null)} maxWidth="sm" fullWidth>
+      <Dialog
+        open={!!endTarget}
+        onClose={() => setEndTarget(null)}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>标记消亡 — {endTarget?.name}</DialogTitle>
-        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}>
+        <DialogContent
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+            pt: "8px !important",
+          }}
+        >
           {endTimeError && <Alert severity="error">{endTimeError}</Alert>}
           <Box>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>消亡时间</Typography>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+              消亡时间
+            </Typography>
             <EpochTimeInput value={endTime} onChange={setEndTime} showPreview />
           </Box>
           <TextField

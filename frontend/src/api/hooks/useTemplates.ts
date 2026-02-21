@@ -1,9 +1,9 @@
 import type {
   CreateTemplateBody,
-  UpdateTemplateBody,
   CreateWorldFromTemplateBody,
-  WorldTemplate,
+  UpdateTemplateBody,
   World,
+  WorldTemplate,
 } from "@imagix/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../client";
@@ -47,8 +47,7 @@ export function useUpdateTemplate(templateId: string) {
 export function useDeleteTemplate() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (templateId: string) =>
-      api.delete(`/templates/${templateId}`),
+    mutationFn: (templateId: string) => api.delete(`/templates/${templateId}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["templates"] }),
   });
 }
@@ -57,10 +56,7 @@ export function useSaveWorldAsTemplate(worldId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: CreateTemplateBody) =>
-      api.post<WorldTemplate>(
-        `/worlds/${worldId}/save-as-template`,
-        body,
-      ),
+      api.post<WorldTemplate>(`/worlds/${worldId}/save-as-template`, body),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["templates"] }),
   });
 }

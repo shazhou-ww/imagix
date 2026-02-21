@@ -1,5 +1,10 @@
+import type {
+  Character,
+  CreateCharacterBody,
+  EndEntityBody,
+  UpdateCharacterBody,
+} from "@imagix/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Character, CreateCharacterBody, UpdateCharacterBody, EndEntityBody } from "@imagix/shared";
 import { api } from "../client";
 import { eventKeys } from "./useEvents";
 
@@ -10,7 +15,7 @@ export const characterKeys = {
 
 export function useCharacters(worldId?: string) {
   return useQuery<Character[]>({
-    queryKey: characterKeys.all(worldId!),
+    queryKey: characterKeys.all(worldId ?? ""),
     queryFn: () => api.get(`/worlds/${worldId}/characters`),
     enabled: !!worldId,
   });
@@ -18,7 +23,7 @@ export function useCharacters(worldId?: string) {
 
 export function useCharacter(worldId?: string, charId?: string) {
   return useQuery<Character>({
-    queryKey: characterKeys.detail(worldId!, charId!),
+    queryKey: characterKeys.detail(worldId ?? "", charId ?? ""),
     queryFn: () => api.get(`/worlds/${worldId}/characters/${charId}`),
     enabled: !!worldId && !!charId,
   });
@@ -39,9 +44,15 @@ export function useCreateCharacter(worldId: string) {
 export function useUpdateCharacter(worldId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ charId, body }: { charId: string; body: UpdateCharacterBody }) =>
-      api.put<Character>(`/worlds/${worldId}/characters/${charId}`, body),
-    onSuccess: () => qc.invalidateQueries({ queryKey: characterKeys.all(worldId) }),
+    mutationFn: ({
+      charId,
+      body,
+    }: {
+      charId: string;
+      body: UpdateCharacterBody;
+    }) => api.put<Character>(`/worlds/${worldId}/characters/${charId}`, body),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: characterKeys.all(worldId) }),
   });
 }
 

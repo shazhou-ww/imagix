@@ -1,9 +1,9 @@
-import { Hono } from "hono";
 import {
   CreateTemplateBody,
-  UpdateTemplateBody,
   CreateWorldFromTemplateBody,
+  UpdateTemplateBody,
 } from "@imagix/shared";
+import { Hono } from "hono";
 import type { AppEnv } from "../app.js";
 import { auth, p } from "../app.js";
 import * as ctrl from "../controllers/templates.js";

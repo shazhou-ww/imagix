@@ -8,11 +8,12 @@
  * The /oauth sub-routes handle registration, authorization, and token exchange.
  * The MCP endpoint itself requires a valid Bearer token.
  */
-import { Hono } from "hono";
+
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
+import { Hono } from "hono";
 import type { AppEnv } from "../app.js";
-import { createMcpServer } from "./server.js";
 import { oauthRoutes, requireMcpAuth } from "./auth.js";
+import { createMcpServer } from "./server.js";
 
 const app = new Hono<AppEnv>();
 

@@ -20,15 +20,19 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "@/api/client";
-import { useWorld, useDeleteWorld, useUpdateWorld } from "@/api/hooks/useWorlds";
 import { useSaveWorldAsTemplate } from "@/api/hooks/useTemplates";
+import {
+  useDeleteWorld,
+  useUpdateWorld,
+  useWorld,
+} from "@/api/hooks/useWorlds";
 import ConfirmDialog from "@/components/ConfirmDialog";
 
 export default function WorldSettingsPage() {
   const { worldId } = useParams<{ worldId: string }>();
   const navigate = useNavigate();
   const { data: world, isLoading } = useWorld(worldId);
-  const updateWorld = useUpdateWorld(worldId!);
+  const updateWorld = useUpdateWorld(worldId ?? "");
   const deleteWorld = useDeleteWorld();
 
   const [name, setName] = useState("");
@@ -48,7 +52,7 @@ export default function WorldSettingsPage() {
   const [snackMsg, setSnackMsg] = useState("");
 
   // Save as template
-  const saveAsTemplate = useSaveWorldAsTemplate(worldId!);
+  const saveAsTemplate = useSaveWorldAsTemplate(worldId ?? "");
   const [templateOpen, setTemplateOpen] = useState(false);
   const [tplName, setTplName] = useState("");
   const [tplDesc, setTplDesc] = useState("");
@@ -76,15 +80,19 @@ export default function WorldSettingsPage() {
   };
 
   const handleDelete = () => {
-    deleteWorld.mutate(worldId!, {
+    deleteWorld.mutate(worldId ?? "", {
       onSuccess: () => navigate("/"),
     });
   };
 
   const handleExport = async () => {
     try {
-      const data = await api.get<Record<string, unknown>>(`/worlds/${worldId}/export`);
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const data = await api.get<Record<string, unknown>>(
+        `/worlds/${worldId}/export`,
+      );
+      const blob = new Blob([JSON.stringify(data, null, 2)], {
+        type: "application/json",
+      });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -141,7 +149,9 @@ export default function WorldSettingsPage() {
         世界设定
       </Typography>
 
-      <Box sx={{ display: "flex", flexDirection: "column", gap: 3, maxWidth: 600 }}>
+      <Box
+        sx={{ display: "flex", flexDirection: "column", gap: 3, maxWidth: 600 }}
+      >
         <TextField
           label="世界名称"
           value={name}
@@ -187,7 +197,11 @@ export default function WorldSettingsPage() {
           数据导出 / 导入
         </Typography>
         <Box sx={{ display: "flex", gap: 2 }}>
-          <Button variant="outlined" startIcon={<DownloadIcon />} onClick={handleExport}>
+          <Button
+            variant="outlined"
+            startIcon={<DownloadIcon />}
+            onClick={handleExport}
+          >
             导出世界数据
           </Button>
           <Button

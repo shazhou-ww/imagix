@@ -1,8 +1,12 @@
-import type { TaxonomyTree, TaxonomyNode } from "@imagix/shared";
+import type {
+  TaxonomyNode,
+  TaxonomyTree,
+  UpdateTaxonomyNodeBody,
+} from "@imagix/shared";
 import AddIcon from "@mui/icons-material/Add";
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import DeleteIcon from "@mui/icons-material/Delete";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import SaveIcon from "@mui/icons-material/Save";
 import {
   Box,
@@ -23,13 +27,13 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import { useState, useMemo, useCallback } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-  useTaxonomyTree,
   useCreateTaxonomyNode,
-  useUpdateTaxonomyNode,
   useDeleteTaxonomyNode,
+  useTaxonomyTree,
+  useUpdateTaxonomyNode,
 } from "@/api/hooks/useTaxonomy";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import EmptyState from "@/components/EmptyState";
@@ -53,7 +57,14 @@ interface TreeNodeProps {
   onAddChild: (parentId: string) => void;
 }
 
-function TreeNodeItem({ node, nodes, depth, selectedId, onSelect, onAddChild }: TreeNodeProps) {
+function TreeNodeItem({
+  node,
+  nodes,
+  depth,
+  selectedId,
+  onSelect,
+  onAddChild,
+}: TreeNodeProps) {
   const [expanded, setExpanded] = useState(true);
   const children = nodes.filter((n) => n.parentId === node.id);
   const isSelected = selectedId === node.id;
@@ -84,7 +95,11 @@ function TreeNodeItem({ node, nodes, depth, selectedId, onSelect, onAddChild }: 
           }}
           sx={{ visibility: children.length ? "visible" : "hidden", mr: 0.5 }}
         >
-          {expanded ? <ExpandMoreIcon fontSize="small" /> : <ChevronRightIcon fontSize="small" />}
+          {expanded ? (
+            <ExpandMoreIcon fontSize="small" />
+          ) : (
+            <ChevronRightIcon fontSize="small" />
+          )}
         </IconButton>
         <Typography
           sx={{
@@ -145,7 +160,7 @@ function NodeDetailPanel({
 }: {
   node: TaxonomyNode;
   nodes: TaxonomyNode[];
-  onSave: (nodeId: string, body: any) => void;
+  onSave: (nodeId: string, body: UpdateTaxonomyNodeBody) => void;
   onDelete: (node: TaxonomyNode) => void;
   saving: boolean;
 }) {
@@ -209,7 +224,11 @@ function NodeDetailPanel({
         </Button>
         {!node.system && (
           <Tooltip title="删除此节点">
-            <IconButton size="small" color="error" onClick={() => onDelete(node)}>
+            <IconButton
+              size="small"
+              color="error"
+              onClick={() => onDelete(node)}
+            >
               <DeleteIcon fontSize="small" />
             </IconButton>
           </Tooltip>
@@ -218,20 +237,44 @@ function NodeDetailPanel({
 
       {/* Classification path */}
       {ancestorPath.length > 0 && (
-        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, flexWrap: "wrap" }}>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 0.5,
+            flexWrap: "wrap",
+          }}
+        >
           <Typography variant="caption" color="text.secondary">
             路径:
           </Typography>
           {ancestorPath.map((a, i) => (
-            <Box key={a.id} sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-              <Chip label={a.name} size="small" variant="outlined" sx={{ height: 22, fontSize: "0.75rem" }} />
+            <Box
+              key={a.id}
+              sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
+            >
+              <Chip
+                label={a.name}
+                size="small"
+                variant="outlined"
+                sx={{ height: 22, fontSize: "0.75rem" }}
+              />
               {i < ancestorPath.length - 1 && (
-                <Typography variant="caption" color="text.secondary">›</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  ›
+                </Typography>
               )}
             </Box>
           ))}
-          <Typography variant="caption" color="text.secondary">›</Typography>
-          <Chip label={node.name} size="small" color="primary" sx={{ height: 22, fontSize: "0.75rem" }} />
+          <Typography variant="caption" color="text.secondary">
+            ›
+          </Typography>
+          <Chip
+            label={node.name}
+            size="small"
+            color="primary"
+            sx={{ height: 22, fontSize: "0.75rem" }}
+          />
         </Box>
       )}
 
@@ -239,7 +282,10 @@ function NodeDetailPanel({
       <TextField
         label="分类名称"
         value={name}
-        onChange={(e) => { setName(e.target.value); markDirty(); }}
+        onChange={(e) => {
+          setName(e.target.value);
+          markDirty();
+        }}
         size="small"
         required
         disabled={node.system}
@@ -255,13 +301,20 @@ function NodeDetailPanel({
         <TextField
           size="small"
           value={timeFormula}
-          onChange={(e) => { setTimeFormula(e.target.value); markDirty(); }}
+          onChange={(e) => {
+            setTimeFormula(e.target.value);
+            markDirty();
+          }}
           multiline
           rows={3}
           fullWidth
           disabled={node.system}
           placeholder='例如: { "$age": attributes.`$age` + (currentTime - lastTime) }'
-          helperText={node.system ? "系统预置公式，不可修改" : "JSONata 表达式，事件溯源回放时自动执行。子节点继承，可覆盖。"}
+          helperText={
+            node.system
+              ? "系统预置公式，不可修改"
+              : "JSONata 表达式，事件溯源回放时自动执行。子节点继承，可覆盖。"
+          }
         />
       </Box>
     </Box>
@@ -278,9 +331,9 @@ export default function TaxonomyPage() {
   const currentTree = (tree as TaxonomyTree) ?? "CHAR";
 
   const { data: nodes, isLoading } = useTaxonomyTree(worldId, currentTree);
-  const createNode = useCreateTaxonomyNode(worldId!, currentTree);
-  const updateNode = useUpdateTaxonomyNode(worldId!, currentTree);
-  const deleteNode = useDeleteTaxonomyNode(worldId!, currentTree);
+  const createNode = useCreateTaxonomyNode(worldId ?? "", currentTree);
+  const updateNode = useUpdateTaxonomyNode(worldId ?? "", currentTree);
+  const deleteNode = useDeleteTaxonomyNode(worldId ?? "", currentTree);
 
   const [selectedNode, setSelectedNode] = useState<TaxonomyNode | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -317,7 +370,7 @@ export default function TaxonomyPage() {
     );
   };
 
-  const handleSaveNode = (nodeId: string, body: any) => {
+  const handleSaveNode = (nodeId: string, body: UpdateTaxonomyNodeBody) => {
     updateNode.mutate({ nodeId, body });
   };
 
@@ -333,7 +386,14 @@ export default function TaxonomyPage() {
 
   return (
     <Box>
-      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          mb: 2,
+        }}
+      >
         <Typography variant="h4" fontWeight="bold">
           分类体系
         </Typography>
@@ -366,13 +426,19 @@ export default function TaxonomyPage() {
           {/* Left: Tree */}
           <Paper
             variant="outlined"
-            sx={{ width: 320, minWidth: 260, flexShrink: 0, overflow: "auto", py: 1 }}
+            sx={{
+              width: 320,
+              minWidth: 260,
+              flexShrink: 0,
+              overflow: "auto",
+              py: 1,
+            }}
           >
             {rootNodes.map((node) => (
               <TreeNodeItem
                 key={node.id}
                 node={node}
-                nodes={nodes!}
+                nodes={nodes ?? []}
                 depth={0}
                 selectedId={activeNode?.id ?? null}
                 onSelect={setSelectedNode}
@@ -387,7 +453,7 @@ export default function TaxonomyPage() {
               <NodeDetailPanel
                 key={activeNode.id}
                 node={activeNode}
-                nodes={nodes!}
+                nodes={nodes ?? []}
                 onSave={handleSaveNode}
                 onDelete={setDeleteTarget}
                 saving={updateNode.isPending}
@@ -410,9 +476,21 @@ export default function TaxonomyPage() {
       )}
 
       {/* Create Node Dialog */}
-      <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="xs" fullWidth>
+      <Dialog
+        open={createDialogOpen}
+        onClose={() => setCreateDialogOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
         <DialogTitle>添加分类节点</DialogTitle>
-        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}>
+        <DialogContent
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+            pt: "8px !important",
+          }}
+        >
           <TextField
             label="分类名称"
             value={createName}
@@ -440,7 +518,9 @@ export default function TaxonomyPage() {
           <Button
             variant="contained"
             onClick={handleCreate}
-            disabled={!createName.trim() || !createParentId || createNode.isPending}
+            disabled={
+              !createName.trim() || !createParentId || createNode.isPending
+            }
           >
             创建
           </Button>

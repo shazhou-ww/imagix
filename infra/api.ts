@@ -1,5 +1,5 @@
-import { database } from "./database";
 import { auth } from "./auth";
+import { database } from "./database";
 
 export const api = new sst.aws.ApiGatewayV2("ImagixApi", {
   cors: {

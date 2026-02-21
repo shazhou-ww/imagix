@@ -1,15 +1,15 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
-  Story,
   Chapter,
-  Plot,
-  CreateStoryBody,
-  UpdateStoryBody,
   CreateChapterBody,
-  UpdateChapterBody,
   CreatePlotBody,
+  CreateStoryBody,
+  Plot,
+  Story,
+  UpdateChapterBody,
   UpdatePlotBody,
+  UpdateStoryBody,
 } from "@imagix/shared";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../client";
 
 // ---------------------------------------------------------------------------
@@ -23,7 +23,7 @@ export const storyKeys = {
 
 export function useStories(worldId?: string) {
   return useQuery<Story[]>({
-    queryKey: storyKeys.all(worldId!),
+    queryKey: storyKeys.all(worldId ?? ""),
     queryFn: () => api.get(`/worlds/${worldId}/stories`),
     enabled: !!worldId,
   });
@@ -31,7 +31,7 @@ export function useStories(worldId?: string) {
 
 export function useStory(worldId?: string, storyId?: string) {
   return useQuery<Story>({
-    queryKey: storyKeys.detail(worldId!, storyId!),
+    queryKey: storyKeys.detail(worldId ?? "", storyId ?? ""),
     queryFn: () => api.get(`/worlds/${worldId}/stories/${storyId}`),
     enabled: !!worldId && !!storyId,
   });
@@ -42,18 +42,21 @@ export function useCreateStory(worldId: string) {
   return useMutation({
     mutationFn: (body: CreateStoryBody) =>
       api.post<Story>(`/worlds/${worldId}/stories`, body),
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: storyKeys.all(worldId) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: storyKeys.all(worldId) }),
   });
 }
 
 export function useUpdateStory(worldId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ storyId, body }: { storyId: string; body: UpdateStoryBody }) =>
-      api.put<Story>(`/worlds/${worldId}/stories/${storyId}`, body),
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: storyKeys.all(worldId) }),
+    mutationFn: ({
+      storyId,
+      body,
+    }: {
+      storyId: string;
+      body: UpdateStoryBody;
+    }) => api.put<Story>(`/worlds/${worldId}/stories/${storyId}`, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: storyKeys.all(worldId) }),
   });
 }
 
@@ -62,8 +65,7 @@ export function useDeleteStory(worldId: string) {
   return useMutation({
     mutationFn: (storyId: string) =>
       api.delete(`/worlds/${worldId}/stories/${storyId}`),
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: storyKeys.all(worldId) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: storyKeys.all(worldId) }),
   });
 }
 
@@ -78,7 +80,7 @@ export const chapterKeys = {
 
 export function useChapters(storyId?: string) {
   return useQuery<Chapter[]>({
-    queryKey: chapterKeys.all(storyId!),
+    queryKey: chapterKeys.all(storyId ?? ""),
     queryFn: () => api.get(`/stories/${storyId}/chapters`),
     enabled: !!storyId,
   });
@@ -100,8 +102,10 @@ export function useUpdateChapter(storyId: string) {
     mutationFn: ({
       chapterId,
       body,
-    }: { chapterId: string; body: UpdateChapterBody }) =>
-      api.put<Chapter>(`/stories/${storyId}/chapters/${chapterId}`, body),
+    }: {
+      chapterId: string;
+      body: UpdateChapterBody;
+    }) => api.put<Chapter>(`/stories/${storyId}/chapters/${chapterId}`, body),
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: chapterKeys.all(storyId) }),
   });
@@ -130,7 +134,7 @@ export const plotKeys = {
 
 export function usePlots(storyId?: string) {
   return useQuery<Plot[]>({
-    queryKey: plotKeys.all(storyId!),
+    queryKey: plotKeys.all(storyId ?? ""),
     queryFn: () => api.get(`/stories/${storyId}/chapters/_/plots`),
     enabled: !!storyId,
   });
@@ -140,12 +144,8 @@ export function useCreatePlot(storyId: string, chapterId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: CreatePlotBody) =>
-      api.post<Plot>(
-        `/stories/${storyId}/chapters/${chapterId}/plots`,
-        body,
-      ),
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: plotKeys.all(storyId) }),
+      api.post<Plot>(`/stories/${storyId}/chapters/${chapterId}/plots`, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: plotKeys.all(storyId) }),
   });
 }
 
@@ -154,8 +154,7 @@ export function useUpdatePlot(storyId: string) {
   return useMutation({
     mutationFn: ({ plotId, body }: { plotId: string; body: UpdatePlotBody }) =>
       api.put<Plot>(`/stories/${storyId}/plots/${plotId}`, body),
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: plotKeys.all(storyId) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: plotKeys.all(storyId) }),
   });
 }
 
@@ -164,7 +163,6 @@ export function useDeletePlot(storyId: string) {
   return useMutation({
     mutationFn: (plotId: string) =>
       api.delete(`/stories/${storyId}/plots/${plotId}`),
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: plotKeys.all(storyId) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: plotKeys.all(storyId) }),
   });
 }

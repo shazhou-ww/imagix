@@ -1,3 +1,4 @@
+import type { WorldTemplate } from "@imagix/shared";
 import AccountTreeIcon from "@mui/icons-material/AccountTree";
 import AddIcon from "@mui/icons-material/Add";
 import AssignmentIcon from "@mui/icons-material/Assignment";
@@ -44,10 +45,12 @@ import {
 } from "@mui/material";
 import { type ReactNode, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useAuth } from "@/auth/AuthContext";
+import {
+  useCreateWorldFromTemplate,
+  useTemplates,
+} from "@/api/hooks/useTemplates";
 import { useCreateWorld, useWorlds } from "@/api/hooks/useWorlds";
-import { useTemplates, useCreateWorldFromTemplate } from "@/api/hooks/useTemplates";
-import type { WorldTemplate } from "@imagix/shared";
+import { useAuth } from "@/auth/AuthContext";
 
 const DRAWER_WIDTH = 240;
 
@@ -103,7 +106,8 @@ function CreateWorldDialog({
   const createWorldFromTemplate = useCreateWorldFromTemplate();
 
   const [step, setStep] = useState<"select" | "details">("select");
-  const [selectedTemplate, setSelectedTemplate] = useState<WorldTemplate | null>(null);
+  const [selectedTemplate, setSelectedTemplate] =
+    useState<WorldTemplate | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [epoch, setEpoch] = useState("");
@@ -148,13 +152,27 @@ function CreateWorldDialog({
             epoch: epoch.trim() || undefined,
           },
         },
-        { onSuccess: (world) => { handleClose(); onCreated(world.id); } },
+        {
+          onSuccess: (world) => {
+            handleClose();
+            onCreated(world.id);
+          },
+        },
       );
     } else {
       if (!name.trim() || !epoch.trim()) return;
       createWorld.mutate(
-        { name: name.trim(), description: description.trim() || undefined, epoch: epoch.trim() },
-        { onSuccess: (world) => { handleClose(); onCreated(world.id); } },
+        {
+          name: name.trim(),
+          description: description.trim() || undefined,
+          epoch: epoch.trim(),
+        },
+        {
+          onSuccess: (world) => {
+            handleClose();
+            onCreated(world.id);
+          },
+        },
       );
     }
   };
@@ -186,10 +204,16 @@ function CreateWorldDialog({
                     height: "100%",
                     borderStyle: "dashed",
                     borderColor: "primary.main",
-                    "&:hover": { borderColor: "primary.dark", bgcolor: "action.hover" },
+                    "&:hover": {
+                      borderColor: "primary.dark",
+                      bgcolor: "action.hover",
+                    },
                   }}
                 >
-                  <CardActionArea onClick={handleSelectEmpty} sx={{ height: "100%" }}>
+                  <CardActionArea
+                    onClick={handleSelectEmpty}
+                    sx={{ height: "100%" }}
+                  >
                     <CardContent
                       sx={{
                         display: "flex",
@@ -199,7 +223,9 @@ function CreateWorldDialog({
                         py: 4,
                       }}
                     >
-                      <NoteAddIcon sx={{ fontSize: 40, color: "primary.main", mb: 1 }} />
+                      <NoteAddIcon
+                        sx={{ fontSize: 40, color: "primary.main", mb: 1 }}
+                      />
                       <Typography variant="subtitle1" fontWeight="bold">
                         空白世界
                       </Typography>
@@ -218,7 +244,10 @@ function CreateWorldDialog({
                     variant="outlined"
                     sx={{
                       height: "100%",
-                      "&:hover": { borderColor: "primary.main", bgcolor: "action.hover" },
+                      "&:hover": {
+                        borderColor: "primary.main",
+                        bgcolor: "action.hover",
+                      },
                     }}
                   >
                     <CardActionArea
@@ -226,7 +255,11 @@ function CreateWorldDialog({
                       sx={{ height: "100%" }}
                     >
                       <CardContent>
-                        <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                        <Typography
+                          variant="subtitle1"
+                          fontWeight="bold"
+                          gutterBottom
+                        >
                           {tpl.name}
                         </Typography>
                         {tpl.description && (
@@ -270,10 +303,17 @@ function CreateWorldDialog({
       ) : (
         <>
           <DialogTitle>
-            {selectedTemplate ? `基于「${selectedTemplate.name}」创建世界` : "创建空白世界"}
+            {selectedTemplate
+              ? `基于「${selectedTemplate.name}」创建世界`
+              : "创建空白世界"}
           </DialogTitle>
           <DialogContent
-            sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 2,
+              pt: "8px !important",
+            }}
           >
             <TextField
               label="世界名称"
@@ -308,7 +348,10 @@ function CreateWorldDialog({
             <Button
               variant="contained"
               onClick={handleCreate}
-              disabled={isPending || (!selectedTemplate && (!name.trim() || !epoch.trim()))}
+              disabled={
+                isPending ||
+                (!selectedTemplate && (!name.trim() || !epoch.trim()))
+              }
             >
               创建
             </Button>
@@ -344,9 +387,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   };
 
   const username =
-    authState.status === "authenticated"
-      ? authState.displayName
-      : "";
+    authState.status === "authenticated" ? authState.displayName : "";
 
   const drawerContent = (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
@@ -370,7 +411,12 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           size="small"
           startIcon={<AddIcon />}
           onClick={() => setCreateOpen(true)}
-          sx={{ mb: 1, ml: 1, justifyContent: "flex-start", textTransform: "none" }}
+          sx={{
+            mb: 1,
+            ml: 1,
+            justifyContent: "flex-start",
+            textTransform: "none",
+          }}
           fullWidth
         >
           创建世界
@@ -396,7 +442,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                     fontSize: "0.9rem",
                   }}
                 />
-                {isActive ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                {isActive ? (
+                  <ExpandLessIcon fontSize="small" />
+                ) : (
+                  <ExpandMoreIcon fontSize="small" />
+                )}
               </ListItemButton>
 
               <Collapse in={isActive} timeout="auto" unmountOnExit>
@@ -408,7 +458,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                       onClick={() => handleNav(item.path)}
                       sx={{ borderRadius: 2, mb: 0.25, pl: 4 }}
                     >
-                      <ListItemIcon sx={{ minWidth: 32 }}>{item.icon}</ListItemIcon>
+                      <ListItemIcon sx={{ minWidth: 32 }}>
+                        {item.icon}
+                      </ListItemIcon>
                       <ListItemText
                         primary={item.label}
                         primaryTypographyProps={{ fontSize: "0.85rem" }}
@@ -420,7 +472,6 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             </Box>
           );
         })}
-
       </List>
 
       {/* User settings */}

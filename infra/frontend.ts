@@ -13,7 +13,7 @@ export const frontend = new sst.aws.StaticSite("ImagixFrontend", {
     IMAGIX_COGNITO_DOMAIN: auth.cognitoDomain,
     IMAGIX_API_URL: api.url,
   },
-  ...(($app.stage === "prod") && {
+  ...($app.stage === "prod" && {
     domain: "imagix.shazhou.me",
   }),
 });

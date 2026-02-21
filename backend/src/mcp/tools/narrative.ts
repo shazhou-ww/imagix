@@ -1,7 +1,7 @@
-import { type ToolRegistry, jsonResult, okResult } from "../registry.js";
-import * as storyCtrl from "../../controllers/stories.js";
 import * as chapterCtrl from "../../controllers/chapters.js";
 import * as plotCtrl from "../../controllers/plots.js";
+import * as storyCtrl from "../../controllers/stories.js";
+import { jsonResult, okResult, type ToolRegistry } from "../registry.js";
 
 const wid = { type: "string", description: "World ID" } as const;
 
@@ -10,9 +10,15 @@ export function registerNarrativeTools(registry: ToolRegistry) {
 
   registry.register({
     name: "list_world_stories",
-    description: "List all stories in a world. Stories organize narrative arcs with chapters and plots.",
-    inputSchema: { type: "object", properties: { worldId: wid }, required: ["worldId"] },
-    handler: async (a) => jsonResult(await storyCtrl.listByWorld(a.worldId as string)),
+    description:
+      "List all stories in a world. Stories organize narrative arcs with chapters and plots.",
+    inputSchema: {
+      type: "object",
+      properties: { worldId: wid },
+      required: ["worldId"],
+    },
+    handler: async (a) =>
+      jsonResult(await storyCtrl.listByWorld(a.worldId as string)),
   });
 
   registry.register({
@@ -23,7 +29,8 @@ export function registerNarrativeTools(registry: ToolRegistry) {
       properties: { userId: { type: "string", description: "User ID" } },
       required: ["userId"],
     },
-    handler: async (a) => jsonResult(await storyCtrl.listByUser(a.userId as string)),
+    handler: async (a) =>
+      jsonResult(await storyCtrl.listByUser(a.userId as string)),
   });
 
   registry.register({
@@ -40,6 +47,7 @@ export function registerNarrativeTools(registry: ToolRegistry) {
       required: ["worldId", "userId", "title"],
     },
     handler: async (a) => {
+      // biome-ignore lint/suspicious/noExplicitAny: MCP tool args
       const { worldId, userId, ...body } = a as any;
       return jsonResult(await storyCtrl.create(worldId, userId, body));
     },
@@ -50,10 +58,16 @@ export function registerNarrativeTools(registry: ToolRegistry) {
     description: "Get a story by ID.",
     inputSchema: {
       type: "object",
-      properties: { worldId: wid, storyId: { type: "string", description: "Story ID ('sty...')" } },
+      properties: {
+        worldId: wid,
+        storyId: { type: "string", description: "Story ID ('sty...')" },
+      },
       required: ["worldId", "storyId"],
     },
-    handler: async (a) => jsonResult(await storyCtrl.getById(a.worldId as string, a.storyId as string)),
+    handler: async (a) =>
+      jsonResult(
+        await storyCtrl.getById(a.worldId as string, a.storyId as string),
+      ),
   });
 
   registry.register({
@@ -70,6 +84,7 @@ export function registerNarrativeTools(registry: ToolRegistry) {
       required: ["worldId", "storyId"],
     },
     handler: async (a) => {
+      // biome-ignore lint/suspicious/noExplicitAny: MCP tool args
       const { worldId, storyId, ...body } = a as any;
       return jsonResult(await storyCtrl.update(worldId, storyId, body));
     },
@@ -83,20 +98,25 @@ export function registerNarrativeTools(registry: ToolRegistry) {
       properties: { worldId: wid, storyId: { type: "string" } },
       required: ["worldId", "storyId"],
     },
-    handler: async (a) => { await storyCtrl.remove(a.worldId as string, a.storyId as string); return okResult("Story deleted."); },
+    handler: async (a) => {
+      await storyCtrl.remove(a.worldId as string, a.storyId as string);
+      return okResult("Story deleted.");
+    },
   });
 
   // ── Chapters ────────────────────────────────────────────────────────────
 
   registry.register({
     name: "list_chapters",
-    description: "List all chapters of a story, ordered by position in story.chapterIds.",
+    description:
+      "List all chapters of a story, ordered by position in story.chapterIds.",
     inputSchema: {
       type: "object",
       properties: { storyId: { type: "string", description: "Story ID" } },
       required: ["storyId"],
     },
-    handler: async (a) => jsonResult(await chapterCtrl.list(a.storyId as string)),
+    handler: async (a) =>
+      jsonResult(await chapterCtrl.list(a.storyId as string)),
   });
 
   registry.register({
@@ -112,6 +132,7 @@ export function registerNarrativeTools(registry: ToolRegistry) {
       required: ["storyId", "title"],
     },
     handler: async (a) => {
+      // biome-ignore lint/suspicious/noExplicitAny: MCP tool args
       const { storyId, ...body } = a as any;
       return jsonResult(await chapterCtrl.create(storyId, body));
     },
@@ -128,7 +149,10 @@ export function registerNarrativeTools(registry: ToolRegistry) {
       },
       required: ["storyId", "chapterId"],
     },
-    handler: async (a) => jsonResult(await chapterCtrl.getById(a.storyId as string, a.chapterId as string)),
+    handler: async (a) =>
+      jsonResult(
+        await chapterCtrl.getById(a.storyId as string, a.chapterId as string),
+      ),
   });
 
   registry.register({
@@ -145,6 +169,7 @@ export function registerNarrativeTools(registry: ToolRegistry) {
       required: ["storyId", "chapterId"],
     },
     handler: async (a) => {
+      // biome-ignore lint/suspicious/noExplicitAny: MCP tool args
       const { storyId, chapterId, ...body } = a as any;
       return jsonResult(await chapterCtrl.update(storyId, chapterId, body));
     },
@@ -155,17 +180,24 @@ export function registerNarrativeTools(registry: ToolRegistry) {
     description: "Delete a chapter and remove from story's chapterIds.",
     inputSchema: {
       type: "object",
-      properties: { storyId: { type: "string" }, chapterId: { type: "string" } },
+      properties: {
+        storyId: { type: "string" },
+        chapterId: { type: "string" },
+      },
       required: ["storyId", "chapterId"],
     },
-    handler: async (a) => { await chapterCtrl.remove(a.storyId as string, a.chapterId as string); return okResult("Chapter deleted."); },
+    handler: async (a) => {
+      await chapterCtrl.remove(a.storyId as string, a.chapterId as string);
+      return okResult("Chapter deleted.");
+    },
   });
 
   // ── Plots ───────────────────────────────────────────────────────────────
 
   registry.register({
     name: "list_plots",
-    description: "List all plots in a story. Plots are the smallest narrative unit, tied to a chapter with event references.",
+    description:
+      "List all plots in a story. Plots are the smallest narrative unit, tied to a chapter with event references.",
     inputSchema: {
       type: "object",
       properties: { storyId: { type: "string" } },
@@ -176,7 +208,8 @@ export function registerNarrativeTools(registry: ToolRegistry) {
 
   registry.register({
     name: "create_plot",
-    description: "Create a plot in a chapter. eventIds reference world events. perspectiveCharacterId sets the POV character.",
+    description:
+      "Create a plot in a chapter. eventIds reference world events. perspectiveCharacterId sets the POV character.",
     inputSchema: {
       type: "object",
       properties: {
@@ -184,12 +217,20 @@ export function registerNarrativeTools(registry: ToolRegistry) {
         chapterId: { type: "string" },
         title: { type: "string", description: "Plot title" },
         content: { type: "string", description: "Plot narrative content" },
-        eventIds: { type: "array", items: { type: "string" }, description: "Referenced event IDs" },
-        perspectiveCharacterId: { type: ["string", "null"], description: "POV character ID" },
+        eventIds: {
+          type: "array",
+          items: { type: "string" },
+          description: "Referenced event IDs",
+        },
+        perspectiveCharacterId: {
+          type: ["string", "null"],
+          description: "POV character ID",
+        },
       },
       required: ["storyId", "chapterId", "title"],
     },
     handler: async (a) => {
+      // biome-ignore lint/suspicious/noExplicitAny: MCP tool args
       const { storyId, chapterId, ...body } = a as any;
       return jsonResult(await plotCtrl.create(storyId, chapterId, body));
     },
@@ -206,7 +247,10 @@ export function registerNarrativeTools(registry: ToolRegistry) {
       },
       required: ["storyId", "plotId"],
     },
-    handler: async (a) => jsonResult(await plotCtrl.getById(a.storyId as string, a.plotId as string)),
+    handler: async (a) =>
+      jsonResult(
+        await plotCtrl.getById(a.storyId as string, a.plotId as string),
+      ),
   });
 
   registry.register({
@@ -225,6 +269,7 @@ export function registerNarrativeTools(registry: ToolRegistry) {
       required: ["storyId", "plotId"],
     },
     handler: async (a) => {
+      // biome-ignore lint/suspicious/noExplicitAny: MCP tool args
       const { storyId, plotId, ...body } = a as any;
       return jsonResult(await plotCtrl.update(storyId, plotId, body));
     },
@@ -238,6 +283,9 @@ export function registerNarrativeTools(registry: ToolRegistry) {
       properties: { storyId: { type: "string" }, plotId: { type: "string" } },
       required: ["storyId", "plotId"],
     },
-    handler: async (a) => { await plotCtrl.remove(a.storyId as string, a.plotId as string); return okResult("Plot deleted."); },
+    handler: async (a) => {
+      await plotCtrl.remove(a.storyId as string, a.plotId as string);
+      return okResult("Plot deleted.");
+    },
   });
 }

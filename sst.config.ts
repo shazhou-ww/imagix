@@ -18,7 +18,7 @@ export default $config({
     };
   },
   async run() {
-    const { database } = await import("./infra/database");
+    await import("./infra/database");
     const { auth } = await import("./infra/auth");
     const { api } = await import("./infra/api");
     const { frontend } = await import("./infra/frontend");

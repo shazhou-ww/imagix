@@ -1,9 +1,9 @@
 import {
+  type CreateStoryBody,
   createId,
   EntityPrefix,
-  StorySchema,
   type Story,
-  type CreateStoryBody,
+  StorySchema,
   type UpdateStoryBody,
 } from "@imagix/shared";
 import * as repo from "../db/repository.js";
@@ -61,9 +61,6 @@ export async function update(
   return (await repo.getStory(worldId, storyId)) as Story;
 }
 
-export async function remove(
-  worldId: string,
-  storyId: string,
-): Promise<void> {
+export async function remove(worldId: string, storyId: string): Promise<void> {
   await repo.deleteStory(worldId, storyId);
 }

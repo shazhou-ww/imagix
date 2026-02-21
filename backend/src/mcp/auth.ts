@@ -20,18 +20,23 @@
  *   COGNITO_DOMAIN       — Cognito Hosted UI domain (e.g. imagix-auth-dev.auth.us-east-1.amazoncognito.com)
  */
 
+import type { Context } from "hono";
 import { Hono } from "hono";
 import { createMiddleware } from "hono/factory";
-import type { Context } from "hono";
 import type { AppEnv } from "../app.js";
 
 // ── Cognito configuration ────────────────────────────────────────────────────
 
 function cognitoConfig() {
   return {
-    userPoolId: process.env.COGNITO_USER_POOL_ID ?? process.env.IMAGIX_USER_POOL_ID ?? "",
-    clientId: process.env.COGNITO_CLIENT_ID ?? process.env.IMAGIX_USER_POOL_CLIENT_ID ?? "",
-    domain: process.env.COGNITO_DOMAIN ?? process.env.IMAGIX_COGNITO_DOMAIN ?? "",
+    userPoolId:
+      process.env.COGNITO_USER_POOL_ID ?? process.env.IMAGIX_USER_POOL_ID ?? "",
+    clientId:
+      process.env.COGNITO_CLIENT_ID ??
+      process.env.IMAGIX_USER_POOL_CLIENT_ID ??
+      "",
+    domain:
+      process.env.COGNITO_DOMAIN ?? process.env.IMAGIX_COGNITO_DOMAIN ?? "",
   };
 }
 
@@ -151,11 +156,16 @@ oauthRoutes.get("/authorize", (c) => {
   if (!client) {
     if (!client_id || !redirect_uri) {
       return c.json(
-        { error: "invalid_client", error_description: "Missing client_id or redirect_uri" },
+        {
+          error: "invalid_client",
+          error_description: "Missing client_id or redirect_uri",
+        },
         400,
       );
     }
-    console.log(`[MCP OAuth] Auto-registering client ${client_id} with redirect_uri ${redirect_uri}`);
+    console.log(
+      `[MCP OAuth] Auto-registering client ${client_id} with redirect_uri ${redirect_uri}`,
+    );
     client = {
       client_id,
       redirect_uris: [redirect_uri],
@@ -181,10 +191,7 @@ oauthRoutes.get("/authorize", (c) => {
   const cognitoUrl = new URL(`https://${cfg.domain}/oauth2/authorize`);
   cognitoUrl.searchParams.set("response_type", "code");
   cognitoUrl.searchParams.set("client_id", cfg.clientId);
-  cognitoUrl.searchParams.set(
-    "redirect_uri",
-    `${origin}/mcp/oauth/callback`,
-  );
+  cognitoUrl.searchParams.set("redirect_uri", `${origin}/mcp/oauth/callback`);
   cognitoUrl.searchParams.set("state", cognitoState);
   cognitoUrl.searchParams.set("scope", scope ?? "openid email profile");
 
@@ -202,7 +209,11 @@ oauthRoutes.get("/authorize", (c) => {
 
 // Callback from Cognito → redirect back to MCP client
 oauthRoutes.get("/callback", (c) => {
-  console.log("[MCP OAuth] GET /callback", { hasCode: !!c.req.query("code"), state: c.req.query("state"), error: c.req.query("error") });
+  console.log("[MCP OAuth] GET /callback", {
+    hasCode: !!c.req.query("code"),
+    state: c.req.query("state"),
+    error: c.req.query("error"),
+  });
   const { code, state, error, error_description } = c.req.query();
 
   if (!state) return c.text("Missing state parameter", 400);
@@ -224,8 +235,7 @@ oauthRoutes.get("/callback", (c) => {
 
   // Pass the Cognito auth code back to the MCP client
   redirectUrl.searchParams.set("code", code);
-  if (pending.mcpState)
-    redirectUrl.searchParams.set("state", pending.mcpState);
+  if (pending.mcpState) redirectUrl.searchParams.set("state", pending.mcpState);
   return c.redirect(redirectUrl.toString());
 });
 
@@ -266,6 +276,7 @@ oauthRoutes.post("/token", async (c) => {
   });
 
   const result = await cognitoRes.json();
+  // biome-ignore lint/suspicious/noExplicitAny: Hono statusCode typing
   return c.json(result as Record<string, unknown>, cognitoRes.status as any);
 });
 
@@ -273,8 +284,7 @@ oauthRoutes.post("/token", async (c) => {
 // Requires a valid Bearer token; returns 401 with discovery hints if missing
 
 export const requireMcpAuth = createMiddleware<AppEnv>(async (c, next) => {
-  const header =
-    c.req.header("authorization") ?? c.req.header("Authorization");
+  const header = c.req.header("authorization") ?? c.req.header("Authorization");
 
   if (!header?.startsWith("Bearer ")) {
     const origin = getOrigin(c);

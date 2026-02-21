@@ -1,15 +1,15 @@
 import {
-  createId,
-  EntityPrefix,
-  ThingSchema,
-  EventSchema,
-  EventLinkSchema,
-  type Thing,
-  type Relationship,
-  type Event,
   type CreateThingBody,
-  type UpdateThingBody,
+  createId,
   type EndEntityBody,
+  EntityPrefix,
+  type Event,
+  EventLinkSchema,
+  EventSchema,
+  type Relationship,
+  type Thing,
+  ThingSchema,
+  type UpdateThingBody,
 } from "@imagix/shared";
 import * as repo from "../db/repository.js";
 import { AppError } from "./errors.js";
@@ -99,7 +99,9 @@ export async function remove(worldId: string, thingId: string): Promise<void> {
   const now = new Date().toISOString();
 
   // 级联软删除该事物关联的所有关系
-  const rels = (await repo.listRelationshipsByEntity(thingId)) as Relationship[];
+  const rels = (await repo.listRelationshipsByEntity(
+    thingId,
+  )) as Relationship[];
   for (const rel of rels) {
     if (!rel.deletedAt) {
       await repo.updateRelationship(worldId, rel.id, { deletedAt: now });
@@ -127,7 +129,10 @@ export async function end(
   const entityEvents = await repo.listEventsByEntity(thingId);
   const firstEntry = entityEvents[0] as { eventId: string } | undefined;
   if (firstEntry) {
-    const birthEvent = (await repo.getEventById(worldId, firstEntry.eventId)) as Event | null;
+    const birthEvent = (await repo.getEventById(
+      worldId,
+      firstEntry.eventId,
+    )) as Event | null;
     if (birthEvent && body.time <= birthEvent.time) {
       throw AppError.badRequest("消亡时间必须晚于创生时间");
     }

@@ -1,10 +1,10 @@
 import {
-  createId,
-  EntityPrefix,
-  PlotSchema,
-  type Plot,
   type Chapter,
   type CreatePlotBody,
+  createId,
+  EntityPrefix,
+  type Plot,
+  PlotSchema,
   type UpdatePlotBody,
 } from "@imagix/shared";
 import * as repo from "../db/repository.js";
@@ -43,10 +43,7 @@ export async function list(storyId: string): Promise<Plot[]> {
   return items as Plot[];
 }
 
-export async function getById(
-  storyId: string,
-  plotId: string,
-): Promise<Plot> {
+export async function getById(storyId: string, plotId: string): Promise<Plot> {
   const item = await repo.getPlot(storyId, plotId);
   if (!item) throw AppError.notFound("Plot");
   return item as Plot;
@@ -66,14 +63,14 @@ export async function update(
   return (await repo.getPlot(storyId, plotId)) as Plot;
 }
 
-export async function remove(
-  storyId: string,
-  plotId: string,
-): Promise<void> {
+export async function remove(storyId: string, plotId: string): Promise<void> {
   const plot = (await repo.getPlot(storyId, plotId)) as Plot | null;
   if (!plot) throw AppError.notFound("Plot");
 
-  const chapter = (await repo.getChapter(storyId, plot.chapterId)) as Chapter | null;
+  const chapter = (await repo.getChapter(
+    storyId,
+    plot.chapterId,
+  )) as Chapter | null;
 
   await repo.deletePlot(storyId, plotId);
 

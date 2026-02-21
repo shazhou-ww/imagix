@@ -1,7 +1,11 @@
-import type { Relationship, TaxonomyNode, Event as WorldEvent } from "@imagix/shared";
+import type {
+  Relationship,
+  TaxonomyNode,
+  Event as WorldEvent,
+} from "@imagix/shared";
 import AddIcon from "@mui/icons-material/Add";
-import DeleteIcon from "@mui/icons-material/Delete";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
+import DeleteIcon from "@mui/icons-material/Delete";
 import EventIcon from "@mui/icons-material/EventNote";
 import HighlightOffIcon from "@mui/icons-material/HighlightOff";
 import UndoIcon from "@mui/icons-material/Undo";
@@ -27,20 +31,20 @@ import {
 } from "@mui/material";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useCharacters } from "@/api/hooks/useCharacters";
+import { useEvents } from "@/api/hooks/useEvents";
 import {
-  useRelationships,
   useCreateRelationship,
   useDeleteRelationship,
   useEndRelationship,
+  useRelationships,
   useUndoEndRelationship,
 } from "@/api/hooks/useRelationships";
-import { useEvents } from "@/api/hooks/useEvents";
 import { useTaxonomyTree } from "@/api/hooks/useTaxonomy";
-import { useCharacters } from "@/api/hooks/useCharacters";
 import { useThings } from "@/api/hooks/useThings";
 import ConfirmDialog from "@/components/ConfirmDialog";
-import EpochTimeInput from "@/components/EpochTimeInput";
 import EmptyState from "@/components/EmptyState";
+import EpochTimeInput from "@/components/EpochTimeInput";
 import { parseEpochMs } from "@/utils/time";
 
 export default function RelationshipListPage() {
@@ -52,10 +56,10 @@ export default function RelationshipListPage() {
   const { data: relNodes } = useTaxonomyTree(worldId, "REL");
   const { data: characters } = useCharacters(worldId);
   const { data: things } = useThings(worldId);
-  const createRel = useCreateRelationship(worldId!);
-  const deleteRel = useDeleteRelationship(worldId!);
-  const endRel = useEndRelationship(worldId!);
-  const undoEndRel = useUndoEndRelationship(worldId!);
+  const createRel = useCreateRelationship(worldId ?? "");
+  const deleteRel = useDeleteRelationship(worldId ?? "");
+  const endRel = useEndRelationship(worldId ?? "");
+  const undoEndRel = useUndoEndRelationship(worldId ?? "");
   const { data: events } = useEvents(worldId);
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -71,14 +75,18 @@ export default function RelationshipListPage() {
   // Filter state
   const [filterTypeNodeId, setFilterTypeNodeId] = useState("");
   const [filterEntityId, setFilterEntityId] = useState<string | null>(null);
-  const [filterStatus, setFilterStatus] = useState<"all" | "active" | "ended">("all");
+  const [filterStatus, setFilterStatus] = useState<"all" | "active" | "ended">(
+    "all",
+  );
 
   const birthEventMap = useMemo(() => {
     const map = new Map<string, WorldEvent>();
     for (const evt of events ?? []) {
-      const birthAc = evt.system && evt.impacts?.attributeChanges?.find(
-        (ac) => ac.attribute === "$alive" && ac.value === true,
-      );
+      const birthAc =
+        evt.system &&
+        evt.impacts?.attributeChanges?.find(
+          (ac) => ac.attribute === "$alive" && ac.value === true,
+        );
       if (birthAc) map.set(birthAc.entityId, evt);
     }
     return map;
@@ -98,18 +106,20 @@ export default function RelationshipListPage() {
 
   // Direction sub-nodes: the 3 system children of the REL root ("角色→角色", "角色→事物", "事物→事物")
   const directionNodes = useMemo(
-    () => (relNodes ?? []).filter((n) => n.parentId !== null && relNodeMap.get(n.parentId!)?.parentId === null),
+    () =>
+      (relNodes ?? []).filter(
+        (n) =>
+          n.parentId !== null &&
+          relNodeMap.get(n.parentId ?? "")?.parentId === null,
+      ),
     [relNodes, relNodeMap],
   );
 
   // Leaf type nodes: nodes whose parent is one of the direction nodes (user-created relationship types)
-  const typeNodes = useMemo(
-    () => {
-      const dirIds = new Set(directionNodes.map((n) => n.id));
-      return (relNodes ?? []).filter((n) => n.parentId && dirIds.has(n.parentId));
-    },
-    [relNodes, directionNodes],
-  );
+  const typeNodes = useMemo(() => {
+    const dirIds = new Set(directionNodes.map((n) => n.id));
+    return (relNodes ?? []).filter((n) => n.parentId && dirIds.has(n.parentId));
+  }, [relNodes, directionNodes]);
 
   /** Given a type node id, find its direction ancestor name to determine from/to entity types */
   const getDirection = useCallback(
@@ -120,7 +130,8 @@ export default function RelationshipListPage() {
       while (current) {
         if (dirIds.has(current)) {
           const name = relNodeMap.get(current)?.name ?? "";
-          if (name.includes("角色") && name.includes("事物")) return "char-thing";
+          if (name.includes("角色") && name.includes("事物"))
+            return "char-thing";
           if (name.includes("事物")) return "thing-thing";
           return "char-char";
         }
@@ -159,8 +170,10 @@ export default function RelationshipListPage() {
   // Entity options for filter
   const allEntityOptions = useMemo(() => {
     const opts: { id: string; name: string; type: string }[] = [];
-    for (const c of characters ?? []) opts.push({ id: c.id, name: c.name, type: "角色" });
-    for (const t of things ?? []) opts.push({ id: t.id, name: t.name, type: "事物" });
+    for (const c of characters ?? [])
+      opts.push({ id: c.id, name: c.name, type: "角色" });
+    for (const t of things ?? [])
+      opts.push({ id: t.id, name: t.name, type: "事物" });
     return opts;
   }, [characters, things]);
 
@@ -171,10 +184,13 @@ export default function RelationshipListPage() {
       result = result.filter((r) => r.typeNodeId === filterTypeNodeId);
     }
     if (filterEntityId) {
-      result = result.filter((r) => r.fromId === filterEntityId || r.toId === filterEntityId);
+      result = result.filter(
+        (r) => r.fromId === filterEntityId || r.toId === filterEntityId,
+      );
     }
     if (filterStatus === "active") result = result.filter((r) => !r.endEventId);
-    else if (filterStatus === "ended") result = result.filter((r) => !!r.endEventId);
+    else if (filterStatus === "ended")
+      result = result.filter((r) => !!r.endEventId);
     return result;
   }, [relationships, filterTypeNodeId, filterEntityId, filterStatus]);
 
@@ -190,7 +206,9 @@ export default function RelationshipListPage() {
       el.style.outline = "2px solid";
       el.style.outlineColor = "var(--mui-palette-primary-main, #1976d2)";
       el.style.borderRadius = "8px";
-      setTimeout(() => { el.style.outline = "none"; }, 2000);
+      setTimeout(() => {
+        el.style.outline = "none";
+      }, 2000);
     }
   }, [location.hash, relationships]);
 
@@ -232,7 +250,10 @@ export default function RelationshipListPage() {
   const handleEnd = () => {
     if (!endTarget) return;
     endRel.mutate(
-      { relId: endTarget.id, body: { time: endTime, content: endContent.trim() || undefined } },
+      {
+        relId: endTarget.id,
+        body: { time: endTime, content: endContent.trim() || undefined },
+      },
       { onSuccess: () => setEndTarget(null) },
     );
   };
@@ -261,11 +282,22 @@ export default function RelationshipListPage() {
 
   return (
     <Box>
-      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          mb: 2,
+        }}
+      >
         <Typography variant="h4" fontWeight="bold">
           关系
         </Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={openCreate}
+        >
           添加关系
         </Button>
       </Box>
@@ -283,7 +315,9 @@ export default function RelationshipListPage() {
           >
             <MenuItem value="">全部</MenuItem>
             {typeNodes.map((n) => (
-              <MenuItem key={n.id} value={n.id}>{n.name}</MenuItem>
+              <MenuItem key={n.id} value={n.id}>
+                {n.name}
+              </MenuItem>
             ))}
           </TextField>
           <Autocomplete
@@ -292,17 +326,27 @@ export default function RelationshipListPage() {
             options={allEntityOptions}
             getOptionLabel={(o) => o.name}
             groupBy={(o) => o.type}
-            value={allEntityOptions.find((o) => o.id === filterEntityId) ?? null}
+            value={
+              allEntityOptions.find((o) => o.id === filterEntityId) ?? null
+            }
             onChange={(_, v) => setFilterEntityId(v?.id ?? null)}
             isOptionEqualToValue={(o, v) => o.id === v.id}
-            renderInput={(params) => <TextField {...params} label="涉及实体" placeholder="选择角色或事物" />}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="涉及实体"
+                placeholder="选择角色或事物"
+              />
+            )}
           />
           <TextField
             size="small"
             select
             label="状态"
             value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value as "all" | "active" | "ended")}
+            onChange={(e) =>
+              setFilterStatus(e.target.value as "all" | "active" | "ended")
+            }
             sx={{ minWidth: 120 }}
             slotProps={{ inputLabel: { htmlFor: undefined } }}
           >
@@ -316,12 +360,27 @@ export default function RelationshipListPage() {
       {!filteredRelationships.length ? (
         <EmptyState
           title={relationships?.length ? "无匹配关系" : "暂无关系"}
-          description={relationships?.length ? "尝试调整筛选条件" : "在分类体系中定义关系类型，然后建立实体间的关系"}
+          description={
+            relationships?.length
+              ? "尝试调整筛选条件"
+              : "在分类体系中定义关系类型，然后建立实体间的关系"
+          }
           action={
             relationships?.length ? (
-              <Button variant="outlined" onClick={() => { setFilterTypeNodeId(""); setFilterEntityId(null); setFilterStatus("all"); }}>清除筛选</Button>
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  setFilterTypeNodeId("");
+                  setFilterEntityId(null);
+                  setFilterStatus("all");
+                }}
+              >
+                清除筛选
+              </Button>
             ) : (
-              <Button variant="outlined" onClick={openCreate}>添加关系</Button>
+              <Button variant="outlined" onClick={openCreate}>
+                添加关系
+              </Button>
             )
           }
         />
@@ -334,10 +393,18 @@ export default function RelationshipListPage() {
                 <Card id={rel.id}>
                   <CardContent>
                     <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
-                      <Chip label={typeNode?.name ?? "未知类型"} size="small" color="primary" />
+                      <Chip
+                        label={typeNode?.name ?? "未知类型"}
+                        size="small"
+                        color="primary"
+                      />
                       <Box sx={{ flex: 1 }} />
                       <Tooltip title="删除">
-                        <IconButton size="small" color="error" onClick={() => setDeleteTarget(rel)}>
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => setDeleteTarget(rel)}
+                        >
                           <DeleteIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
@@ -346,11 +413,16 @@ export default function RelationshipListPage() {
                       <Typography
                         variant="body2"
                         noWrap
-                        sx={{ flex: 1, cursor: "pointer", "&:hover": { textDecoration: "underline" } }}
+                        sx={{
+                          flex: 1,
+                          cursor: "pointer",
+                          "&:hover": { textDecoration: "underline" },
+                        }}
                         color="primary"
                         onClick={() => {
                           const prefix = rel.fromId.slice(0, 3);
-                          const page = prefix === "chr" ? "characters" : "things";
+                          const page =
+                            prefix === "chr" ? "characters" : "things";
                           navigate(`/worlds/${worldId}/${page}#${rel.fromId}`);
                         }}
                       >
@@ -360,11 +432,16 @@ export default function RelationshipListPage() {
                       <Typography
                         variant="body2"
                         noWrap
-                        sx={{ flex: 1, cursor: "pointer", "&:hover": { textDecoration: "underline" } }}
+                        sx={{
+                          flex: 1,
+                          cursor: "pointer",
+                          "&:hover": { textDecoration: "underline" },
+                        }}
                         color="primary"
                         onClick={() => {
                           const prefix = rel.toId.slice(0, 3);
-                          const page = prefix === "chr" ? "characters" : "things";
+                          const page =
+                            prefix === "chr" ? "characters" : "things";
                           navigate(`/worlds/${worldId}/${page}#${rel.toId}`);
                         }}
                       >
@@ -372,7 +449,15 @@ export default function RelationshipListPage() {
                       </Typography>
                     </Box>
                     {/* Lifecycle events */}
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, flexWrap: "wrap", mt: 1 }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 0.5,
+                        flexWrap: "wrap",
+                        mt: 1,
+                      }}
+                    >
                       {(() => {
                         const birth = birthEventMap.get(rel.id);
                         return birth ? (
@@ -382,8 +467,14 @@ export default function RelationshipListPage() {
                             size="small"
                             color="success"
                             variant="outlined"
-                            sx={{ height: 22, fontSize: "0.75rem", cursor: "pointer" }}
-                            onClick={() => navigate(`/worlds/${worldId}/events#${birth.id}`)}
+                            sx={{
+                              height: 22,
+                              fontSize: "0.75rem",
+                              cursor: "pointer",
+                            }}
+                            onClick={() =>
+                              navigate(`/worlds/${worldId}/events#${birth.id}`)
+                            }
                           />
                         ) : null;
                       })()}
@@ -391,12 +482,23 @@ export default function RelationshipListPage() {
                         <>
                           <Chip
                             icon={<HighlightOffIcon sx={{ fontSize: 14 }} />}
-                            label={`解除 ${(() => { const e = eventMap.get(rel.endEventId); return e ? fmtTime(e.time) : ""; })()}`}
+                            label={`解除 ${(() => {
+                              const e = eventMap.get(rel.endEventId);
+                              return e ? fmtTime(e.time) : "";
+                            })()}`}
                             size="small"
                             color="error"
                             variant="outlined"
-                            sx={{ height: 22, fontSize: "0.75rem", cursor: "pointer" }}
-                            onClick={() => navigate(`/worlds/${worldId}/events#${rel.endEventId}`)}
+                            sx={{
+                              height: 22,
+                              fontSize: "0.75rem",
+                              cursor: "pointer",
+                            }}
+                            onClick={() =>
+                              navigate(
+                                `/worlds/${worldId}/events#${rel.endEventId}`,
+                              )
+                            }
                           />
                           <Tooltip title="撤销解除">
                             <IconButton
@@ -415,7 +517,11 @@ export default function RelationshipListPage() {
                           variant="outlined"
                           color="default"
                           onClick={() => openEndDialog(rel)}
-                          sx={{ height: 22, fontSize: "0.75rem", cursor: "pointer" }}
+                          sx={{
+                            height: 22,
+                            fontSize: "0.75rem",
+                            cursor: "pointer",
+                          }}
                         />
                       )}
                     </Box>
@@ -428,9 +534,21 @@ export default function RelationshipListPage() {
       )}
 
       {/* Create Dialog */}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>添加关系</DialogTitle>
-        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}>
+        <DialogContent
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+            pt: "8px !important",
+          }}
+        >
           <TextField
             label="关系类型"
             value={typeNodeId}
@@ -441,9 +559,15 @@ export default function RelationshipListPage() {
             helperText="在分类体系的关系类型树中，于对应方向分类下定义具体关系类型"
           >
             {directionNodes.map((dirNode) => {
-              const children = typeNodes.filter((n) => n.parentId === dirNode.id);
+              const children = typeNodes.filter(
+                (n) => n.parentId === dirNode.id,
+              );
               return [
-                <MenuItem key={`header-${dirNode.id}`} disabled sx={{ opacity: 0.7, fontWeight: "bold", fontSize: "0.85rem" }}>
+                <MenuItem
+                  key={`header-${dirNode.id}`}
+                  disabled
+                  sx={{ opacity: 0.7, fontWeight: "bold", fontSize: "0.85rem" }}
+                >
                   {dirNode.name}
                 </MenuItem>,
                 ...children.map((n) => (
@@ -485,9 +609,19 @@ export default function RelationshipListPage() {
             ))}
           </TextField>
           <Box>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>建立时间</Typography>
-            <EpochTimeInput value={establishTime} onChange={setEstablishTime} showPreview />
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+              建立时间
+            </Typography>
+            <EpochTimeInput
+              value={establishTime}
+              onChange={setEstablishTime}
+              showPreview
+            />
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ mt: 0.5, display: "block" }}
+            >
               创建后会自动生成「建立」事件。
             </Typography>
           </Box>
@@ -497,7 +631,13 @@ export default function RelationshipListPage() {
           <Button
             variant="contained"
             onClick={handleCreate}
-            disabled={!typeNodeId || !fromId || !toId || fromId === toId || createRel.isPending}
+            disabled={
+              !typeNodeId ||
+              !fromId ||
+              !toId ||
+              fromId === toId ||
+              createRel.isPending
+            }
           >
             创建
           </Button>
@@ -514,12 +654,26 @@ export default function RelationshipListPage() {
       />
 
       {/* End (Dissolve) Dialog */}
-      <Dialog open={!!endTarget} onClose={() => setEndTarget(null)} maxWidth="sm" fullWidth>
+      <Dialog
+        open={!!endTarget}
+        onClose={() => setEndTarget(null)}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>标记解除</DialogTitle>
-        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}>
+        <DialogContent
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+            pt: "8px !important",
+          }}
+        >
           {endTimeError && <Alert severity="error">{endTimeError}</Alert>}
           <Box>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>解除时间</Typography>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+              解除时间
+            </Typography>
             <EpochTimeInput value={endTime} onChange={setEndTime} showPreview />
           </Box>
           <TextField

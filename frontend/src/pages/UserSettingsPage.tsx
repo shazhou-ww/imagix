@@ -20,12 +20,12 @@ import {
   Typography,
 } from "@mui/material";
 import { useState } from "react";
-import { useAuth } from "@/auth/AuthContext";
 import {
-  useTemplates,
   useDeleteTemplate,
+  useTemplates,
   useUpdateTemplate,
 } from "@/api/hooks/useTemplates";
+import { useAuth } from "@/auth/AuthContext";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import EmptyState from "@/components/EmptyState";
 
@@ -57,9 +57,7 @@ export default function UserSettingsPage() {
   };
 
   const username =
-    authState.status === "authenticated"
-      ? authState.displayName
-      : "";
+    authState.status === "authenticated" ? authState.displayName : "";
 
   return (
     <Box>
@@ -135,17 +133,29 @@ export default function UserSettingsPage() {
                       justifyContent: "space-between",
                     }}
                   >
-                    <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                    <Typography
+                      variant="subtitle1"
+                      fontWeight="bold"
+                      gutterBottom
+                    >
                       {tpl.name}
                     </Typography>
-                    <Box sx={{ display: "flex", gap: 0.5, ml: 1, flexShrink: 0 }}>
+                    <Box
+                      sx={{ display: "flex", gap: 0.5, ml: 1, flexShrink: 0 }}
+                    >
                       <Tooltip title="编辑模板">
-                        <IconButton size="small" onClick={() => handleEdit(tpl.id)}>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleEdit(tpl.id)}
+                        >
                           <EditIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
                       <Tooltip title="删除模板">
-                        <IconButton size="small" onClick={() => setDeleteId(tpl.id)}>
+                        <IconButton
+                          size="small"
+                          onClick={() => setDeleteId(tpl.id)}
+                        >
                           <DeleteIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
@@ -167,7 +177,9 @@ export default function UserSettingsPage() {
                       {tpl.description}
                     </Typography>
                   )}
-                  <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mt: 1 }}>
+                  <Box
+                    sx={{ display: "flex", gap: 1, flexWrap: "wrap", mt: 1 }}
+                  >
                     <Typography variant="caption" color="text.secondary">
                       分类节点: {tpl.snapshot.taxonomy.length}
                     </Typography>
@@ -239,7 +251,12 @@ function EditTemplateDialog({
     <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>编辑模板</DialogTitle>
       <DialogContent
-        sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 2,
+          pt: "8px !important",
+        }}
       >
         <TextField
           label="模板名称"
@@ -257,7 +274,11 @@ function EditTemplateDialog({
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>取消</Button>
-        <Button variant="contained" onClick={handleSave} disabled={updateTemplate.isPending}>
+        <Button
+          variant="contained"
+          onClick={handleSave}
+          disabled={updateTemplate.isPending}
+        >
           保存
         </Button>
       </DialogActions>

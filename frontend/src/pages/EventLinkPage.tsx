@@ -23,9 +23,9 @@ import {
 import { useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
-  useEventLinks,
   useCreateEventLink,
   useDeleteEventLink,
+  useEventLinks,
 } from "@/api/hooks/useEventLinks";
 import { useEvents } from "@/api/hooks/useEvents";
 import ConfirmDialog from "@/components/ConfirmDialog";
@@ -36,8 +36,8 @@ export default function EventLinkPage() {
   const { worldId } = useParams<{ worldId: string }>();
   const { data: links, isLoading } = useEventLinks(worldId);
   const { data: events } = useEvents(worldId);
-  const createLink = useCreateEventLink(worldId!);
-  const deleteLink = useDeleteEventLink(worldId!);
+  const createLink = useCreateEventLink(worldId ?? "");
+  const deleteLink = useDeleteEventLink(worldId ?? "");
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [eventIdA, setEventIdA] = useState("");
@@ -58,7 +58,8 @@ export default function EventLinkPage() {
     const evt = eventMap.get(id);
     if (!evt) return id;
     const timeStr = formatEpochMs(evt.time);
-    const content = evt.content.length > 30 ? `${evt.content.slice(0, 30)}…` : evt.content;
+    const content =
+      evt.content.length > 30 ? `${evt.content.slice(0, 30)}…` : evt.content;
     return `${timeStr} — ${content}`;
   };
 
@@ -71,7 +72,9 @@ export default function EventLinkPage() {
   // Filtered links
   const filteredLinks = useMemo(() => {
     if (!filterEventId) return links ?? [];
-    return (links ?? []).filter((l) => l.eventIdA === filterEventId || l.eventIdB === filterEventId);
+    return (links ?? []).filter(
+      (l) => l.eventIdA === filterEventId || l.eventIdB === filterEventId,
+    );
   }, [links, filterEventId]);
 
   const openCreate = () => {
@@ -111,11 +114,22 @@ export default function EventLinkPage() {
 
   return (
     <Box>
-      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          mb: 2,
+        }}
+      >
         <Typography variant="h4" fontWeight="bold">
           事件关联
         </Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={openCreate}
+        >
           添加关联
         </Button>
       </Box>
@@ -130,7 +144,13 @@ export default function EventLinkPage() {
             value={sortedEvents.find((e) => e.id === filterEventId) ?? null}
             onChange={(_, v) => setFilterEventId(v?.id ?? null)}
             isOptionEqualToValue={(o, v) => o.id === v.id}
-            renderInput={(params) => <TextField {...params} label="按事件筛选" placeholder="选择事件" />}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="按事件筛选"
+                placeholder="选择事件"
+              />
+            )}
           />
         </Box>
       )}
@@ -138,28 +158,47 @@ export default function EventLinkPage() {
       {!filteredLinks.length ? (
         <EmptyState
           title={links?.length ? "无匹配关联" : "暂无事件关联"}
-          description={links?.length ? "尝试调整筛选条件" : "将两个相关事件关联起来，方便上下文检索"}
+          description={
+            links?.length
+              ? "尝试调整筛选条件"
+              : "将两个相关事件关联起来，方便上下文检索"
+          }
           action={
             links?.length ? (
-              <Button variant="outlined" onClick={() => setFilterEventId(null)}>清除筛选</Button>
+              <Button variant="outlined" onClick={() => setFilterEventId(null)}>
+                清除筛选
+              </Button>
             ) : (
-              <Button variant="outlined" onClick={openCreate}>添加关联</Button>
+              <Button variant="outlined" onClick={openCreate}>
+                添加关联
+              </Button>
             )
           }
         />
       ) : (
         <Grid container spacing={2}>
-          {filteredLinks.map((link, idx) => (
-            <Grid size={{ xs: 12, sm: 6 }} key={idx}>
+          {filteredLinks.map((link) => (
+            <Grid
+              size={{ xs: 12, sm: 6 }}
+              key={`${link.eventIdA}-${link.eventIdB}`}
+            >
               <Card>
                 <CardContent>
                   <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
                     <LinkIcon fontSize="small" color="primary" sx={{ mr: 1 }} />
-                    <Typography variant="body2" fontWeight="bold" sx={{ flex: 1 }}>
+                    <Typography
+                      variant="body2"
+                      fontWeight="bold"
+                      sx={{ flex: 1 }}
+                    >
                       {link.description || "无描述"}
                     </Typography>
                     <Tooltip title="删除关联">
-                      <IconButton size="small" color="error" onClick={() => setDeleteTarget(link)}>
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => setDeleteTarget(link)}
+                      >
                         <DeleteIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
@@ -178,9 +217,21 @@ export default function EventLinkPage() {
       )}
 
       {/* Create Dialog */}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>添加事件关联</DialogTitle>
-        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}>
+        <DialogContent
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+            pt: "8px !important",
+          }}
+        >
           <TextField
             label="事件 A"
             value={eventIdA}

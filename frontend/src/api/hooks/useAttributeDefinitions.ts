@@ -1,9 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   AttributeDefinition,
   CreateAttributeDefinitionBody,
   UpdateAttributeDefinitionBody,
 } from "@imagix/shared";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../client";
 
 export const attributeDefinitionKeys = {
@@ -12,7 +12,7 @@ export const attributeDefinitionKeys = {
 
 export function useAttributeDefinitions(worldId?: string) {
   return useQuery<AttributeDefinition[]>({
-    queryKey: attributeDefinitionKeys.all(worldId!),
+    queryKey: attributeDefinitionKeys.all(worldId ?? ""),
     queryFn: () => api.get(`/worlds/${worldId}/attribute-definitions`),
     enabled: !!worldId,
   });

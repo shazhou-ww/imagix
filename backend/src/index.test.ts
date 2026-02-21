@@ -12,6 +12,7 @@ describe("handler", () => {
       requestContext: {},
       resource: "",
     };
+    // biome-ignore lint/suspicious/noExplicitAny: test mock
     const result = await handler(event as any);
     expect(result.statusCode).toBe(200);
     expect(JSON.parse(result.body)).toMatchObject({ status: "ok" });

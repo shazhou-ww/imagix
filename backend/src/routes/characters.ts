@@ -1,5 +1,9 @@
+import {
+  CreateCharacterBody,
+  EndEntityBody,
+  UpdateCharacterBody,
+} from "@imagix/shared";
 import { Hono } from "hono";
-import { CreateCharacterBody, UpdateCharacterBody, EndEntityBody } from "@imagix/shared";
 import type { AppEnv } from "../app.js";
 import { auth, p } from "../app.js";
 import * as ctrl from "../controllers/characters.js";

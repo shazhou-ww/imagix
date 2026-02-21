@@ -1,15 +1,15 @@
 import {
-  createId,
-  EntityPrefix,
-  CharacterSchema,
-  EventSchema,
-  EventLinkSchema,
   type Character,
-  type Relationship,
-  type Event,
+  CharacterSchema,
   type CreateCharacterBody,
-  type UpdateCharacterBody,
+  createId,
   type EndEntityBody,
+  EntityPrefix,
+  type Event,
+  EventLinkSchema,
+  EventSchema,
+  type Relationship,
+  type UpdateCharacterBody,
 } from "@imagix/shared";
 import * as repo from "../db/repository.js";
 import { AppError } from "./errors.js";
@@ -128,7 +128,10 @@ export async function end(
   const entityEvents = await repo.listEventsByEntity(charId);
   const firstEntry = entityEvents[0] as { eventId: string } | undefined;
   if (firstEntry) {
-    const birthEvent = (await repo.getEventById(worldId, firstEntry.eventId)) as Event | null;
+    const birthEvent = (await repo.getEventById(
+      worldId,
+      firstEntry.eventId,
+    )) as Event | null;
     if (birthEvent && body.time <= birthEvent.time) {
       throw AppError.badRequest("消亡时间必须晚于创生时间");
     }

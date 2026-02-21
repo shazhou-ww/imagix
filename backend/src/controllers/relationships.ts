@@ -1,15 +1,15 @@
 import {
-  createId,
-  EntityPrefix,
-  RelationshipSchema,
-  EventSchema,
-  EventLinkSchema,
-  type Relationship,
-  type Event,
-  type CreateRelationshipBody,
-  type EndEntityBody,
-  type TaxonomyNode,
   type Character,
+  type CreateRelationshipBody,
+  createId,
+  type EndEntityBody,
+  EntityPrefix,
+  type Event,
+  EventLinkSchema,
+  EventSchema,
+  type Relationship,
+  RelationshipSchema,
+  type TaxonomyNode,
   type Thing,
 } from "@imagix/shared";
 import * as repo from "../db/repository.js";
@@ -30,14 +30,28 @@ export async function create(
   await repo.putRelationship(rel);
 
   // 查询关系类型名称和 from/to 实体名称以构建 $name
-  const typeNode = await repo.getTaxonomyNode(worldId, "REL", body.typeNodeId) as TaxonomyNode | null;
+  const typeNode = (await repo.getTaxonomyNode(
+    worldId,
+    "REL",
+    body.typeNodeId,
+  )) as TaxonomyNode | null;
   const typeName = typeNode?.name ?? "未知类型";
   // from/to 可能是角色或事物
-  const fromChar = await repo.getCharacter(worldId, body.fromId) as Character | null;
-  const fromThing = fromChar ? null : await repo.getThing(worldId, body.fromId) as Thing | null;
+  const fromChar = (await repo.getCharacter(
+    worldId,
+    body.fromId,
+  )) as Character | null;
+  const fromThing = fromChar
+    ? null
+    : ((await repo.getThing(worldId, body.fromId)) as Thing | null);
   const fromName = fromChar?.name ?? fromThing?.name ?? body.fromId;
-  const toChar = await repo.getCharacter(worldId, body.toId) as Character | null;
-  const toThing = toChar ? null : await repo.getThing(worldId, body.toId) as Thing | null;
+  const toChar = (await repo.getCharacter(
+    worldId,
+    body.toId,
+  )) as Character | null;
+  const toThing = toChar
+    ? null
+    : ((await repo.getThing(worldId, body.toId)) as Thing | null);
   const toName = toChar?.name ?? toThing?.name ?? body.toId;
   const relName = `${typeName}·${fromName}·${toName}`;
 
@@ -97,10 +111,7 @@ export async function listByEntity(entityId: string): Promise<Relationship[]> {
   return items as Relationship[];
 }
 
-export async function remove(
-  worldId: string,
-  relId: string,
-): Promise<void> {
+export async function remove(worldId: string, relId: string): Promise<void> {
   const item = await repo.getRelationship(worldId, relId);
   if (!item) throw AppError.notFound("Relationship");
   // 软删除：不真正移除记录，保留引用完整性
@@ -127,7 +138,10 @@ export async function end(
   const entityEvents = await repo.listEventsByEntity(relId);
   const firstEntry = entityEvents[0] as { eventId: string } | undefined;
   if (firstEntry) {
-    const birthEvent = (await repo.getEventById(worldId, firstEntry.eventId)) as Event | null;
+    const birthEvent = (await repo.getEventById(
+      worldId,
+      firstEntry.eventId,
+    )) as Event | null;
     if (birthEvent && body.time <= birthEvent.time) {
       throw AppError.badRequest("解除时间必须晚于建立时间");
     }

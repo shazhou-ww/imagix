@@ -1,8 +1,8 @@
-import { Hono } from "hono";
+import type { APIGatewayProxyEvent } from "aws-lambda";
 import type { Context } from "hono";
+import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { createMiddleware } from "hono/factory";
-import type { APIGatewayProxyEvent } from "aws-lambda";
 import { AppError } from "./controllers/errors.js";
 
 export type AppEnv = {
@@ -18,12 +18,15 @@ export type AppEnv = {
 export const auth = createMiddleware<AppEnv>(async (c, next) => {
   // Try API Gateway authorizer claims first (v1 or v2),
   // then fall back to decoding the JWT from the Authorization header.
-  const authorizer = (c.env.event?.requestContext as any)?.authorizer;
+  const authorizer =
+    // biome-ignore lint/suspicious/noExplicitAny: API Gateway event shape varies
+    (c.env.event?.requestContext as any)?.authorizer;
   let claims = authorizer?.jwt?.claims ?? authorizer?.claims;
 
   if (!claims?.sub) {
     // No API Gateway authorizer — decode JWT from Authorization header
-    const header = c.req.header("authorization") ?? c.req.header("Authorization");
+    const header =
+      c.req.header("authorization") ?? c.req.header("Authorization");
     if (header?.startsWith("Bearer ")) {
       try {
         const token = header.slice(7);
@@ -49,6 +52,7 @@ export function createApp() {
 
   app.onError((err, c) => {
     if (err instanceof AppError) {
+      // biome-ignore lint/suspicious/noExplicitAny: Hono statusCode typing
       return c.json({ error: err.message }, err.statusCode as any);
     }
     console.error(err);

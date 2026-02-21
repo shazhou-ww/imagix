@@ -1,10 +1,10 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
+  CreateTaxonomyNodeBody,
   TaxonomyNode,
   TaxonomyTree,
-  CreateTaxonomyNodeBody,
   UpdateTaxonomyNodeBody,
 } from "@imagix/shared";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../client";
 
 export const taxonomyKeys = {
@@ -15,7 +15,7 @@ export const taxonomyKeys = {
 
 export function useTaxonomyTree(worldId?: string, tree?: TaxonomyTree) {
   return useQuery<TaxonomyNode[]>({
-    queryKey: taxonomyKeys.tree(worldId!, tree!),
+    queryKey: taxonomyKeys.tree(worldId ?? "", tree ?? "CHAR"),
     queryFn: () => api.get(`/worlds/${worldId}/taxonomy/${tree}`),
     enabled: !!worldId && !!tree,
   });
@@ -26,16 +26,27 @@ export function useCreateTaxonomyNode(worldId: string, tree: TaxonomyTree) {
   return useMutation({
     mutationFn: (body: CreateTaxonomyNodeBody) =>
       api.post<TaxonomyNode>(`/worlds/${worldId}/taxonomy/${tree}`, body),
-    onSuccess: () => qc.invalidateQueries({ queryKey: taxonomyKeys.tree(worldId, tree) }),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: taxonomyKeys.tree(worldId, tree) }),
   });
 }
 
 export function useUpdateTaxonomyNode(worldId: string, tree: TaxonomyTree) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ nodeId, body }: { nodeId: string; body: UpdateTaxonomyNodeBody }) =>
-      api.put<TaxonomyNode>(`/worlds/${worldId}/taxonomy/${tree}/${nodeId}`, body),
-    onSuccess: () => qc.invalidateQueries({ queryKey: taxonomyKeys.tree(worldId, tree) }),
+    mutationFn: ({
+      nodeId,
+      body,
+    }: {
+      nodeId: string;
+      body: UpdateTaxonomyNodeBody;
+    }) =>
+      api.put<TaxonomyNode>(
+        `/worlds/${worldId}/taxonomy/${tree}/${nodeId}`,
+        body,
+      ),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: taxonomyKeys.tree(worldId, tree) }),
   });
 }
 
@@ -44,6 +55,7 @@ export function useDeleteTaxonomyNode(worldId: string, tree: TaxonomyTree) {
   return useMutation({
     mutationFn: (nodeId: string) =>
       api.delete(`/worlds/${worldId}/taxonomy/${tree}/${nodeId}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: taxonomyKeys.tree(worldId, tree) }),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: taxonomyKeys.tree(worldId, tree) }),
   });
 }

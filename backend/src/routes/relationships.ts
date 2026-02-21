@@ -1,5 +1,5 @@
-import { Hono } from "hono";
 import { CreateRelationshipBody, EndEntityBody } from "@imagix/shared";
+import { Hono } from "hono";
 import type { AppEnv } from "../app.js";
 import { auth, p } from "../app.js";
 import * as ctrl from "../controllers/relationships.js";

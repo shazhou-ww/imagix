@@ -1,8 +1,8 @@
-import { type ToolRegistry, jsonResult, okResult } from "../registry.js";
-import * as eventCtrl from "../../controllers/events.js";
-import * as eventLinkCtrl from "../../controllers/event-links.js";
-import * as repo from "../../db/repository.js";
 import type { Event } from "@imagix/shared";
+import * as eventLinkCtrl from "../../controllers/event-links.js";
+import * as eventCtrl from "../../controllers/events.js";
+import * as repo from "../../db/repository.js";
+import { jsonResult, okResult, type ToolRegistry } from "../registry.js";
 
 const wid = { type: "string", description: "World ID" } as const;
 
@@ -11,13 +11,20 @@ export function registerEventTools(registry: ToolRegistry) {
 
   registry.register({
     name: "list_events",
-    description: "List events in a world, optionally filtered by time range. Events record things that happen at a point in time with attribute changes (impacts).",
+    description:
+      "List events in a world, optionally filtered by time range. Events record things that happen at a point in time with attribute changes (impacts).",
     inputSchema: {
       type: "object",
       properties: {
         worldId: wid,
-        timeFrom: { type: "number", description: "Start time filter (epoch ms, inclusive)" },
-        timeTo: { type: "number", description: "End time filter (epoch ms, inclusive)" },
+        timeFrom: {
+          type: "number",
+          description: "Start time filter (epoch ms, inclusive)",
+        },
+        timeTo: {
+          type: "number",
+          description: "End time filter (epoch ms, inclusive)",
+        },
       },
       required: ["worldId"],
     },
@@ -41,7 +48,10 @@ export function registerEventTools(registry: ToolRegistry) {
         worldId: wid,
         time: { type: "number", description: "Event time in epoch ms" },
         duration: { type: "number", description: "Duration in ms (default 0)" },
-        placeId: { type: ["string", "null"], description: "Place ID where event occurred" },
+        placeId: {
+          type: ["string", "null"],
+          description: "Place ID where event occurred",
+        },
         content: { type: "string", description: "Event description" },
         impacts: {
           type: "object",
@@ -76,7 +86,9 @@ export function registerEventTools(registry: ToolRegistry) {
       },
       required: ["worldId", "time", "content"],
     },
-    handler: async (a) => jsonResult(await eventCtrl.create(a.worldId as string, a as any)),
+    handler: async (a) =>
+      // biome-ignore lint/suspicious/noExplicitAny: MCP tool args
+      jsonResult(await eventCtrl.create(a.worldId as string, a as any)),
   });
 
   registry.register({
@@ -90,7 +102,10 @@ export function registerEventTools(registry: ToolRegistry) {
       },
       required: ["worldId", "eventId"],
     },
-    handler: async (a) => jsonResult(await eventCtrl.getById(a.worldId as string, a.eventId as string)),
+    handler: async (a) =>
+      jsonResult(
+        await eventCtrl.getById(a.worldId as string, a.eventId as string),
+      ),
   });
 
   registry.register({
@@ -111,13 +126,17 @@ export function registerEventTools(registry: ToolRegistry) {
           type: "object",
           properties: {
             attributeChanges: { type: "array", items: { type: "object" } },
-            relationshipAttributeChanges: { type: "array", items: { type: "object" } },
+            relationshipAttributeChanges: {
+              type: "array",
+              items: { type: "object" },
+            },
           },
         },
       },
       required: ["worldId", "eventId"],
     },
     handler: async (a) => {
+      // biome-ignore lint/suspicious/noExplicitAny: MCP tool args
       const { worldId, eventId, ...body } = a as any;
       return jsonResult(await eventCtrl.update(worldId, eventId, body));
     },
@@ -125,26 +144,34 @@ export function registerEventTools(registry: ToolRegistry) {
 
   registry.register({
     name: "delete_event",
-    description: "Delete an event. System birth/epoch events cannot be deleted. End events can be deleted (which also clears the entity's endEventId).",
+    description:
+      "Delete an event. System birth/epoch events cannot be deleted. End events can be deleted (which also clears the entity's endEventId).",
     inputSchema: {
       type: "object",
       properties: { worldId: wid, eventId: { type: "string" } },
       required: ["worldId", "eventId"],
     },
-    handler: async (a) => { await eventCtrl.remove(a.worldId as string, a.eventId as string); return okResult("Event deleted."); },
+    handler: async (a) => {
+      await eventCtrl.remove(a.worldId as string, a.eventId as string);
+      return okResult("Event deleted.");
+    },
   });
 
   // ── Entity Events ───────────────────────────────────────────────────────
 
   registry.register({
     name: "list_entity_events",
-    description: "List all events affecting a specific entity (through impacts). Sorted by time ascending.",
+    description:
+      "List all events affecting a specific entity (through impacts). Sorted by time ascending.",
     inputSchema: {
       type: "object",
       properties: {
         worldId: wid,
         entityId: { type: "string", description: "Entity ID (chr/thg/rel)" },
-        timeFrom: { type: "number", description: "Start time filter (epoch ms)" },
+        timeFrom: {
+          type: "number",
+          description: "Start time filter (epoch ms)",
+        },
         timeTo: { type: "number", description: "End time filter (epoch ms)" },
       },
       required: ["worldId", "entityId"],
@@ -155,14 +182,19 @@ export function registerEventTools(registry: ToolRegistry) {
       const opts: { timeLte?: number } = {};
       if (a.timeTo != null) opts.timeLte = a.timeTo as number;
 
-      const refs = await repo.listEventsByEntity(entityId, Object.keys(opts).length > 0 ? opts : undefined);
+      const refs = await repo.listEventsByEntity(
+        entityId,
+        Object.keys(opts).length > 0 ? opts : undefined,
+      );
       const events = await Promise.all(
         refs.map((ref) => {
           const r = ref as { worldId: string; eventId: string };
           return repo.getEventById(r.worldId || worldId, r.eventId);
         }),
       );
-      let result = events.filter((e): e is Record<string, unknown> => e != null) as unknown as Event[];
+      let result = events.filter(
+        (e): e is Record<string, unknown> => e != null,
+      ) as unknown as Event[];
       if (a.timeFrom != null) {
         const from = a.timeFrom as number;
         result = result.filter((e) => e.time >= from);
@@ -177,13 +209,19 @@ export function registerEventTools(registry: ToolRegistry) {
   registry.register({
     name: "list_event_links",
     description: "List all causal/thematic links between events in a world.",
-    inputSchema: { type: "object", properties: { worldId: wid }, required: ["worldId"] },
-    handler: async (a) => jsonResult(await eventLinkCtrl.list(a.worldId as string)),
+    inputSchema: {
+      type: "object",
+      properties: { worldId: wid },
+      required: ["worldId"],
+    },
+    handler: async (a) =>
+      jsonResult(await eventLinkCtrl.list(a.worldId as string)),
   });
 
   registry.register({
     name: "create_event_link",
-    description: "Create a link between two events (causal/thematic connection). Order does not matter — IDs are normalized.",
+    description:
+      "Create a link between two events (causal/thematic connection). Order does not matter — IDs are normalized.",
     inputSchema: {
       type: "object",
       properties: {
@@ -194,7 +232,9 @@ export function registerEventTools(registry: ToolRegistry) {
       },
       required: ["worldId", "eventIdA", "eventIdB"],
     },
-    handler: async (a) => jsonResult(await eventLinkCtrl.create(a.worldId as string, a as any)),
+    handler: async (a) =>
+      // biome-ignore lint/suspicious/noExplicitAny: MCP tool args
+      jsonResult(await eventLinkCtrl.create(a.worldId as string, a as any)),
   });
 
   registry.register({
@@ -209,6 +249,10 @@ export function registerEventTools(registry: ToolRegistry) {
       },
       required: ["worldId", "eventIdA", "eventIdB"],
     },
-    handler: async (a) => { await eventLinkCtrl.remove(a.worldId as string, a as any); return okResult("Event link deleted."); },
+    handler: async (a) => {
+      // biome-ignore lint/suspicious/noExplicitAny: MCP tool args
+      await eventLinkCtrl.remove(a.worldId as string, a as any);
+      return okResult("Event link deleted.");
+    },
   });
 }

@@ -1,17 +1,17 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import {
-  ListToolsRequestSchema,
   CallToolRequestSchema,
+  ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { ToolRegistry } from "./registry.js";
-import { registerWorldTools } from "./tools/worlds.js";
 import { registerEntityTools } from "./tools/entities.js";
-import { registerRelationshipTools } from "./tools/relationships.js";
 import { registerEventTools } from "./tools/events.js";
+import { registerNarrativeTools } from "./tools/narrative.js";
+import { registerRelationshipTools } from "./tools/relationships.js";
 import { registerStateTools } from "./tools/state.js";
 import { registerTaxonomyTools } from "./tools/taxonomy.js";
-import { registerNarrativeTools } from "./tools/narrative.js";
 import { registerTemplateTools } from "./tools/templates.js";
+import { registerWorldTools } from "./tools/worlds.js";
 
 /**
  * Build a pre-wired ToolRegistry with all Imagix tools registered.

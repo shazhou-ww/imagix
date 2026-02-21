@@ -1,4 +1,7 @@
-import type { AttributeDefinition } from "@imagix/shared";
+import type {
+  AttributeDefinition,
+  CreateAttributeDefinitionBody,
+} from "@imagix/shared";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
@@ -27,8 +30,8 @@ import { useParams } from "react-router-dom";
 import {
   useAttributeDefinitions,
   useCreateAttributeDefinition,
-  useUpdateAttributeDefinition,
   useDeleteAttributeDefinition,
+  useUpdateAttributeDefinition,
 } from "@/api/hooks/useAttributeDefinitions";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import EmptyState from "@/components/EmptyState";
@@ -54,9 +57,9 @@ const TYPE_LABELS: Record<string, string> = {
 export default function AttributeDefinitionPage() {
   const { worldId } = useParams<{ worldId: string }>();
   const { data: attrs, isLoading } = useAttributeDefinitions(worldId);
-  const createAttr = useCreateAttributeDefinition(worldId!);
-  const updateAttr = useUpdateAttributeDefinition(worldId!);
-  const deleteAttr = useDeleteAttributeDefinition(worldId!);
+  const createAttr = useCreateAttributeDefinition(worldId ?? "");
+  const updateAttr = useUpdateAttributeDefinition(worldId ?? "");
+  const deleteAttr = useDeleteAttributeDefinition(worldId ?? "");
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<AttributeDefinition | null>(null);
@@ -65,7 +68,9 @@ export default function AttributeDefinitionPage() {
   const [description, setDescription] = useState("");
   const [enumValues, setEnumValues] = useState<string[]>([]);
   const [newEnumValue, setNewEnumValue] = useState("");
-  const [deleteTarget, setDeleteTarget] = useState<AttributeDefinition | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AttributeDefinition | null>(
+    null,
+  );
 
   // Filter state
   const [filterName, setFilterName] = useState("");
@@ -106,9 +111,9 @@ export default function AttributeDefinitionPage() {
 
   const handleSave = () => {
     if (!name.trim()) return;
-    const body: any = {
+    const body: CreateAttributeDefinitionBody & { enumValues?: string[] } = {
       name: name.trim(),
-      type,
+      type: type as CreateAttributeDefinitionBody["type"],
       description: description.trim() || undefined,
     };
     if (type === "enum") {
@@ -144,7 +149,14 @@ export default function AttributeDefinitionPage() {
 
   return (
     <Box>
-      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          mb: 2,
+        }}
+      >
         <Box>
           <Typography variant="h4" fontWeight="bold">
             属性词典
@@ -153,7 +165,11 @@ export default function AttributeDefinitionPage() {
             定义世界中的属性术语，统一角色、事物、关系的属性命名与类型
           </Typography>
         </Box>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={openCreate}
+        >
           添加属性
         </Button>
       </Box>
@@ -165,7 +181,15 @@ export default function AttributeDefinitionPage() {
             placeholder="搜索属性"
             value={filterName}
             onChange={(e) => setFilterName(e.target.value)}
-            slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> } }}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              },
+            }}
             sx={{ minWidth: 180 }}
           />
           <TextField
@@ -179,7 +203,9 @@ export default function AttributeDefinitionPage() {
           >
             <MenuItem value="">全部</MenuItem>
             {TYPE_OPTIONS.map((o) => (
-              <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
+              <MenuItem key={o.value} value={o.value}>
+                {o.label}
+              </MenuItem>
             ))}
           </TextField>
         </Box>
@@ -188,12 +214,26 @@ export default function AttributeDefinitionPage() {
       {!filteredAttrs.length ? (
         <EmptyState
           title={attrs?.length ? "无匹配属性" : "暂无属性定义"}
-          description={attrs?.length ? "尝试调整筛选条件" : "添加属性定义来统一世界中的术语，如「修为境界」「灵根」「攻击力」等"}
+          description={
+            attrs?.length
+              ? "尝试调整筛选条件"
+              : "添加属性定义来统一世界中的术语，如「修为境界」「灵根」「攻击力」等"
+          }
           action={
             attrs?.length ? (
-              <Button variant="outlined" onClick={() => { setFilterName(""); setFilterType(""); }}>清除筛选</Button>
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  setFilterName("");
+                  setFilterType("");
+                }}
+              >
+                清除筛选
+              </Button>
             ) : (
-              <Button variant="outlined" onClick={openCreate}>添加属性</Button>
+              <Button variant="outlined" onClick={openCreate}>
+                添加属性
+              </Button>
             )
           }
         />
@@ -201,7 +241,9 @@ export default function AttributeDefinitionPage() {
         <Grid container spacing={2}>
           {filteredAttrs.map((attr) => (
             <Grid size={{ xs: 12, sm: 6, md: 4 }} key={attr.id}>
-              <Card sx={{ height: 140, display: "flex", flexDirection: "column" }}>
+              <Card
+                sx={{ height: 140, display: "flex", flexDirection: "column" }}
+              >
                 <CardContent sx={{ flex: 1, overflow: "hidden" }}>
                   <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
                     <Typography
@@ -222,12 +264,19 @@ export default function AttributeDefinitionPage() {
                     {!attr.system && (
                       <>
                         <Tooltip title="编辑">
-                          <IconButton size="small" onClick={() => openEdit(attr)}>
+                          <IconButton
+                            size="small"
+                            onClick={() => openEdit(attr)}
+                          >
                             <EditIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
                         <Tooltip title="删除">
-                          <IconButton size="small" color="error" onClick={() => setDeleteTarget(attr)}>
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => setDeleteTarget(attr)}
+                          >
                             <DeleteIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
@@ -251,9 +300,23 @@ export default function AttributeDefinitionPage() {
                     </Typography>
                   )}
                   {attr.type === "enum" && attr.enumValues && (
-                    <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", overflow: "hidden", maxHeight: 28 }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        gap: 0.5,
+                        flexWrap: "wrap",
+                        overflow: "hidden",
+                        maxHeight: 28,
+                      }}
+                    >
                       {attr.enumValues.map((v) => (
-                        <Chip key={v} label={v} size="small" variant="outlined" sx={{ height: 22, fontSize: "0.75rem" }} />
+                        <Chip
+                          key={v}
+                          label={v}
+                          size="small"
+                          variant="outlined"
+                          sx={{ height: 22, fontSize: "0.75rem" }}
+                        />
                       ))}
                     </Box>
                   )}
@@ -265,9 +328,21 @@ export default function AttributeDefinitionPage() {
       )}
 
       {/* Create / Edit Dialog */}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>{editing ? "编辑属性" : "添加属性"}</DialogTitle>
-        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}>
+        <DialogContent
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+            pt: "8px !important",
+          }}
+        >
           <TextField
             id="attr-name"
             label="属性名称"
@@ -293,13 +368,25 @@ export default function AttributeDefinitionPage() {
           </TextField>
           {type === "enum" && (
             <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>枚举可选值</Typography>
-              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 1, minHeight: 32 }}>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                枚举可选值
+              </Typography>
+              <Box
+                sx={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 0.5,
+                  mb: 1,
+                  minHeight: 32,
+                }}
+              >
                 {enumValues.map((v, i) => (
                   <Chip
                     key={v}
                     label={v}
-                    onDelete={() => setEnumValues(enumValues.filter((_, j) => j !== i))}
+                    onDelete={() =>
+                      setEnumValues(enumValues.filter((_, j) => j !== i))
+                    }
                     size="small"
                   />
                 ))}
@@ -326,7 +413,10 @@ export default function AttributeDefinitionPage() {
                 <Button
                   size="small"
                   variant="outlined"
-                  disabled={!newEnumValue.trim() || enumValues.includes(newEnumValue.trim())}
+                  disabled={
+                    !newEnumValue.trim() ||
+                    enumValues.includes(newEnumValue.trim())
+                  }
                   onClick={() => {
                     const v = newEnumValue.trim();
                     if (v && !enumValues.includes(v)) {
@@ -354,7 +444,9 @@ export default function AttributeDefinitionPage() {
           <Button
             variant="contained"
             onClick={handleSave}
-            disabled={!name.trim() || createAttr.isPending || updateAttr.isPending}
+            disabled={
+              !name.trim() || createAttr.isPending || updateAttr.isPending
+            }
           >
             {editing ? "保存" : "创建"}
           </Button>

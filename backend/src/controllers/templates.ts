@@ -1,17 +1,17 @@
 import {
+  type CreateTemplateBody,
+  type CreateWorldFromTemplateBody,
   createId,
   EntityPrefix,
-  WorldTemplateSchema,
   TemplateSnapshotSchema,
-  type WorldTemplate,
-  type CreateTemplateBody,
   type UpdateTemplateBody,
-  type CreateWorldFromTemplateBody,
   type World,
+  type WorldTemplate,
+  WorldTemplateSchema,
 } from "@imagix/shared";
 import * as repo from "../db/repository.js";
-import * as worldCtrl from "./worlds.js";
 import { AppError } from "./errors.js";
+import * as worldCtrl from "./worlds.js";
 
 // ---------------------------------------------------------------------------
 // CRUD
@@ -28,7 +28,12 @@ export async function create(
     name: body.name,
     description: body.description ?? "",
     snapshot: {
-      world: { name: body.name, description: body.description ?? "", settings: "", epoch: "" },
+      world: {
+        name: body.name,
+        description: body.description ?? "",
+        settings: "",
+        epoch: "",
+      },
       taxonomy: [],
       attributeDefinitions: [],
       places: [],
@@ -68,7 +73,10 @@ export async function update(
   return (await repo.getTemplate(templateId)) as WorldTemplate;
 }
 
-export async function remove(templateId: string, userId: string): Promise<void> {
+export async function remove(
+  templateId: string,
+  userId: string,
+): Promise<void> {
   const existing = await repo.getTemplate(templateId);
   if (!existing) throw AppError.notFound("Template");
   if ((existing as WorldTemplate).userId !== userId) {
@@ -116,7 +124,9 @@ export async function saveWorldAsTemplate(
       epoch: w.epoch ?? "",
     },
     taxonomy: strip(taxonomy as Record<string, unknown>[]),
-    attributeDefinitions: strip(attributeDefinitions as Record<string, unknown>[]),
+    attributeDefinitions: strip(
+      attributeDefinitions as Record<string, unknown>[],
+    ),
     places: strip(places as Record<string, unknown>[]),
   });
 
@@ -166,17 +176,25 @@ export async function createWorldFromTemplate(
   const idMap = new Map<string, string>();
 
   // Get the system taxonomy nodes that were auto-created
-  const [existingCharTree, existingThingTree, existingRelTree, existingAttrDefs] =
-    await Promise.all([
-      repo.getTaxonomyTree(world.id, "CHAR"),
-      repo.getTaxonomyTree(world.id, "THING"),
-      repo.getTaxonomyTree(world.id, "REL"),
-      repo.listAttributeDefinitions(world.id),
-    ]);
+  const [
+    existingCharTree,
+    existingThingTree,
+    existingRelTree,
+    existingAttrDefs,
+  ] = await Promise.all([
+    repo.getTaxonomyTree(world.id, "CHAR"),
+    repo.getTaxonomyTree(world.id, "THING"),
+    repo.getTaxonomyTree(world.id, "REL"),
+    repo.listAttributeDefinitions(world.id),
+  ]);
 
   // Map system node names to their IDs for deduplication
   const systemNodeMap = new Map<string, string>();
-  for (const node of [...existingCharTree, ...existingThingTree, ...existingRelTree]) {
+  for (const node of [
+    ...existingCharTree,
+    ...existingThingTree,
+    ...existingRelTree,
+  ]) {
     const n = node as Record<string, unknown>;
     if (n.system) {
       systemNodeMap.set(`${n.tree}:${n.name}`, n.id as string);
@@ -225,7 +243,9 @@ export async function createWorldFromTemplate(
     }
 
     const { id: _id, worldId: _wid, ...rest } = raw;
-    const newParentId = raw.parentId ? idMap.get(raw.parentId as string) ?? null : null;
+    const newParentId = raw.parentId
+      ? (idMap.get(raw.parentId as string) ?? null)
+      : null;
 
     const { TaxonomyNodeSchema } = await import("@imagix/shared");
     const node = TaxonomyNodeSchema.parse({
@@ -272,7 +292,7 @@ export async function createWorldFromTemplate(
   for (const raw of places) {
     const { id: oldId, worldId: _wid, ...rest } = raw;
     const newParentId = raw.parentId
-      ? placeIdMap.get(raw.parentId as string) ?? null
+      ? (placeIdMap.get(raw.parentId as string) ?? null)
       : null;
 
     const { PlaceSchema } = await import("@imagix/shared");

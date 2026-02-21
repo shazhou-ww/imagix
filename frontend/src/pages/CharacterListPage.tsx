@@ -1,4 +1,8 @@
-import type { Character, TaxonomyNode, Event as WorldEvent } from "@imagix/shared";
+import type {
+  Character,
+  TaxonomyNode,
+  Event as WorldEvent,
+} from "@imagix/shared";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
@@ -31,20 +35,23 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   useCharacters,
   useCreateCharacter,
-  useUpdateCharacter,
   useDeleteCharacter,
   useEndCharacter,
   useUndoEndCharacter,
+  useUpdateCharacter,
 } from "@/api/hooks/useCharacters";
 import { useEvents } from "@/api/hooks/useEvents";
 import { useTaxonomyTree } from "@/api/hooks/useTaxonomy";
 import ConfirmDialog from "@/components/ConfirmDialog";
-import EpochTimeInput from "@/components/EpochTimeInput";
 import EmptyState from "@/components/EmptyState";
+import EpochTimeInput from "@/components/EpochTimeInput";
 import { parseEpochMs } from "@/utils/time";
 
 /** Build ancestor chain for a node (bottom-up, returned top-down). */
-function getAncestorChain(nodeId: string, nodeMap: Map<string, TaxonomyNode>): TaxonomyNode[] {
+function getAncestorChain(
+  nodeId: string,
+  nodeMap: Map<string, TaxonomyNode>,
+): TaxonomyNode[] {
   const chain: TaxonomyNode[] = [];
   let cur = nodeMap.get(nodeId);
   while (cur) {
@@ -60,11 +67,11 @@ export default function CharacterListPage() {
   const location = useLocation();
   const { data: characters, isLoading } = useCharacters(worldId);
   const { data: charNodes } = useTaxonomyTree(worldId, "CHAR");
-  const createChar = useCreateCharacter(worldId!);
-  const updateChar = useUpdateCharacter(worldId!);
-  const deleteChar = useDeleteCharacter(worldId!);
-  const endChar = useEndCharacter(worldId!);
-  const undoEndChar = useUndoEndCharacter(worldId!);
+  const createChar = useCreateCharacter(worldId ?? "");
+  const updateChar = useUpdateCharacter(worldId ?? "");
+  const deleteChar = useDeleteCharacter(worldId ?? "");
+  const endChar = useEndCharacter(worldId ?? "");
+  const undoEndChar = useUndoEndCharacter(worldId ?? "");
   const { data: events } = useEvents(worldId);
 
   const scrolledRef = useRef(false);
@@ -82,15 +89,19 @@ export default function CharacterListPage() {
   // Filter state
   const [filterName, setFilterName] = useState("");
   const [filterCategoryId, setFilterCategoryId] = useState("");
-  const [filterStatus, setFilterStatus] = useState<"all" | "alive" | "ended">("all");
+  const [filterStatus, setFilterStatus] = useState<"all" | "alive" | "ended">(
+    "all",
+  );
 
   // Build a map: entityId → birth event
   const birthEventMap = useMemo(() => {
     const map = new Map<string, WorldEvent>();
     for (const evt of events ?? []) {
-      const birthAc = evt.system && evt.impacts?.attributeChanges?.find(
-        (ac) => ac.attribute === "$alive" && ac.value === true,
-      );
+      const birthAc =
+        evt.system &&
+        evt.impacts?.attributeChanges?.find(
+          (ac) => ac.attribute === "$alive" && ac.value === true,
+        );
       if (birthAc) map.set(birthAc.entityId, evt);
     }
     return map;
@@ -118,12 +129,18 @@ export default function CharacterListPage() {
     }
     if (filterCategoryId) {
       const ids = new Set<string>();
-      const collect = (nid: string) => { ids.add(nid); for (const n of charNodes ?? []) { if (n.parentId === nid) collect(n.id); } };
+      const collect = (nid: string) => {
+        ids.add(nid);
+        for (const n of charNodes ?? []) {
+          if (n.parentId === nid) collect(n.id);
+        }
+      };
       collect(filterCategoryId);
       result = result.filter((c) => ids.has(c.categoryNodeId));
     }
     if (filterStatus === "alive") result = result.filter((c) => !c.endEventId);
-    else if (filterStatus === "ended") result = result.filter((c) => !!c.endEventId);
+    else if (filterStatus === "ended")
+      result = result.filter((c) => !!c.endEventId);
     return result;
   }, [characters, filterName, filterCategoryId, filterStatus, charNodes]);
 
@@ -139,7 +156,9 @@ export default function CharacterListPage() {
       el.style.outline = "2px solid";
       el.style.outlineColor = "var(--mui-palette-primary-main, #1976d2)";
       el.style.borderRadius = "8px";
-      setTimeout(() => { el.style.outline = "none"; }, 2000);
+      setTimeout(() => {
+        el.style.outline = "none";
+      }, 2000);
     }
   }, [location.hash, characters]);
 
@@ -162,7 +181,10 @@ export default function CharacterListPage() {
     if (!charName.trim() || !categoryNodeId) return;
     if (editingChar) {
       updateChar.mutate(
-        { charId: editingChar.id, body: { name: charName.trim(), categoryNodeId } },
+        {
+          charId: editingChar.id,
+          body: { name: charName.trim(), categoryNodeId },
+        },
         { onSuccess: () => setDialogOpen(false) },
       );
     } else {
@@ -189,7 +211,10 @@ export default function CharacterListPage() {
   const handleEnd = () => {
     if (!endTarget) return;
     endChar.mutate(
-      { charId: endTarget.id, body: { time: endTime, content: endContent.trim() || undefined } },
+      {
+        charId: endTarget.id,
+        body: { time: endTime, content: endContent.trim() || undefined },
+      },
       { onSuccess: () => setEndTarget(null) },
     );
   };
@@ -218,11 +243,22 @@ export default function CharacterListPage() {
 
   return (
     <Box>
-      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          mb: 2,
+        }}
+      >
         <Typography variant="h4" fontWeight="bold">
           角色
         </Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={openCreate}
+        >
           添加角色
         </Button>
       </Box>
@@ -234,7 +270,15 @@ export default function CharacterListPage() {
             placeholder="搜索角色"
             value={filterName}
             onChange={(e) => setFilterName(e.target.value)}
-            slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> } }}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              },
+            }}
             sx={{ minWidth: 180 }}
           />
           <TextField
@@ -248,7 +292,9 @@ export default function CharacterListPage() {
           >
             <MenuItem value="">全部</MenuItem>
             {(charNodes ?? []).map((n) => (
-              <MenuItem key={n.id} value={n.id}>{n.name}</MenuItem>
+              <MenuItem key={n.id} value={n.id}>
+                {n.name}
+              </MenuItem>
             ))}
           </TextField>
           <TextField
@@ -256,7 +302,9 @@ export default function CharacterListPage() {
             select
             label="状态"
             value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value as "all" | "alive" | "ended")}
+            onChange={(e) =>
+              setFilterStatus(e.target.value as "all" | "alive" | "ended")
+            }
             sx={{ minWidth: 120 }}
             slotProps={{ inputLabel: { htmlFor: undefined } }}
           >
@@ -270,12 +318,27 @@ export default function CharacterListPage() {
       {!filteredCharacters.length ? (
         <EmptyState
           title={characters?.length ? "无匹配角色" : "暂无角色"}
-          description={characters?.length ? "尝试调整筛选条件" : "先在分类体系中定义角色分类，然后添加角色"}
+          description={
+            characters?.length
+              ? "尝试调整筛选条件"
+              : "先在分类体系中定义角色分类，然后添加角色"
+          }
           action={
             characters?.length ? (
-              <Button variant="outlined" onClick={() => { setFilterName(""); setFilterCategoryId(""); setFilterStatus("all"); }}>清除筛选</Button>
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  setFilterName("");
+                  setFilterCategoryId("");
+                  setFilterStatus("all");
+                }}
+              >
+                清除筛选
+              </Button>
             ) : (
-              <Button variant="outlined" onClick={openCreate}>添加角色</Button>
+              <Button variant="outlined" onClick={openCreate}>
+                添加角色
+              </Button>
             )
           }
         />
@@ -289,7 +352,11 @@ export default function CharacterListPage() {
                 <Card id={char.id}>
                   <CardContent>
                     <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
-                      <Typography variant="subtitle1" fontWeight="bold" sx={{ flex: 1 }}>
+                      <Typography
+                        variant="subtitle1"
+                        fontWeight="bold"
+                        sx={{ flex: 1 }}
+                      >
                         {char.name}
                       </Typography>
                       <Tooltip title="编辑">
@@ -298,34 +365,74 @@ export default function CharacterListPage() {
                         </IconButton>
                       </Tooltip>
                       <Tooltip title="删除">
-                        <IconButton size="small" color="error" onClick={() => setDeleteTarget(char)}>
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => setDeleteTarget(char)}
+                        >
                           <DeleteIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
                     </Box>
                     {/* Classification path */}
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, flexWrap: "wrap" }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 0.5,
+                        flexWrap: "wrap",
+                      }}
+                    >
                       {chain.length > 0 ? (
                         chain.map((n, i) => (
-                          <Box key={n.id} sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
+                          <Box
+                            key={n.id}
+                            sx={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 0.5,
+                            }}
+                          >
                             <Chip
                               label={n.name}
                               size="small"
-                              variant={i === chain.length - 1 ? "filled" : "outlined"}
-                              color={i === chain.length - 1 ? "primary" : "default"}
+                              variant={
+                                i === chain.length - 1 ? "filled" : "outlined"
+                              }
+                              color={
+                                i === chain.length - 1 ? "primary" : "default"
+                              }
                               sx={{ height: 22, fontSize: "0.75rem" }}
                             />
                             {i < chain.length - 1 && (
-                              <Typography variant="caption" color="text.disabled">›</Typography>
+                              <Typography
+                                variant="caption"
+                                color="text.disabled"
+                              >
+                                ›
+                              </Typography>
                             )}
                           </Box>
                         ))
                       ) : (
-                        <Chip label={node?.name ?? "未知分类"} size="small" variant="outlined" sx={{ height: 22, fontSize: "0.75rem" }} />
+                        <Chip
+                          label={node?.name ?? "未知分类"}
+                          size="small"
+                          variant="outlined"
+                          sx={{ height: 22, fontSize: "0.75rem" }}
+                        />
                       )}
                     </Box>
                     {/* Lifecycle events */}
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, flexWrap: "wrap", mt: 1 }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 0.5,
+                        flexWrap: "wrap",
+                        mt: 1,
+                      }}
+                    >
                       {(() => {
                         const birth = birthEventMap.get(char.id);
                         return birth ? (
@@ -335,8 +442,14 @@ export default function CharacterListPage() {
                             size="small"
                             color="success"
                             variant="outlined"
-                            sx={{ height: 22, fontSize: "0.75rem", cursor: "pointer" }}
-                            onClick={() => navigate(`/worlds/${worldId}/events#${birth.id}`)}
+                            sx={{
+                              height: 22,
+                              fontSize: "0.75rem",
+                              cursor: "pointer",
+                            }}
+                            onClick={() =>
+                              navigate(`/worlds/${worldId}/events#${birth.id}`)
+                            }
                           />
                         ) : null;
                       })()}
@@ -344,12 +457,23 @@ export default function CharacterListPage() {
                         <>
                           <Chip
                             icon={<HighlightOffIcon sx={{ fontSize: 14 }} />}
-                            label={`消亡 ${(() => { const e = eventMap.get(char.endEventId); return e ? fmtTime(e.time) : ""; })()}`}
+                            label={`消亡 ${(() => {
+                              const e = eventMap.get(char.endEventId);
+                              return e ? fmtTime(e.time) : "";
+                            })()}`}
                             size="small"
                             color="error"
                             variant="outlined"
-                            sx={{ height: 22, fontSize: "0.75rem", cursor: "pointer" }}
-                            onClick={() => navigate(`/worlds/${worldId}/events#${char.endEventId}`)}
+                            sx={{
+                              height: 22,
+                              fontSize: "0.75rem",
+                              cursor: "pointer",
+                            }}
+                            onClick={() =>
+                              navigate(
+                                `/worlds/${worldId}/events#${char.endEventId}`,
+                              )
+                            }
                           />
                           <Tooltip title="撤销消亡">
                             <IconButton
@@ -368,11 +492,19 @@ export default function CharacterListPage() {
                           variant="outlined"
                           color="default"
                           onClick={() => openEndDialog(char)}
-                          sx={{ height: 22, fontSize: "0.75rem", cursor: "pointer" }}
+                          sx={{
+                            height: 22,
+                            fontSize: "0.75rem",
+                            cursor: "pointer",
+                          }}
                         />
                       )}
                     </Box>
-                    <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ mt: 1, display: "block" }}
+                    >
                       {char.id}
                     </Typography>
                   </CardContent>
@@ -384,9 +516,21 @@ export default function CharacterListPage() {
       )}
 
       {/* Create / Edit Dialog */}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>{editingChar ? "编辑角色" : "添加角色"}</DialogTitle>
-        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}>
+        <DialogContent
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+            pt: "8px !important",
+          }}
+        >
           <TextField
             label="角色名称"
             value={charName}
@@ -419,7 +563,7 @@ export default function CharacterListPage() {
               required
               helperText="选择角色所属的分类节点"
             >
-              {charNodes!.map((n) => (
+              {charNodes?.map((n) => (
                 <MenuItem key={n.id} value={n.id}>
                   {n.name}
                 </MenuItem>
@@ -428,9 +572,19 @@ export default function CharacterListPage() {
           )}
           {!editingChar && (
             <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>诞生时间</Typography>
-              <EpochTimeInput value={birthTime} onChange={setBirthTime} showPreview />
-              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                诞生时间
+              </Typography>
+              <EpochTimeInput
+                value={birthTime}
+                onChange={setBirthTime}
+                showPreview
+              />
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ mt: 0.5, display: "block" }}
+              >
                 创建后会自动生成「诞生」事件。
               </Typography>
             </Box>
@@ -441,7 +595,12 @@ export default function CharacterListPage() {
           <Button
             variant="contained"
             onClick={handleSave}
-            disabled={!charName.trim() || !categoryNodeId || createChar.isPending || updateChar.isPending}
+            disabled={
+              !charName.trim() ||
+              !categoryNodeId ||
+              createChar.isPending ||
+              updateChar.isPending
+            }
           >
             {editingChar ? "保存" : "创建"}
           </Button>
@@ -458,12 +617,26 @@ export default function CharacterListPage() {
       />
 
       {/* End (Death) Dialog */}
-      <Dialog open={!!endTarget} onClose={() => setEndTarget(null)} maxWidth="sm" fullWidth>
+      <Dialog
+        open={!!endTarget}
+        onClose={() => setEndTarget(null)}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>标记消亡 — {endTarget?.name}</DialogTitle>
-        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}>
+        <DialogContent
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+            pt: "8px !important",
+          }}
+        >
           {endTimeError && <Alert severity="error">{endTimeError}</Alert>}
           <Box>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>消亡时间</Typography>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+              消亡时间
+            </Typography>
             <EpochTimeInput value={endTime} onChange={setEndTime} showPreview />
           </Box>
           <TextField

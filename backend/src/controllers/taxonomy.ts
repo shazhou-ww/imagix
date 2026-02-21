@@ -1,10 +1,10 @@
 import {
+  type CreateTaxonomyNodeBody,
   createId,
   EntityPrefix,
-  TaxonomyNodeSchema,
   type TaxonomyNode,
+  TaxonomyNodeSchema,
   type TaxonomyTree,
-  type CreateTaxonomyNodeBody,
   type UpdateTaxonomyNodeBody,
 } from "@imagix/shared";
 import * as repo from "../db/repository.js";
@@ -41,7 +41,8 @@ export async function update(
 ): Promise<TaxonomyNode> {
   const existing = await repo.getTaxonomyNode(worldId, tree, nodeId);
   if (!existing) throw AppError.notFound("TaxonomyNode");
-  if ((existing as TaxonomyNode).system) throw AppError.forbidden("系统预置节点不可编辑");
+  if ((existing as TaxonomyNode).system)
+    throw AppError.forbidden("系统预置节点不可编辑");
   await repo.updateTaxonomyNode(worldId, tree, nodeId, body);
   return (await repo.getTaxonomyNode(worldId, tree, nodeId)) as TaxonomyNode;
 }
@@ -52,6 +53,7 @@ export async function remove(
   nodeId: string,
 ): Promise<void> {
   const existing = await repo.getTaxonomyNode(worldId, tree, nodeId);
-  if (existing && (existing as TaxonomyNode).system) throw AppError.forbidden("系统预置节点不可删除");
+  if (existing && (existing as TaxonomyNode).system)
+    throw AppError.forbidden("系统预置节点不可删除");
   await repo.deleteTaxonomyNode(worldId, tree, nodeId);
 }

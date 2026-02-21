@@ -99,7 +99,9 @@ export function formatDuration(ms: number): string {
   if (t.days > 0 || parts.length > 0) parts.push(`${t.days} 日`);
 
   if (t.hours > 0 || t.minutes > 0) {
-    parts.push(`${String(t.hours).padStart(2, "0")}:${String(t.minutes).padStart(2, "0")}`);
+    parts.push(
+      `${String(t.hours).padStart(2, "0")}:${String(t.minutes).padStart(2, "0")}`,
+    );
   }
 
   return parts.length > 0 ? parts.join(" ") : "0";

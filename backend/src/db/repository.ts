@@ -7,45 +7,45 @@ import {
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
 import type {
-  World,
-  TaxonomyNode,
-  TaxonomyTree,
   AttributeDefinition,
+  Chapter,
   Character,
-  Thing,
-  Place,
-  Relationship,
   Event,
   EventLink,
-  Story,
-  Chapter,
+  Place,
   Plot,
+  Relationship,
+  Story,
+  TaxonomyNode,
+  TaxonomyTree,
+  Thing,
+  World,
   WorldTemplate,
 } from "@imagix/shared";
 import { docClient, TABLE_NAME } from "./client.js";
 import {
-  worldPk,
-  worldSk,
-  taxonomySk,
   attributeDefinitionSk,
+  chapterSk,
   characterSk,
-  thingSk,
-  placeSk,
-  relationshipSk,
-  eventSk,
+  entityPk,
   eventIndexSk,
   eventLinkSk,
-  storySk,
-  storyPk,
-  chapterSk,
+  eventSk,
+  PREFIX,
+  placeSk,
   plotSk,
-  entityPk,
+  relationshipSk,
   relFromSk,
   relToSk,
-  userGsi1pk,
+  storyPk,
+  storySk,
+  taxonomySk,
   templatePk,
   templateSk,
-  PREFIX,
+  thingSk,
+  userGsi1pk,
+  worldPk,
+  worldSk,
 } from "./keys.js";
 
 // ---------------------------------------------------------------------------
@@ -96,17 +96,12 @@ async function queryByPkPrefix(
   return res.Items ?? [];
 }
 
-async function queryGsi1(
-  gsi1pk: string,
-  skPrefix: string,
-  scanForward = true,
-) {
+async function queryGsi1(gsi1pk: string, skPrefix: string, scanForward = true) {
   const res = await docClient.send(
     new QueryCommand({
       TableName: TABLE_NAME,
       IndexName: "gsi1",
-      KeyConditionExpression:
-        "gsi1pk = :pk AND begins_with(gsi1sk, :prefix)",
+      KeyConditionExpression: "gsi1pk = :pk AND begins_with(gsi1sk, :prefix)",
       ExpressionAttributeValues: { ":pk": gsi1pk, ":prefix": skPrefix },
       ScanIndexForward: scanForward,
     }),
@@ -258,7 +253,10 @@ export async function updateAttributeDefinition(
   await updateFields(worldPk(worldId), attributeDefinitionSk(adfId), fields);
 }
 
-export async function deleteAttributeDefinition(worldId: string, adfId: string) {
+export async function deleteAttributeDefinition(
+  worldId: string,
+  adfId: string,
+) {
   await del(worldPk(worldId), attributeDefinitionSk(adfId));
 }
 

@@ -28,10 +28,10 @@ import {
 import { useCallback, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
-  usePlaces,
   useCreatePlace,
-  useUpdatePlace,
   useDeletePlace,
+  usePlaces,
+  useUpdatePlace,
 } from "@/api/hooks/usePlaces";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import EmptyState from "@/components/EmptyState";
@@ -90,9 +90,9 @@ function countDescendants(node: PlaceNode): number {
 export default function PlaceListPage() {
   const { worldId } = useParams<{ worldId: string }>();
   const { data: places, isLoading } = usePlaces(worldId);
-  const createPlace = useCreatePlace(worldId!);
-  const updatePlace = useUpdatePlace(worldId!);
-  const deletePlace = useDeletePlace(worldId!);
+  const createPlace = useCreatePlace(worldId ?? "");
+  const updatePlace = useUpdatePlace(worldId ?? "");
+  const deletePlace = useDeletePlace(worldId ?? "");
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingPlace, setEditingPlace] = useState<Place | null>(null);
@@ -121,11 +121,15 @@ export default function PlaceListPage() {
     const filterNodes = (nodes: PlaceNode[]): PlaceNode[] => {
       const result: PlaceNode[] = [];
       for (const node of nodes) {
-        const selfMatch = node.place.name.toLowerCase().includes(q) ||
+        const selfMatch =
+          node.place.name.toLowerCase().includes(q) ||
           (node.place.description ?? "").toLowerCase().includes(q);
         const filteredChildren = filterNodes(node.children);
         if (selfMatch || filteredChildren.length > 0) {
-          result.push({ ...node, children: selfMatch ? node.children : filteredChildren });
+          result.push({
+            ...node,
+            children: selfMatch ? node.children : filteredChildren,
+          });
         }
       }
       return result;
@@ -271,7 +275,10 @@ export default function PlaceListPage() {
           >
             {/* Expand/collapse toggle */}
             {hasChildren ? (
-              <IconButton size="small" onClick={() => toggleExpand(node.place.id)}>
+              <IconButton
+                size="small"
+                onClick={() => toggleExpand(node.place.id)}
+              >
                 {isExpanded ? (
                   <ExpandLessIcon fontSize="small" />
                 ) : (
@@ -352,7 +359,9 @@ export default function PlaceListPage() {
 
         {/* Children */}
         {hasChildren && isExpanded && (
-          <Box>{node.children.map((child) => renderNode(child, depth + 1))}</Box>
+          <Box>
+            {node.children.map((child) => renderNode(child, depth + 1))}
+          </Box>
         )}
       </Box>
     );
@@ -387,7 +396,15 @@ export default function PlaceListPage() {
             placeholder="搜索地点"
             value={filterName}
             onChange={(e) => setFilterName(e.target.value)}
-            slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> } }}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              },
+            }}
             sx={{ minWidth: 220 }}
           />
         </Box>
@@ -396,12 +413,20 @@ export default function PlaceListPage() {
       {!filteredTree.length ? (
         <EmptyState
           title={places?.length ? "无匹配地点" : "暂无地点"}
-          description={places?.length ? "尝试调整搜索关键词" : "添加地点来构建世界的空间结构"}
+          description={
+            places?.length
+              ? "尝试调整搜索关键词"
+              : "添加地点来构建世界的空间结构"
+          }
           action={
             places?.length ? (
-              <Button variant="outlined" onClick={() => setFilterName("")}>清除搜索</Button>
+              <Button variant="outlined" onClick={() => setFilterName("")}>
+                清除搜索
+              </Button>
             ) : (
-              <Button variant="outlined" onClick={() => openCreate()}>添加地点</Button>
+              <Button variant="outlined" onClick={() => openCreate()}>
+                添加地点
+              </Button>
             )
           }
         />
@@ -416,11 +441,14 @@ export default function PlaceListPage() {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>
-          {editingPlace ? "编辑地点" : "添加地点"}
-        </DialogTitle>
+        <DialogTitle>{editingPlace ? "编辑地点" : "添加地点"}</DialogTitle>
         <DialogContent
-          sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+            pt: "8px !important",
+          }}
         >
           <TextField
             label="名称"
@@ -460,9 +488,7 @@ export default function PlaceListPage() {
             variant="contained"
             onClick={handleSave}
             disabled={
-              !name.trim() ||
-              createPlace.isPending ||
-              updatePlace.isPending
+              !name.trim() || createPlace.isPending || updatePlace.isPending
             }
           >
             {editingPlace ? "保存" : "创建"}

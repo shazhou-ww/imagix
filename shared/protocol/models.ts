@@ -6,10 +6,7 @@ import { EntityPrefix, isValidId, isValidIdWithPrefix } from "./id.js";
 // ---------------------------------------------------------------------------
 
 /** 通用 ID：30 位字符串，格式由 isValidId 校验。 */
-export const id = z
-  .string()
-  .length(30)
-  .refine(isValidId, "Invalid ID format");
+export const id = z.string().length(30).refine(isValidId, "Invalid ID format");
 
 /** 世界 ID */
 export const wldId = id.refine((v) =>
@@ -90,7 +87,14 @@ export const AttributeDefinitionSchema = z.object({
   /** 属性名称，如 "修为境界"、"灵根"。 */
   name: z.string(),
   /** 属性值类型。enum 表示字符串枚举，需配合 enumValues 使用；timestamp 使用世界纪元毫秒数；timespan 表示时间跨度（毫秒）。 */
-  type: z.enum(["string", "number", "boolean", "enum", "timestamp", "timespan"]),
+  type: z.enum([
+    "string",
+    "number",
+    "boolean",
+    "enum",
+    "timestamp",
+    "timespan",
+  ]),
   /** 当 type 为 "enum" 时，可选值列表（至少 1 项）。其他类型时忽略。 */
   enumValues: z.array(z.string()).min(1).optional(),
   /** 属性的可选说明。 */

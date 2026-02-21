@@ -1,3 +1,4 @@
+import type { WorldTemplate } from "@imagix/shared";
 import AddIcon from "@mui/icons-material/Add";
 import {
   Autocomplete,
@@ -17,9 +18,11 @@ import {
 } from "@mui/material";
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import {
+  useCreateWorldFromTemplate,
+  useTemplates,
+} from "@/api/hooks/useTemplates";
 import { useCreateWorld, useWorlds } from "@/api/hooks/useWorlds";
-import { useTemplates, useCreateWorldFromTemplate } from "@/api/hooks/useTemplates";
-import type { WorldTemplate } from "@imagix/shared";
 import EmptyState from "@/components/EmptyState";
 
 export default function WorldListPage() {
@@ -29,11 +32,14 @@ export default function WorldListPage() {
   const { data: templates } = useTemplates();
   const createWorld = useCreateWorld();
   const createWorldFromTemplate = useCreateWorldFromTemplate();
-  const [dialogOpen, setDialogOpen] = useState(searchParams.get("create") === "1");
+  const [dialogOpen, setDialogOpen] = useState(
+    searchParams.get("create") === "1",
+  );
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [epoch, setEpoch] = useState("");
-  const [selectedTemplate, setSelectedTemplate] = useState<WorldTemplate | null>(null);
+  const [selectedTemplate, setSelectedTemplate] =
+    useState<WorldTemplate | null>(null);
 
   const closeDialog = () => {
     setDialogOpen(false);
@@ -70,7 +76,11 @@ export default function WorldListPage() {
     } else {
       if (!name.trim() || !epoch.trim()) return;
       createWorld.mutate(
-        { name: name.trim(), description: description.trim() || undefined, epoch: epoch.trim() },
+        {
+          name: name.trim(),
+          description: description.trim() || undefined,
+          epoch: epoch.trim(),
+        },
         {
           onSuccess: (world) => {
             closeDialog();
@@ -167,12 +177,7 @@ export default function WorldListPage() {
       )}
 
       {/* Create World Dialog */}
-      <Dialog
-        open={dialogOpen}
-        onClose={closeDialog}
-        maxWidth="sm"
-        fullWidth
-      >
+      <Dialog open={dialogOpen} onClose={closeDialog} maxWidth="sm" fullWidth>
         <DialogTitle>创建世界</DialogTitle>
         <DialogContent
           sx={{

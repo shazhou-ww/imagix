@@ -1,11 +1,11 @@
 import { z } from "zod";
 import {
-  txnId,
-  plcId,
   chrId,
-  evtId,
   entityId,
+  evtId,
+  plcId,
   StateImpactSchema,
+  txnId,
 } from "./models.js";
 
 // ---------------------------------------------------------------------------
@@ -73,14 +73,26 @@ export type UpdatePlaceBody = z.infer<typeof UpdatePlaceBody>;
 
 export const CreateAttributeDefinitionBody = z.object({
   name: z.string().min(1),
-  type: z.enum(["string", "number", "boolean", "enum", "timestamp", "timespan"]),
+  type: z.enum([
+    "string",
+    "number",
+    "boolean",
+    "enum",
+    "timestamp",
+    "timespan",
+  ]),
   enumValues: z.array(z.string()).min(1).optional(),
   description: z.string().optional(),
 });
-export const UpdateAttributeDefinitionBody = CreateAttributeDefinitionBody.partial();
+export const UpdateAttributeDefinitionBody =
+  CreateAttributeDefinitionBody.partial();
 
-export type CreateAttributeDefinitionBody = z.infer<typeof CreateAttributeDefinitionBody>;
-export type UpdateAttributeDefinitionBody = z.infer<typeof UpdateAttributeDefinitionBody>;
+export type CreateAttributeDefinitionBody = z.infer<
+  typeof CreateAttributeDefinitionBody
+>;
+export type UpdateAttributeDefinitionBody = z.infer<
+  typeof UpdateAttributeDefinitionBody
+>;
 
 // ---------------------------------------------------------------------------
 // Character
@@ -116,16 +128,18 @@ export type UpdateThingBody = z.infer<typeof UpdateThingBody>;
 // Relationship
 // ---------------------------------------------------------------------------
 
-export const CreateRelationshipBody = z.object({
-  typeNodeId: txnId,
-  fromId: entityId,
-  toId: entityId,
-  /** 建立时间（相对纪元的毫秒数）。后端会自动创建「建立」事件。 */
-  establishTime: z.number(),
-}).refine((data) => data.fromId !== data.toId, {
-  message: "关系的源实体和目标实体不能相同",
-  path: ["toId"],
-});
+export const CreateRelationshipBody = z
+  .object({
+    typeNodeId: txnId,
+    fromId: entityId,
+    toId: entityId,
+    /** 建立时间（相对纪元的毫秒数）。后端会自动创建「建立」事件。 */
+    establishTime: z.number(),
+  })
+  .refine((data) => data.fromId !== data.toId, {
+    message: "关系的源实体和目标实体不能相同",
+    path: ["toId"],
+  });
 
 export type CreateRelationshipBody = z.infer<typeof CreateRelationshipBody>;
 
@@ -246,4 +260,6 @@ export const CreateWorldFromTemplateBody = z.object({
   epoch: z.string().min(1).optional(),
 });
 
-export type CreateWorldFromTemplateBody = z.infer<typeof CreateWorldFromTemplateBody>;
+export type CreateWorldFromTemplateBody = z.infer<
+  typeof CreateWorldFromTemplateBody
+>;

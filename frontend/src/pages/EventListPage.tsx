@@ -1,4 +1,4 @@
-import type { Event as WorldEvent, AttributeChange } from "@imagix/shared";
+import type { AttributeChange, Event as WorldEvent } from "@imagix/shared";
 import AddIcon from "@mui/icons-material/Add";
 import ClearIcon from "@mui/icons-material/Clear";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -43,22 +43,22 @@ import {
 } from "@mui/material";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import {
-  useEvents,
-  useCreateEvent,
-  useUpdateEvent,
-  useDeleteEvent,
-} from "@/api/hooks/useEvents";
-import { useCharacters } from "@/api/hooks/useCharacters";
-import { useThings } from "@/api/hooks/useThings";
-import { useRelationships } from "@/api/hooks/useRelationships";
 import { useAttributeDefinitions } from "@/api/hooks/useAttributeDefinitions";
+import { useCharacters } from "@/api/hooks/useCharacters";
 import { useEntitiesState } from "@/api/hooks/useEntityState";
 import { useEventLinks } from "@/api/hooks/useEventLinks";
+import {
+  useCreateEvent,
+  useDeleteEvent,
+  useEvents,
+  useUpdateEvent,
+} from "@/api/hooks/useEvents";
 import { usePlaces } from "@/api/hooks/usePlaces";
+import { useRelationships } from "@/api/hooks/useRelationships";
+import { useThings } from "@/api/hooks/useThings";
 import ConfirmDialog from "@/components/ConfirmDialog";
-import EpochTimeInput from "@/components/EpochTimeInput";
 import EmptyState from "@/components/EmptyState";
+import EpochTimeInput from "@/components/EpochTimeInput";
 import { formatDuration, parseEpochMs } from "@/utils/time";
 
 /** Translate internal $age attribute to human-readable display name based on entity type. */
@@ -74,7 +74,11 @@ function displayAttrName(attrName: string, entityId: string): string {
 // Group flat AttributeChange[] by entityId for grouped UI rendering
 interface AttrChangeGroup {
   entityId: string;
-  changes: { attribute: string; value: string | number | boolean; flatIdx: number }[];
+  changes: {
+    attribute: string;
+    value: string | number | boolean;
+    flatIdx: number;
+  }[];
 }
 
 function groupByEntity(changes: AttributeChange[]): AttrChangeGroup[] {
@@ -87,7 +91,11 @@ function groupByEntity(changes: AttributeChange[]): AttrChangeGroup[] {
       map.set(ac.entityId, group);
       groups.push(group);
     }
-    group.changes.push({ attribute: ac.attribute, value: ac.value, flatIdx: idx });
+    group.changes.push({
+      attribute: ac.attribute,
+      value: ac.value,
+      flatIdx: idx,
+    });
   });
   return groups;
 }
@@ -98,9 +106,9 @@ export default function EventListPage() {
   const location = useLocation();
   const scrolledRef = useRef(false);
   const { data: events, isLoading } = useEvents(worldId);
-  const createEvent = useCreateEvent(worldId!);
-  const updateEvent = useUpdateEvent(worldId!);
-  const deleteEvent = useDeleteEvent(worldId!);
+  const createEvent = useCreateEvent(worldId ?? "");
+  const updateEvent = useUpdateEvent(worldId ?? "");
+  const deleteEvent = useDeleteEvent(worldId ?? "");
   const { data: characters } = useCharacters(worldId);
   const { data: things } = useThings(worldId);
   const { data: relationships } = useRelationships(worldId);
@@ -133,7 +141,9 @@ export default function EventListPage() {
   const timeError = useMemo(() => {
     if (!editingEvent?.system) return "";
     const affectedIds = [
-      ...new Set(editingEvent.impacts?.attributeChanges?.map(ac => ac.entityId) ?? []),
+      ...new Set(
+        editingEvent.impacts?.attributeChanges?.map((ac) => ac.entityId) ?? [],
+      ),
     ];
     if (affectedIds.length === 0) return "";
     const isBirth = editingEvent.impacts?.attributeChanges?.some(
@@ -147,16 +157,31 @@ export default function EventListPage() {
     for (const pid of affectedIds) {
       if (isBirth) {
         const endEvt = (events ?? []).find(
-          (e) => e.id !== editingEvent.id && e.system &&
-            e.impacts?.attributeChanges?.some((ac) => ac.entityId === pid && ac.attribute === "$alive" && ac.value === false),
+          (e) =>
+            e.id !== editingEvent.id &&
+            e.system &&
+            e.impacts?.attributeChanges?.some(
+              (ac) =>
+                ac.entityId === pid &&
+                ac.attribute === "$alive" &&
+                ac.value === false,
+            ),
         );
         if (endEvt && time >= endEvt.time) return "创生时间必须早于消亡时间";
       } else {
         const birthEvt = (events ?? []).find(
-          (e) => e.id !== editingEvent.id && e.system &&
-            e.impacts?.attributeChanges?.some((ac) => ac.entityId === pid && ac.attribute === "$alive" && ac.value === true),
+          (e) =>
+            e.id !== editingEvent.id &&
+            e.system &&
+            e.impacts?.attributeChanges?.some(
+              (ac) =>
+                ac.entityId === pid &&
+                ac.attribute === "$alive" &&
+                ac.value === true,
+            ),
         );
-        if (birthEvt && time <= birthEvt.time) return "消亡时间必须晚于创生时间";
+        if (birthEvt && time <= birthEvt.time)
+          return "消亡时间必须晚于创生时间";
       }
     }
     return "";
@@ -164,9 +189,12 @@ export default function EventListPage() {
 
   // Build entity options for autocomplete
   const entityOptions = useMemo(() => {
-    const opts: { id: string; name: string; type: "character" | "thing" }[] = [];
-    for (const c of characters ?? []) opts.push({ id: c.id, name: c.name, type: "character" });
-    for (const t of things ?? []) opts.push({ id: t.id, name: t.name, type: "thing" });
+    const opts: { id: string; name: string; type: "character" | "thing" }[] =
+      [];
+    for (const c of characters ?? [])
+      opts.push({ id: c.id, name: c.name, type: "character" });
+    for (const t of things ?? [])
+      opts.push({ id: t.id, name: t.name, type: "thing" });
     return opts;
   }, [characters, things]);
 
@@ -179,7 +207,10 @@ export default function EventListPage() {
   );
 
   // Grouped view of attribute changes
-  const groupedAttrChanges = useMemo(() => groupByEntity(attrChanges), [attrChanges]);
+  const groupedAttrChanges = useMemo(
+    () => groupByEntity(attrChanges),
+    [attrChanges],
+  );
 
   const toggleExpand = useCallback((eventId: string) => {
     setExpandedEvents((prev) => {
@@ -193,30 +224,40 @@ export default function EventListPage() {
   // Add a participant (and optionally their attr change rows are added later)
   const addParticipant = useCallback(
     (entity: { id: string; type: "character" | "thing" }) => {
-      setParticipantIds((prev) => prev.includes(entity.id) ? prev : [...prev, entity.id]);
+      setParticipantIds((prev) =>
+        prev.includes(entity.id) ? prev : [...prev, entity.id],
+      );
     },
     [],
   );
 
   // Remove a participant and all their attribute changes
-  const removeParticipant = useCallback(
-    (entityId: string) => {
-      setParticipantIds((prev) => prev.filter((id) => id !== entityId));
-      setAttrChanges((prev) => prev.filter((ac) => ac.entityId !== entityId));
-    },
-    [],
-  );
+  const removeParticipant = useCallback((entityId: string) => {
+    setParticipantIds((prev) => prev.filter((id) => id !== entityId));
+    setAttrChanges((prev) => prev.filter((ac) => ac.entityId !== entityId));
+  }, []);
 
   // Toggle an attribute change on/off for a participant
   const toggleAttrChange = useCallback(
-    (entityId: string, attrName: string, currentValue?: string | number | boolean) => {
+    (
+      entityId: string,
+      attrName: string,
+      currentValue?: string | number | boolean,
+    ) => {
       setAttrChanges((prev) => {
-        const idx = prev.findIndex((ac) => ac.entityId === entityId && ac.attribute === attrName);
+        const idx = prev.findIndex(
+          (ac) => ac.entityId === entityId && ac.attribute === attrName,
+        );
         if (idx >= 0) return prev.filter((_, i) => i !== idx);
         const def = attrDefs?.find((d) => d.name === attrName);
         let value: string | number | boolean = currentValue ?? "";
         if (value === "" || value === undefined) {
-          if (def?.type === "number" || def?.type === "timestamp" || def?.type === "timespan") value = 0;
+          if (
+            def?.type === "number" ||
+            def?.type === "timestamp" ||
+            def?.type === "timespan"
+          )
+            value = 0;
           else if (def?.type === "boolean") value = false;
           else if (def?.type === "enum") value = def.enumValues?.[0] ?? "";
         }
@@ -229,7 +270,9 @@ export default function EventListPage() {
   // Update a single attribute row by flat index
   const updateAttrRow = useCallback(
     (flatIdx: number, patch: Partial<AttributeChange>) => {
-      setAttrChanges((prev) => prev.map((ac, i) => (i === flatIdx ? { ...ac, ...patch } : ac)));
+      setAttrChanges((prev) =>
+        prev.map((ac, i) => (i === flatIdx ? { ...ac, ...patch } : ac)),
+      );
     },
     [],
   );
@@ -238,8 +281,11 @@ export default function EventListPage() {
   const relLabelMap = useMemo(() => {
     const map = new Map<string, string>();
     for (const r of relationships ?? []) {
-      const fromName = entityOptions.find((e) => e.id === r.fromId)?.name ?? r.fromId.slice(0, 6);
-      const toName = entityOptions.find((e) => e.id === r.toId)?.name ?? r.toId.slice(0, 6);
+      const fromName =
+        entityOptions.find((e) => e.id === r.fromId)?.name ??
+        r.fromId.slice(0, 6);
+      const toName =
+        entityOptions.find((e) => e.id === r.toId)?.name ?? r.toId.slice(0, 6);
       map.set(r.id, `${fromName} → ${toName}`);
     }
     return map;
@@ -275,7 +321,9 @@ export default function EventListPage() {
     // Filter by character
     if (filterCharIds.length > 0) {
       result = result.filter((evt) => {
-        const entityIds = new Set(evt.impacts?.attributeChanges?.map((ac) => ac.entityId) ?? []);
+        const entityIds = new Set(
+          evt.impacts?.attributeChanges?.map((ac) => ac.entityId) ?? [],
+        );
         return filterCharIds.some((id) => entityIds.has(id));
       });
     }
@@ -283,7 +331,9 @@ export default function EventListPage() {
     // Filter by thing
     if (filterThingIds.length > 0) {
       result = result.filter((evt) => {
-        const entityIds = new Set(evt.impacts?.attributeChanges?.map((ac) => ac.entityId) ?? []);
+        const entityIds = new Set(
+          evt.impacts?.attributeChanges?.map((ac) => ac.entityId) ?? [],
+        );
         return filterThingIds.some((id) => entityIds.has(id));
       });
     }
@@ -292,7 +342,9 @@ export default function EventListPage() {
     if (filterRelIds.length > 0) {
       result = result.filter((evt) => {
         const relIds = new Set(
-          evt.impacts?.relationshipAttributeChanges?.map((rac) => rac.relationshipId) ?? [],
+          evt.impacts?.relationshipAttributeChanges?.map(
+            (rac) => rac.relationshipId,
+          ) ?? [],
         );
         return filterRelIds.some((id) => relIds.has(id));
       });
@@ -309,7 +361,15 @@ export default function EventListPage() {
     }
 
     return result;
-  }, [sortedEvents, filterCharIds, filterThingIds, filterRelIds, filterTimeEnabled, filterTimeFrom, filterTimeTo]);
+  }, [
+    sortedEvents,
+    filterCharIds,
+    filterThingIds,
+    filterRelIds,
+    filterTimeEnabled,
+    filterTimeFrom,
+    filterTimeTo,
+  ]);
 
   // Scroll to event by hash
   useEffect(() => {
@@ -323,7 +383,9 @@ export default function EventListPage() {
       el.style.outline = "2px solid";
       el.style.outlineColor = "var(--mui-palette-primary-main, #1976d2)";
       el.style.borderRadius = "8px";
-      setTimeout(() => { el.style.outline = "none"; }, 2000);
+      setTimeout(() => {
+        el.style.outline = "none";
+      }, 2000);
     }
   }, [location.hash, sortedEvents]);
 
@@ -346,7 +408,9 @@ export default function EventListPage() {
     setContent(evt.content);
     setPlaceId(evt.placeId ?? null);
     // Derive participant IDs from impacts
-    const entityIds = [...new Set(evt.impacts?.attributeChanges?.map(ac => ac.entityId) ?? [])];
+    const entityIds = [
+      ...new Set(evt.impacts?.attributeChanges?.map((ac) => ac.entityId) ?? []),
+    ];
     setParticipantIds(entityIds);
     setAttrChanges(evt.impacts?.attributeChanges ?? []);
     setSaveError("");
@@ -365,14 +429,19 @@ export default function EventListPage() {
     });
     const impacts = {
       attributeChanges: effectiveChanges,
-      relationshipAttributeChanges: editingEvent?.impacts?.relationshipAttributeChanges ?? [],
+      relationshipAttributeChanges:
+        editingEvent?.impacts?.relationshipAttributeChanges ?? [],
     };
     if (editingEvent) {
       updateEvent.mutate(
-        { eventId: editingEvent.id, body: { time, duration, content: content.trim(), placeId, impacts } },
+        {
+          eventId: editingEvent.id,
+          body: { time, duration, content: content.trim(), placeId, impacts },
+        },
         {
           onSuccess: () => setDialogOpen(false),
-          onError: (err) => setSaveError(err instanceof Error ? err.message : "操作失败"),
+          onError: (err) =>
+            setSaveError(err instanceof Error ? err.message : "操作失败"),
         },
       );
     } else {
@@ -380,7 +449,8 @@ export default function EventListPage() {
         { time, duration, content: content.trim(), placeId, impacts },
         {
           onSuccess: () => setDialogOpen(false),
-          onError: (err) => setSaveError(err instanceof Error ? err.message : "操作失败"),
+          onError: (err) =>
+            setSaveError(err instanceof Error ? err.message : "操作失败"),
         },
       );
     }
@@ -403,7 +473,14 @@ export default function EventListPage() {
 
   return (
     <Box>
-      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          mb: 2,
+        }}
+      >
         <Typography variant="h4" fontWeight="bold">
           事件时间线
         </Typography>
@@ -418,7 +495,11 @@ export default function EventListPage() {
               </Badge>
             </IconButton>
           </Tooltip>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={openCreate}
+          >
             添加事件
           </Button>
         </Box>
@@ -426,14 +507,37 @@ export default function EventListPage() {
 
       {/* Filter panel */}
       <Collapse in={filterOpen}>
-        <Paper variant="outlined" sx={{ p: 2, mb: 2, display: "flex", flexDirection: "column", gap: 2 }}>
-          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <Typography variant="subtitle2" color="text.secondary">筛选条件</Typography>
+        <Paper
+          variant="outlined"
+          sx={{ p: 2, mb: 2, display: "flex", flexDirection: "column", gap: 2 }}
+        >
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <Typography variant="subtitle2" color="text.secondary">
+              筛选条件
+            </Typography>
             {activeFilterCount > 0 && (
-              <Button size="small" startIcon={<ClearIcon />} onClick={clearAllFilters}>清除全部</Button>
+              <Button
+                size="small"
+                startIcon={<ClearIcon />}
+                onClick={clearAllFilters}
+              >
+                清除全部
+              </Button>
             )}
           </Box>
-          <Box sx={{ display: "flex", flexDirection: { xs: "column", md: "row" }, gap: 2 }}>
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: { xs: "column", md: "row" },
+              gap: 2,
+            }}
+          >
             {/* Character filter */}
             <Autocomplete
               multiple
@@ -441,10 +545,14 @@ export default function EventListPage() {
               sx={{ flex: 1, minWidth: 180 }}
               options={characters ?? []}
               getOptionLabel={(o) => o.name}
-              value={(characters ?? []).filter((c) => filterCharIds.includes(c.id))}
+              value={(characters ?? []).filter((c) =>
+                filterCharIds.includes(c.id),
+              )}
               onChange={(_, v) => setFilterCharIds(v.map((c) => c.id))}
               isOptionEqualToValue={(o, v) => o.id === v.id}
-              renderInput={(params) => <TextField {...params} label="按角色" placeholder="选择角色" />}
+              renderInput={(params) => (
+                <TextField {...params} label="按角色" placeholder="选择角色" />
+              )}
             />
             {/* Thing filter */}
             <Autocomplete
@@ -453,10 +561,14 @@ export default function EventListPage() {
               sx={{ flex: 1, minWidth: 180 }}
               options={things ?? []}
               getOptionLabel={(o) => o.name}
-              value={(things ?? []).filter((t) => filterThingIds.includes(t.id))}
+              value={(things ?? []).filter((t) =>
+                filterThingIds.includes(t.id),
+              )}
               onChange={(_, v) => setFilterThingIds(v.map((t) => t.id))}
               isOptionEqualToValue={(o, v) => o.id === v.id}
-              renderInput={(params) => <TextField {...params} label="按事物" placeholder="选择事物" />}
+              renderInput={(params) => (
+                <TextField {...params} label="按事物" placeholder="选择事物" />
+              )}
             />
             {/* Relationship filter */}
             <Autocomplete
@@ -465,14 +577,25 @@ export default function EventListPage() {
               sx={{ flex: 1, minWidth: 200 }}
               options={relationships ?? []}
               getOptionLabel={(o) => relLabelMap.get(o.id) ?? o.id}
-              value={(relationships ?? []).filter((r) => filterRelIds.includes(r.id))}
+              value={(relationships ?? []).filter((r) =>
+                filterRelIds.includes(r.id),
+              )}
               onChange={(_, v) => setFilterRelIds(v.map((r) => r.id))}
               isOptionEqualToValue={(o, v) => o.id === v.id}
-              renderInput={(params) => <TextField {...params} label="按关系" placeholder="选择关系" />}
+              renderInput={(params) => (
+                <TextField {...params} label="按关系" placeholder="选择关系" />
+              )}
             />
           </Box>
           {/* Time range filter */}
-          <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 2,
+              flexWrap: "wrap",
+            }}
+          >
             <FormControlLabel
               control={
                 <Checkbox
@@ -480,7 +603,10 @@ export default function EventListPage() {
                   checked={filterTimeEnabled}
                   onChange={(e) => {
                     setFilterTimeEnabled(e.target.checked);
-                    if (!e.target.checked) { setFilterTimeFrom(null); setFilterTimeTo(null); }
+                    if (!e.target.checked) {
+                      setFilterTimeFrom(null);
+                      setFilterTimeTo(null);
+                    }
                   }}
                 />
               }
@@ -490,7 +616,9 @@ export default function EventListPage() {
             {filterTimeEnabled && (
               <>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <Typography variant="body2" color="text.secondary">从</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    从
+                  </Typography>
                   <EpochTimeInput
                     value={filterTimeFrom ?? 0}
                     onChange={(v) => setFilterTimeFrom(v)}
@@ -499,7 +627,9 @@ export default function EventListPage() {
                   />
                 </Box>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <Typography variant="body2" color="text.secondary">到</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    到
+                  </Typography>
                   <EpochTimeInput
                     value={filterTimeTo ?? 0}
                     onChange={(v) => setFilterTimeTo(v)}
@@ -521,12 +651,20 @@ export default function EventListPage() {
       {!filteredEvents.length ? (
         <EmptyState
           title={activeFilterCount > 0 ? "无匹配事件" : "暂无事件"}
-          description={activeFilterCount > 0 ? "尝试调整筛选条件" : "添加事件来构建世界的时间线"}
+          description={
+            activeFilterCount > 0
+              ? "尝试调整筛选条件"
+              : "添加事件来构建世界的时间线"
+          }
           action={
             activeFilterCount > 0 ? (
-              <Button variant="outlined" onClick={clearAllFilters}>清除筛选</Button>
+              <Button variant="outlined" onClick={clearAllFilters}>
+                清除筛选
+              </Button>
             ) : (
-              <Button variant="outlined" onClick={openCreate}>添加事件</Button>
+              <Button variant="outlined" onClick={openCreate}>
+                添加事件
+              </Button>
             )
           }
         />
@@ -534,7 +672,9 @@ export default function EventListPage() {
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
           {filteredEvents.map((evt) => (
             <Card key={evt.id} id={evt.id}>
-              <CardContent sx={{ display: "flex", gap: 2, alignItems: "flex-start" }}>
+              <CardContent
+                sx={{ display: "flex", gap: 2, alignItems: "flex-start" }}
+              >
                 <Box
                   sx={{
                     width: 120,
@@ -553,14 +693,23 @@ export default function EventListPage() {
                     const timeLine = `${String(t.hours).padStart(2, "0")}:${String(t.minutes).padStart(2, "0")}`;
                     return (
                       <>
-                        <Typography variant="body2" fontWeight="bold" color="primary.main" noWrap>
+                        <Typography
+                          variant="body2"
+                          fontWeight="bold"
+                          color="primary.main"
+                          noWrap
+                        >
                           {dateLine}
                         </Typography>
                         <Typography variant="caption" color="primary.main">
                           {timeLine}
                         </Typography>
                         {evt.duration > 0 && (
-                          <Typography variant="caption" color="text.secondary" noWrap>
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            noWrap
+                          >
                             {formatDuration(evt.duration)}
                           </Typography>
                         )}
@@ -576,40 +725,84 @@ export default function EventListPage() {
                         label={(() => {
                           const acs = evt.impacts?.attributeChanges ?? [];
                           if (acs.length === 0) return "纪元";
-                          const isBirth = acs.some(ac => ac.attribute === "$alive" && ac.value === true);
-                          const isEnd = acs.some(ac => ac.attribute === "$alive" && ac.value === false);
+                          const isBirth = acs.some(
+                            (ac) =>
+                              ac.attribute === "$alive" && ac.value === true,
+                          );
+                          const isEnd = acs.some(
+                            (ac) =>
+                              ac.attribute === "$alive" && ac.value === false,
+                          );
                           const entityId = acs[0]?.entityId ?? "";
-                          const entity = entityOptions.find(e => e.id === entityId);
-                          const typeLabel = entityId.startsWith("chr") ? "角色" : entityId.startsWith("rel") ? "关系" : "事物";
+                          const entity = entityOptions.find(
+                            (e) => e.id === entityId,
+                          );
+                          const typeLabel = entityId.startsWith("chr")
+                            ? "角色"
+                            : entityId.startsWith("rel")
+                              ? "关系"
+                              : "事物";
                           const name = entity?.name ?? entityId.slice(0, 8);
                           if (isBirth) return `创生·${typeLabel}·${name}`;
                           if (isEnd) return `消亡·${typeLabel}·${name}`;
                           return "系统";
                         })()}
                         size="small"
-                        color={(evt.impacts?.attributeChanges?.length ?? 0) === 0 ? "warning" : "info"}
+                        color={
+                          (evt.impacts?.attributeChanges?.length ?? 0) === 0
+                            ? "warning"
+                            : "info"
+                        }
                         sx={{ height: 20, fontSize: "0.7rem" }}
                       />
                     )}
                   </Box>
                   {(() => {
-                    const entityIds = [...new Set(evt.impacts?.attributeChanges?.map(ac => ac.entityId) ?? [])];
+                    const entityIds = [
+                      ...new Set(
+                        evt.impacts?.attributeChanges?.map(
+                          (ac) => ac.entityId,
+                        ) ?? [],
+                      ),
+                    ];
                     if (entityIds.length === 0) return null;
                     return (
-                      <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", mt: 0.5 }}>
+                      <Box
+                        sx={{
+                          display: "flex",
+                          gap: 0.5,
+                          flexWrap: "wrap",
+                          mt: 0.5,
+                        }}
+                      >
                         {entityIds.map((eid) => {
-                          const entity = entityOptions.find((e) => e.id === eid);
+                          const entity = entityOptions.find(
+                            (e) => e.id === eid,
+                          );
                           return (
                             <Chip
                               key={eid}
                               label={entity?.name ?? eid.slice(0, 8)}
                               size="small"
                               variant="outlined"
-                              color={entity?.type === "character" ? "primary" : "secondary"}
-                              sx={{ height: 22, fontSize: "0.75rem", cursor: "pointer" }}
+                              color={
+                                entity?.type === "character"
+                                  ? "primary"
+                                  : "secondary"
+                              }
+                              sx={{
+                                height: 22,
+                                fontSize: "0.75rem",
+                                cursor: "pointer",
+                              }}
                               onClick={() => {
                                 const prefix = eid.slice(0, 3);
-                                const page = prefix === "chr" ? "characters" : prefix === "rel" ? "relationships" : "things";
+                                const page =
+                                  prefix === "chr"
+                                    ? "characters"
+                                    : prefix === "rel"
+                                      ? "relationships"
+                                      : "things";
                                 navigate(`/worlds/${worldId}/${page}#${eid}`);
                               }}
                             />
@@ -618,38 +811,52 @@ export default function EventListPage() {
                       </Box>
                     );
                   })()}
-                  {evt.placeId && (() => {
-                    const place = places?.find((p) => p.id === evt.placeId);
-                    return (
-                      <Box sx={{ display: "flex", gap: 0.5, mt: 0.5 }}>
-                        <Chip
-                          icon={<PlaceIcon sx={{ fontSize: 14 }} />}
-                          label={place?.name ?? evt.placeId.slice(0, 8)}
-                          size="small"
-                          variant="outlined"
-                          color="default"
-                          sx={{ height: 22, fontSize: "0.75rem" }}
-                        />
-                      </Box>
-                    );
-                  })()}
+                  {evt.placeId &&
+                    (() => {
+                      const place = places?.find((p) => p.id === evt.placeId);
+                      return (
+                        <Box sx={{ display: "flex", gap: 0.5, mt: 0.5 }}>
+                          <Chip
+                            icon={<PlaceIcon sx={{ fontSize: 14 }} />}
+                            label={place?.name ?? evt.placeId.slice(0, 8)}
+                            size="small"
+                            variant="outlined"
+                            color="default"
+                            sx={{ height: 22, fontSize: "0.75rem" }}
+                          />
+                        </Box>
+                      );
+                    })()}
                   {/* Summary counts for collapsed state */}
                   {!expandedEvents.has(evt.id) && (
-                    <Box sx={{ display: "flex", gap: 1, mt: 0.5, alignItems: "center" }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        gap: 1,
+                        mt: 0.5,
+                        alignItems: "center",
+                      }}
+                    >
                       {(evt.impacts?.attributeChanges?.length ?? 0) > 0 && (
                         <Chip
-                          label={`${evt.impacts!.attributeChanges.length} 项状态变化`}
+                          label={`${evt.impacts?.attributeChanges.length} 项状态变化`}
                           size="small"
                           variant="outlined"
                           color="info"
-                          sx={{ height: 20, fontSize: "0.7rem", cursor: "pointer" }}
+                          sx={{
+                            height: 20,
+                            fontSize: "0.7rem",
+                            cursor: "pointer",
+                          }}
                           onClick={() => toggleExpand(evt.id)}
                         />
                       )}
                       {(() => {
-                        const links = eventLinks?.filter(
-                          (l) => l.eventIdA === evt.id || l.eventIdB === evt.id,
-                        ) ?? [];
+                        const links =
+                          eventLinks?.filter(
+                            (l) =>
+                              l.eventIdA === evt.id || l.eventIdB === evt.id,
+                          ) ?? [];
                         return links.length > 0 ? (
                           <Chip
                             label={`${links.length} 个关联`}
@@ -657,7 +864,11 @@ export default function EventListPage() {
                             variant="outlined"
                             color="default"
                             icon={<LinkIcon sx={{ fontSize: 14 }} />}
-                            sx={{ height: 20, fontSize: "0.7rem", cursor: "pointer" }}
+                            sx={{
+                              height: 20,
+                              fontSize: "0.7rem",
+                              cursor: "pointer",
+                            }}
                             onClick={() => toggleExpand(evt.id)}
                           />
                         ) : null;
@@ -667,9 +878,17 @@ export default function EventListPage() {
                 </Box>
                 <Box sx={{ display: "flex", gap: 0.5, flexShrink: 0 }}>
                   {((evt.impacts?.attributeChanges?.length ?? 0) > 0 ||
-                    (eventLinks?.some((l) => l.eventIdA === evt.id || l.eventIdB === evt.id) ?? false)) && (
-                    <Tooltip title={expandedEvents.has(evt.id) ? "收起" : "展开详情"}>
-                      <IconButton size="small" onClick={() => toggleExpand(evt.id)}>
+                    (eventLinks?.some(
+                      (l) => l.eventIdA === evt.id || l.eventIdB === evt.id,
+                    ) ??
+                      false)) && (
+                    <Tooltip
+                      title={expandedEvents.has(evt.id) ? "收起" : "展开详情"}
+                    >
+                      <IconButton
+                        size="small"
+                        onClick={() => toggleExpand(evt.id)}
+                      >
                         {expandedEvents.has(evt.id) ? (
                           <ExpandLessIcon fontSize="small" />
                         ) : (
@@ -684,33 +903,64 @@ export default function EventListPage() {
                     </IconButton>
                   </Tooltip>
                   {!evt.system && (
-                  <Tooltip title="删除">
-                    <IconButton size="small" color="error" onClick={() => setDeleteTarget(evt)}>
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
+                    <Tooltip title="删除">
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => setDeleteTarget(evt)}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
                   )}
                 </Box>
               </CardContent>
               <Collapse in={expandedEvents.has(evt.id)} unmountOnExit>
                 <Divider />
-                <Box sx={{ px: 2, py: 1.5, display: "flex", flexDirection: "column", gap: 1 }}>
+                <Box
+                  sx={{
+                    px: 2,
+                    py: 1.5,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 1,
+                  }}
+                >
                   {/* Attribute changes */}
                   {(evt.impacts?.attributeChanges?.length ?? 0) > 0 && (
                     <Box>
-                      <Typography variant="caption" color="text.secondary" fontWeight="bold" sx={{ mb: 0.5, display: "block" }}>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        fontWeight="bold"
+                        sx={{ mb: 0.5, display: "block" }}
+                      >
                         状态变化
                       </Typography>
                       <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
-                        {evt.impacts!.attributeChanges.map((ac, i) => {
-                          const entity = entityOptions.find((e) => e.id === ac.entityId);
-                          const def = attrDefs?.find((d) => d.name === ac.attribute);
-                          const displayValue = def?.type === "timespan" && typeof ac.value === "number"
-                            ? formatDuration(ac.value)
-                            : def?.type === "timestamp" && typeof ac.value === "number"
-                              ? (() => { const t = parseEpochMs(ac.value); const p = ac.value < 0 ? "前" : ""; return `${p}${Math.abs(t.years) + 1}/${t.months + 1}/${t.days + 1}`; })()
-                              : typeof ac.value === "boolean" ? (ac.value ? "是" : "否")
-                              : String(ac.value);
+                        {evt.impacts?.attributeChanges.map((ac, i) => {
+                          const entity = entityOptions.find(
+                            (e) => e.id === ac.entityId,
+                          );
+                          const def = attrDefs?.find(
+                            (d) => d.name === ac.attribute,
+                          );
+                          const displayValue =
+                            def?.type === "timespan" &&
+                            typeof ac.value === "number"
+                              ? formatDuration(ac.value)
+                              : def?.type === "timestamp" &&
+                                  typeof ac.value === "number"
+                                ? (() => {
+                                    const t = parseEpochMs(ac.value);
+                                    const p = ac.value < 0 ? "前" : "";
+                                    return `${p}${Math.abs(t.years) + 1}/${t.months + 1}/${t.days + 1}`;
+                                  })()
+                                : typeof ac.value === "boolean"
+                                  ? ac.value
+                                    ? "是"
+                                    : "否"
+                                  : String(ac.value);
                           return (
                             <Chip
                               key={`${ac.entityId}-${ac.attribute}-${i}`}
@@ -727,19 +977,32 @@ export default function EventListPage() {
                   )}
                   {/* Event links */}
                   {(() => {
-                    const links = eventLinks?.filter(
-                      (l) => l.eventIdA === evt.id || l.eventIdB === evt.id,
-                    ) ?? [];
+                    const links =
+                      eventLinks?.filter(
+                        (l) => l.eventIdA === evt.id || l.eventIdB === evt.id,
+                      ) ?? [];
                     if (links.length === 0) return null;
                     return (
                       <Box>
-                        <Typography variant="caption" color="text.secondary" fontWeight="bold" sx={{ mb: 0.5, display: "block" }}>
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          fontWeight="bold"
+                          sx={{ mb: 0.5, display: "block" }}
+                        >
                           事件关联
                         </Typography>
-                        <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
+                        <Box
+                          sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}
+                        >
                           {links.map((link) => {
-                            const otherId = link.eventIdA === evt.id ? link.eventIdB : link.eventIdA;
-                            const otherEvt = sortedEvents.find((e) => e.id === otherId);
+                            const otherId =
+                              link.eventIdA === evt.id
+                                ? link.eventIdB
+                                : link.eventIdA;
+                            const otherEvt = sortedEvents.find(
+                              (e) => e.id === otherId,
+                            );
                             const label = otherEvt
                               ? `${otherEvt.content.slice(0, 20)}${otherEvt.content.length > 20 ? "…" : ""}`
                               : otherId.slice(0, 8);
@@ -747,7 +1010,11 @@ export default function EventListPage() {
                               <Chip
                                 key={`${link.eventIdA}-${link.eventIdB}`}
                                 icon={<LinkIcon sx={{ fontSize: 14 }} />}
-                                label={link.description ? `${label}（${link.description}）` : label}
+                                label={
+                                  link.description
+                                    ? `${label}（${link.description}）`
+                                    : label
+                                }
                                 size="small"
                                 variant="outlined"
                                 sx={{ height: 22, fontSize: "0.75rem" }}
@@ -766,7 +1033,12 @@ export default function EventListPage() {
       )}
 
       {/* Create / Edit Dialog */}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="lg" fullWidth>
+      <Dialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        maxWidth="lg"
+        fullWidth
+      >
         <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           {editingEvent ? "编辑事件" : "添加事件"}
           {editingEvent?.system && (
@@ -774,39 +1046,94 @@ export default function EventListPage() {
               label={(() => {
                 const acs = editingEvent.impacts?.attributeChanges ?? [];
                 if (acs.length === 0) return "纪元事件";
-                const isBirth = acs.some(ac => ac.attribute === "$alive" && ac.value === true);
-                const isEnd = acs.some(ac => ac.attribute === "$alive" && ac.value === false);
+                const isBirth = acs.some(
+                  (ac) => ac.attribute === "$alive" && ac.value === true,
+                );
+                const isEnd = acs.some(
+                  (ac) => ac.attribute === "$alive" && ac.value === false,
+                );
                 const entityId = acs[0]?.entityId ?? "";
-                const entity = entityOptions.find(e => e.id === entityId);
-                const typeLabel = entityId.startsWith("chr") ? "角色" : entityId.startsWith("rel") ? "关系" : "事物";
+                const entity = entityOptions.find((e) => e.id === entityId);
+                const typeLabel = entityId.startsWith("chr")
+                  ? "角色"
+                  : entityId.startsWith("rel")
+                    ? "关系"
+                    : "事物";
                 const name = entity?.name ?? entityId.slice(0, 8);
                 if (isBirth) return `创生事件·${typeLabel}·${name}`;
                 if (isEnd) return `消亡事件·${typeLabel}·${name}`;
                 return "系统事件";
               })()}
               size="small"
-              color={(editingEvent.impacts?.attributeChanges?.length ?? 0) === 0 ? "warning" : "info"}
+              color={
+                (editingEvent.impacts?.attributeChanges?.length ?? 0) === 0
+                  ? "warning"
+                  : "info"
+              }
               sx={{ height: 22, fontSize: "0.75rem" }}
             />
           )}
         </DialogTitle>
-        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}>
-          {saveError && <Alert severity="error" onClose={() => setSaveError("")}>{saveError}</Alert>}
+        <DialogContent
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+            pt: "8px !important",
+          }}
+        >
+          {saveError && (
+            <Alert severity="error" onClose={() => setSaveError("")}>
+              {saveError}
+            </Alert>
+          )}
           {timeError && <Alert severity="error">{timeError}</Alert>}
-          <Box sx={{ display: "flex", flexDirection: { xs: "column", md: "row" }, gap: 2 }}>
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: { xs: "column", md: "row" },
+              gap: 2,
+            }}
+          >
             <Box sx={{ flex: 1 }}>
-              <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: "block" }}>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ mb: 0.5, display: "block" }}
+              >
                 事件时间
               </Typography>
-              <EpochTimeInput value={time} onChange={setTime} showPreview disabled={!!editingEvent?.system && (editingEvent.impacts?.attributeChanges?.length ?? 0) === 0} />
+              <EpochTimeInput
+                value={time}
+                onChange={setTime}
+                showPreview
+                disabled={
+                  !!editingEvent?.system &&
+                  (editingEvent.impacts?.attributeChanges?.length ?? 0) === 0
+                }
+              />
             </Box>
             <Box sx={{ flex: 1 }}>
-              <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: "block" }}>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ mb: 0.5, display: "block" }}
+              >
                 持续时间（留 0 表示瞬时事件）
               </Typography>
-              <EpochTimeInput value={duration} onChange={setDuration} showPreview={false} showEraToggle={false} disabled={!!editingEvent?.system} />
+              <EpochTimeInput
+                value={duration}
+                onChange={setDuration}
+                showPreview={false}
+                showEraToggle={false}
+                disabled={!!editingEvent?.system}
+              />
               {duration > 0 && (
-                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ mt: 0.5, display: "block" }}
+                >
                   持续 {formatDuration(duration)}
                 </Typography>
               )}
@@ -829,7 +1156,11 @@ export default function EventListPage() {
             value={places?.find((p) => p.id === placeId) ?? null}
             onChange={(_, v) => setPlaceId(v?.id ?? null)}
             renderInput={(params) => (
-              <TextField {...params} label="发生地点" placeholder="选择地点（可选）" />
+              <TextField
+                {...params}
+                label="发生地点"
+                placeholder="选择地点（可选）"
+              />
             )}
             isOptionEqualToValue={(opt, val) => opt.id === val.id}
           />
@@ -852,19 +1183,28 @@ export default function EventListPage() {
             const allAttrNames = [
               ...new Set([
                 ...Object.keys(stateAttrs),
-                ...(group?.changes ?? []).map((c) => c.attribute).filter(Boolean),
+                ...(group?.changes ?? [])
+                  .map((c) => c.attribute)
+                  .filter(Boolean),
               ]),
             ];
 
             // Attributes not yet in the table — available to add
             const visibleSet = new Set(allAttrNames);
-            const addableAttrs = (attrDefs ?? []).filter((d) => !visibleSet.has(d.name));
+            const addableAttrs = (attrDefs ?? []).filter(
+              (d) => !visibleSet.has(d.name),
+            );
 
             return (
               <Paper
                 key={pid}
                 variant="outlined"
-                sx={{ p: 1.5, display: "flex", flexDirection: "column", gap: 1 }}
+                sx={{
+                  p: 1.5,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 1,
+                }}
               >
                 {/* Participant header */}
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
@@ -911,20 +1251,33 @@ export default function EventListPage() {
                       </TableHead>
                       <TableBody>
                         {allAttrNames.map((attrName) => {
-                          const def = attrDefs?.find((d) => d.name === attrName);
+                          const def = attrDefs?.find(
+                            (d) => d.name === attrName,
+                          );
                           const isLocked = !!def?.system;
                           const currentVal = stateAttrs[attrName];
                           const changeIdx = attrChanges.findIndex(
-                            (ac) => ac.entityId === pid && ac.attribute === attrName,
+                            (ac) =>
+                              ac.entityId === pid && ac.attribute === attrName,
                           );
                           const isChanging = changeIdx >= 0;
-                          const changeVal = isChanging ? attrChanges[changeIdx].value : undefined;
+                          const changeVal = isChanging
+                            ? attrChanges[changeIdx].value
+                            : undefined;
 
                           const fmtVal = (v: unknown) => {
                             if (v === undefined || v === null) return "未设置";
-                            if (def?.type === "timespan" && typeof v === "number") return formatDuration(v);
-                            if (def?.type === "timestamp" && typeof v === "number") {
-                              const t = parseEpochMs(v); const p = v < 0 ? "前" : "";
+                            if (
+                              def?.type === "timespan" &&
+                              typeof v === "number"
+                            )
+                              return formatDuration(v);
+                            if (
+                              def?.type === "timestamp" &&
+                              typeof v === "number"
+                            ) {
+                              const t = parseEpochMs(v);
+                              const p = v < 0 ? "前" : "";
                               return `${p}${Math.abs(t.years) + 1}/${t.months + 1}/${t.days + 1}`;
                             }
                             if (typeof v === "boolean") return v ? "是" : "否";
@@ -934,7 +1287,11 @@ export default function EventListPage() {
                           return (
                             <TableRow
                               key={attrName}
-                              sx={{ bgcolor: isChanging ? "action.selected" : undefined }}
+                              sx={{
+                                bgcolor: isChanging
+                                  ? "action.selected"
+                                  : undefined,
+                              }}
                             >
                               <TableCell padding="checkbox">
                                 <Checkbox
@@ -947,29 +1304,44 @@ export default function EventListPage() {
                                 />
                               </TableCell>
                               <TableCell>
-                                <Typography variant="body2" fontWeight={isChanging ? "bold" : "normal"}>
+                                <Typography
+                                  variant="body2"
+                                  fontWeight={isChanging ? "bold" : "normal"}
+                                >
                                   {displayAttrName(attrName, pid)}
                                 </Typography>
                               </TableCell>
                               <TableCell>
-                                <Typography variant="body2" color="text.secondary">
+                                <Typography
+                                  variant="body2"
+                                  color="text.secondary"
+                                >
                                   {fmtVal(currentVal)}
                                 </Typography>
                               </TableCell>
                               <TableCell sx={{ minWidth: 180 }}>
                                 {isChanging && isLocked && (
-                                  <Typography variant="body2" color="text.secondary">
+                                  <Typography
+                                    variant="body2"
+                                    color="text.secondary"
+                                  >
                                     {fmtVal(changeVal)}
                                   </Typography>
                                 )}
-                                {isChanging && !isLocked && (
-                                  (def?.type === "boolean" || typeof changeVal === "boolean") ? (
+                                {isChanging &&
+                                  !isLocked &&
+                                  (def?.type === "boolean" ||
+                                  typeof changeVal === "boolean" ? (
                                     <FormControlLabel
                                       control={
                                         <Switch
                                           size="small"
                                           checked={changeVal === true}
-                                          onChange={(e) => updateAttrRow(changeIdx, { value: e.target.checked })}
+                                          onChange={(e) =>
+                                            updateAttrRow(changeIdx, {
+                                              value: e.target.checked,
+                                            })
+                                          }
                                         />
                                       }
                                       label={changeVal ? "是" : "否"}
@@ -980,24 +1352,44 @@ export default function EventListPage() {
                                       select
                                       fullWidth
                                       value={changeVal}
-                                      slotProps={{ inputLabel: { htmlFor: undefined } }}
-                                      onChange={(e) => updateAttrRow(changeIdx, { value: e.target.value })}
+                                      slotProps={{
+                                        inputLabel: { htmlFor: undefined },
+                                      }}
+                                      onChange={(e) =>
+                                        updateAttrRow(changeIdx, {
+                                          value: e.target.value,
+                                        })
+                                      }
                                     >
                                       {(def.enumValues ?? []).map((v) => (
-                                        <MenuItem key={v} value={v}>{v}</MenuItem>
+                                        <MenuItem key={v} value={v}>
+                                          {v}
+                                        </MenuItem>
                                       ))}
                                     </TextField>
                                   ) : def?.type === "timestamp" ? (
                                     <EpochTimeInput
-                                      value={typeof changeVal === "number" ? changeVal : 0}
-                                      onChange={(ms) => updateAttrRow(changeIdx, { value: ms })}
+                                      value={
+                                        typeof changeVal === "number"
+                                          ? changeVal
+                                          : 0
+                                      }
+                                      onChange={(ms) =>
+                                        updateAttrRow(changeIdx, { value: ms })
+                                      }
                                       size="small"
                                       showPreview
                                     />
                                   ) : def?.type === "timespan" ? (
                                     <EpochTimeInput
-                                      value={typeof changeVal === "number" ? changeVal : 0}
-                                      onChange={(ms) => updateAttrRow(changeIdx, { value: ms })}
+                                      value={
+                                        typeof changeVal === "number"
+                                          ? changeVal
+                                          : 0
+                                      }
+                                      onChange={(ms) =>
+                                        updateAttrRow(changeIdx, { value: ms })
+                                      }
                                       size="small"
                                       showPreview={false}
                                       showEraToggle={false}
@@ -1008,17 +1400,24 @@ export default function EventListPage() {
                                       type="number"
                                       fullWidth
                                       value={changeVal}
-                                      onChange={(e) => updateAttrRow(changeIdx, { value: Number(e.target.value) })}
+                                      onChange={(e) =>
+                                        updateAttrRow(changeIdx, {
+                                          value: Number(e.target.value),
+                                        })
+                                      }
                                     />
                                   ) : (
                                     <TextField
                                       size="small"
                                       fullWidth
                                       value={changeVal}
-                                      onChange={(e) => updateAttrRow(changeIdx, { value: e.target.value })}
+                                      onChange={(e) =>
+                                        updateAttrRow(changeIdx, {
+                                          value: e.target.value,
+                                        })
+                                      }
                                     />
-                                  )
-                                )}
+                                  ))}
                               </TableCell>
                               {/* Delete row button (not for locked/system rows) */}
                               <TableCell padding="checkbox">
@@ -1029,13 +1428,22 @@ export default function EventListPage() {
                                     onClick={() => {
                                       // Remove the change if active, and remove from visible rows
                                       if (isChanging) {
-                                        toggleAttrChange(pid, attrName, currentVal);
+                                        toggleAttrChange(
+                                          pid,
+                                          attrName,
+                                          currentVal,
+                                        );
                                       }
                                       // If it came from current state, we can't truly delete it,
                                       // so only non-state rows disappear (changes-only rows)
                                     }}
                                     // Only show for rows that are purely from changes (not from current state)
-                                    sx={{ visibility: currentVal === undefined ? "visible" : "hidden" }}
+                                    sx={{
+                                      visibility:
+                                        currentVal === undefined
+                                          ? "visible"
+                                          : "hidden",
+                                    }}
                                   >
                                     <DeleteIcon fontSize="small" />
                                   </IconButton>
@@ -1060,13 +1468,16 @@ export default function EventListPage() {
                       if (v) toggleAttrChange(pid, v.name);
                     }}
                     renderInput={(params) => (
-                      <TextField {...params} label="添加属性" placeholder="选择属性" />
+                      <TextField
+                        {...params}
+                        label="添加属性"
+                        placeholder="选择属性"
+                      />
                     )}
                     blurOnSelect
                     sx={{ mt: 0.5, maxWidth: 300 }}
                   />
                 )}
-
               </Paper>
             );
           })}
@@ -1084,7 +1495,11 @@ export default function EventListPage() {
               if (v) addParticipant(v);
             }}
             renderInput={(params) => (
-              <TextField {...params} label="添加参与者" placeholder="选择角色或事物" />
+              <TextField
+                {...params}
+                label="添加参与者"
+                placeholder="选择角色或事物"
+              />
             )}
             blurOnSelect
           />
@@ -1094,7 +1509,12 @@ export default function EventListPage() {
           <Button
             variant="contained"
             onClick={handleSave}
-            disabled={!content.trim() || createEvent.isPending || updateEvent.isPending || !!timeError}
+            disabled={
+              !content.trim() ||
+              createEvent.isPending ||
+              updateEvent.isPending ||
+              !!timeError
+            }
           >
             {editingEvent ? "保存" : "创建"}
           </Button>

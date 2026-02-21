@@ -36,7 +36,11 @@ export class ToolRegistry {
   }
 
   /** Get all tool definitions (for tools/list) */
-  listTools(): Array<{ name: string; description: string; inputSchema: JsonSchema }> {
+  listTools(): Array<{
+    name: string;
+    description: string;
+    inputSchema: JsonSchema;
+  }> {
     return Array.from(this.tools.values()).map((t) => ({
       name: t.name,
       description: t.description,
@@ -45,7 +49,10 @@ export class ToolRegistry {
   }
 
   /** Dispatch a tool call (for tools/call) */
-  async callTool(name: string, args: Record<string, unknown>): Promise<ToolResult> {
+  async callTool(
+    name: string,
+    args: Record<string, unknown>,
+  ): Promise<ToolResult> {
     const tool = this.tools.get(name);
     if (!tool) {
       return {

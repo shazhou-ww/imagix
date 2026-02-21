@@ -1,8 +1,8 @@
 import {
-  EventLinkSchema,
-  type EventLink,
   type CreateEventLinkBody,
   type DeleteEventLinkBody,
+  type EventLink,
+  EventLinkSchema,
 } from "@imagix/shared";
 import * as repo from "../db/repository.js";
 

@@ -15,10 +15,9 @@ import {
   ResourceInUseException,
 } from "@aws-sdk/client-dynamodb";
 
-const port =
-  process.argv.includes("--port")
-    ? process.argv[process.argv.indexOf("--port") + 1]
-    : process.env.DYNAMODB_PORT ?? "4513";
+const port = process.argv.includes("--port")
+  ? process.argv[process.argv.indexOf("--port") + 1]
+  : (process.env.DYNAMODB_PORT ?? "4513");
 
 const endpoint = `http://127.0.0.1:${port}`;
 
@@ -34,7 +33,8 @@ async function waitForDynamo(retries = 30, intervalMs = 1000) {
       await client.send(new ListTablesCommand({}));
       return;
     } catch {
-      if (i === retries - 1) throw new Error(`DynamoDB not reachable at ${endpoint}`);
+      if (i === retries - 1)
+        throw new Error(`DynamoDB not reachable at ${endpoint}`);
       await new Promise((r) => setTimeout(r, intervalMs));
     }
   }

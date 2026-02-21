@@ -16,25 +16,45 @@ import {
   Typography,
 } from "@mui/material";
 import { useNavigate, useParams } from "react-router-dom";
-import { useWorld } from "@/api/hooks/useWorlds";
+import { useAttributeDefinitions } from "@/api/hooks/useAttributeDefinitions";
 import { useCharacters } from "@/api/hooks/useCharacters";
-import { useThings } from "@/api/hooks/useThings";
+import { useEvents } from "@/api/hooks/useEvents";
 import { usePlaces } from "@/api/hooks/usePlaces";
 import { useRelationships } from "@/api/hooks/useRelationships";
-import { useEvents } from "@/api/hooks/useEvents";
 import { useStories } from "@/api/hooks/useStories";
 import { useTaxonomyTree } from "@/api/hooks/useTaxonomy";
-import { useAttributeDefinitions } from "@/api/hooks/useAttributeDefinitions";
+import { useThings } from "@/api/hooks/useThings";
+import { useWorld } from "@/api/hooks/useWorlds";
 
 const statCards = [
-  { label: "分类体系", icon: <AccountTreeIcon />, color: "#5E81AC", path: "taxonomy/CHAR" },
-  { label: "属性词典", icon: <AssignmentIcon />, color: "#81A1C1", path: "attributes" },
+  {
+    label: "分类体系",
+    icon: <AccountTreeIcon />,
+    color: "#5E81AC",
+    path: "taxonomy/CHAR",
+  },
+  {
+    label: "属性词典",
+    icon: <AssignmentIcon />,
+    color: "#81A1C1",
+    path: "attributes",
+  },
   { label: "角色", icon: <PersonIcon />, color: "#B48EAD", path: "characters" },
   { label: "事物", icon: <CategoryIcon />, color: "#88C0D0", path: "things" },
   { label: "地点", icon: <PlaceIcon />, color: "#8FBCBB", path: "places" },
-  { label: "关系", icon: <LinkIcon />, color: "#A3D9A5", path: "relationships" },
+  {
+    label: "关系",
+    icon: <LinkIcon />,
+    color: "#A3D9A5",
+    path: "relationships",
+  },
   { label: "事件", icon: <TimelineIcon />, color: "#EBCB8B", path: "events" },
-  { label: "故事", icon: <AutoStoriesIcon />, color: "#E8A0BF", path: "stories" },
+  {
+    label: "故事",
+    icon: <AutoStoriesIcon />,
+    color: "#E8A0BF",
+    path: "stories",
+  },
 ];
 
 export default function WorldDashboardPage() {
@@ -52,7 +72,10 @@ export default function WorldDashboardPage() {
   const { data: relNodes } = useTaxonomyTree(worldId, "REL");
   const { data: attrDefs } = useAttributeDefinitions(worldId);
 
-  const taxonomyTotal = (charNodes?.length ?? 0) + (thingNodes?.length ?? 0) + (relNodes?.length ?? 0);
+  const taxonomyTotal =
+    (charNodes?.length ?? 0) +
+    (thingNodes?.length ?? 0) +
+    (relNodes?.length ?? 0);
 
   const counts: Record<string, number | undefined> = {
     分类体系: taxonomyTotal,
@@ -92,7 +115,9 @@ export default function WorldDashboardPage() {
         {statCards.map((card) => (
           <Grid size={{ xs: 6, sm: 4, md: 2.4 }} key={card.label}>
             <Card>
-              <CardActionArea onClick={() => navigate(`/worlds/${worldId}/${card.path}`)}>
+              <CardActionArea
+                onClick={() => navigate(`/worlds/${worldId}/${card.path}`)}
+              >
                 <CardContent sx={{ textAlign: "center" }}>
                   <Box sx={{ color: card.color, mb: 1 }}>{card.icon}</Box>
                   <Typography variant="h5" fontWeight="bold">

@@ -20,7 +20,9 @@ function getTableName(): string {
   // Try SST Resource link (deployed Lambda)
   try {
     const { Resource } = require("sst");
+    // biome-ignore lint/suspicious/noExplicitAny: SST Resource type not available at build time
     if ((Resource as any).ImagixTable?.name) {
+      // biome-ignore lint/suspicious/noExplicitAny: SST Resource type not available at build time
       return (Resource as any).ImagixTable.name;
     }
   } catch {
@@ -31,4 +33,3 @@ function getTableName(): string {
 
 export const docClient = DynamoDBDocumentClient.from(raw);
 export const TABLE_NAME = getTableName();
-

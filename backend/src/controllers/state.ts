@@ -1,11 +1,11 @@
 import type {
+  Character,
+  Event,
+  Relationship,
   StateImpact,
   TaxonomyNode,
   TaxonomyTree,
-  Character,
   Thing,
-  Relationship,
-  Event,
 } from "@imagix/shared";
 import jsonata from "jsonata";
 import * as repo from "../db/repository.js";
@@ -85,7 +85,10 @@ async function collectTimeFormulas(
   categoryNodeId: string,
 ): Promise<string[]> {
   // Fetch entire taxonomy tree for this world/tree-type
-  const allNodes = (await repo.getTaxonomyTree(worldId, tree)) as TaxonomyNode[];
+  const allNodes = (await repo.getTaxonomyTree(
+    worldId,
+    tree,
+  )) as TaxonomyNode[];
   const byId = new Map<string, TaxonomyNode>();
   for (const n of allNodes) byId.set(n.id, n);
 
@@ -187,7 +190,9 @@ export async function computeState(
     }
   }
 
-  const eventRefs = await repo.listEventsByEntity(entityId, { timeLte: effectiveTime });
+  const eventRefs = await repo.listEventsByEntity(entityId, {
+    timeLte: effectiveTime,
+  });
   if (eventRefs.length === 0) {
     return { entityId, time, attributes: {} };
   }
@@ -217,7 +222,11 @@ export async function computeState(
   }
 
   // --- Resolve taxonomy timeFormulas (root → leaf) ---
-  const formulas = await collectTimeFormulas(worldId, tree, entityInfo.categoryNodeId);
+  const formulas = await collectTimeFormulas(
+    worldId,
+    tree,
+    entityInfo.categoryNodeId,
+  );
 
   // --- Replay events ---
   let lastTime: number | null = null;
@@ -241,17 +250,25 @@ export async function computeState(
     }
 
     // System events (birth/creation/establishment) always fix $age to 0
-    if (evt.system && !impacts.attributeChanges.some(
-      (ac) => ac.attribute === "$alive" && ac.value === false,
-    )) {
-      attributes["$age"] = 0;
+    if (
+      evt.system &&
+      !impacts.attributeChanges.some(
+        (ac) => ac.attribute === "$alive" && ac.value === false,
+      )
+    ) {
+      attributes.$age = 0;
     }
 
     // Apply time formulas for the event's duration (e.g. age increments during event)
     // But NOT if this event marks death ($alive=false) — no time passes after death
-    const isDeath = attributes["$alive"] === false;
+    const isDeath = attributes.$alive === false;
     if (duration > 0 && !isDeath) {
-      await applyTimeFormulas(attributes, currentTime, currentTime + duration, formulas);
+      await applyTimeFormulas(
+        attributes,
+        currentTime,
+        currentTime + duration,
+        formulas,
+      );
     }
 
     lastTime = currentTime + duration;
@@ -259,7 +276,11 @@ export async function computeState(
 
   // --- After last event: apply time formulas up to the effective time ---
   // Do NOT apply if entity is dead ($alive=false)
-  if (lastTime !== null && lastTime < effectiveTime && attributes["$alive"] !== false) {
+  if (
+    lastTime !== null &&
+    lastTime < effectiveTime &&
+    attributes.$alive !== false
+  ) {
     await applyTimeFormulas(attributes, lastTime, effectiveTime, formulas);
   }
 

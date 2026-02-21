@@ -1,5 +1,9 @@
+import type {
+  CreateEventLinkBody,
+  DeleteEventLinkBody,
+  EventLink,
+} from "@imagix/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { EventLink, CreateEventLinkBody, DeleteEventLinkBody } from "@imagix/shared";
 import { api } from "../client";
 
 export const eventLinkKeys = {
@@ -8,7 +12,7 @@ export const eventLinkKeys = {
 
 export function useEventLinks(worldId?: string) {
   return useQuery<EventLink[]>({
-    queryKey: eventLinkKeys.all(worldId!),
+    queryKey: eventLinkKeys.all(worldId ?? ""),
     queryFn: () => api.get(`/worlds/${worldId}/event-links`),
     enabled: !!worldId,
   });

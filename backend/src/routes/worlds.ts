@@ -1,9 +1,13 @@
+import {
+  CreateTemplateBody,
+  CreateWorldBody,
+  UpdateWorldBody,
+} from "@imagix/shared";
 import { Hono } from "hono";
-import { CreateWorldBody, UpdateWorldBody, CreateTemplateBody } from "@imagix/shared";
 import type { AppEnv } from "../app.js";
 import { auth, p } from "../app.js";
-import * as ctrl from "../controllers/worlds.js";
 import * as templateCtrl from "../controllers/templates.js";
+import * as ctrl from "../controllers/worlds.js";
 
 const app = new Hono<AppEnv>()
   .use("*", auth)

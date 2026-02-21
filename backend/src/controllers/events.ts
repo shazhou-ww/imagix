@@ -1,13 +1,13 @@
 import {
+  type Character,
+  type CreateEventBody,
   createId,
   EntityPrefix,
-  EventSchema,
   type Event,
-  type StateImpact,
-  type Character,
-  type Thing,
+  EventSchema,
   type Relationship,
-  type CreateEventBody,
+  type StateImpact,
+  type Thing,
   type UpdateEventBody,
 } from "@imagix/shared";
 import * as repo from "../db/repository.js";
@@ -24,9 +24,15 @@ async function getEntityByPrefixedId(
   entityId: string,
 ): Promise<(Character | Thing | Relationship) | null> {
   const prefix = entityId.slice(0, 3);
-  if (prefix === "chr") return (await repo.getCharacter(worldId, entityId)) as Character | null;
-  if (prefix === "thg") return (await repo.getThing(worldId, entityId)) as Thing | null;
-  if (prefix === "rel") return (await repo.getRelationship(worldId, entityId)) as Relationship | null;
+  if (prefix === "chr")
+    return (await repo.getCharacter(worldId, entityId)) as Character | null;
+  if (prefix === "thg")
+    return (await repo.getThing(worldId, entityId)) as Thing | null;
+  if (prefix === "rel")
+    return (await repo.getRelationship(
+      worldId,
+      entityId,
+    )) as Relationship | null;
   return null;
 }
 
@@ -66,9 +72,13 @@ async function validateImpacts(
   }
 
   for (const rac of impacts.relationshipAttributeChanges) {
-    const rel = (await repo.getRelationship(worldId, rac.relationshipId)) as Relationship | null;
+    const rel = (await repo.getRelationship(
+      worldId,
+      rac.relationshipId,
+    )) as Relationship | null;
     if (!rel) throw AppError.badRequest(`关系 ${rac.relationshipId} 不存在`);
-    if (rel.deletedAt) throw AppError.badRequest(`关系 ${rac.relationshipId} 已被删除`);
+    if (rel.deletedAt)
+      throw AppError.badRequest(`关系 ${rac.relationshipId} 已被删除`);
 
     if (rac.attribute.startsWith("$") && !isSystem) {
       throw AppError.badRequest(`系统属性 ${rac.attribute} 不允许普通事件修改`);
@@ -85,14 +95,20 @@ function isEpochEvent(evt: Event): boolean {
 }
 
 function isBirthEvent(evt: Event): boolean {
-  return evt.system && evt.impacts.attributeChanges.some(
-    (ac) => ac.attribute === "$alive" && ac.value === true,
+  return (
+    evt.system &&
+    evt.impacts.attributeChanges.some(
+      (ac) => ac.attribute === "$alive" && ac.value === true,
+    )
   );
 }
 
 function isEndEvent(evt: Event): boolean {
-  return evt.system && evt.impacts.attributeChanges.some(
-    (ac) => ac.attribute === "$alive" && ac.value === false,
+  return (
+    evt.system &&
+    evt.impacts.attributeChanges.some(
+      (ac) => ac.attribute === "$alive" && ac.value === false,
+    )
   );
 }
 
@@ -110,7 +126,10 @@ export async function create(
   };
 
   // 验证 impacts 引用完整性
-  if (impacts.attributeChanges.length > 0 || impacts.relationshipAttributeChanges.length > 0) {
+  if (
+    impacts.attributeChanges.length > 0 ||
+    impacts.relationshipAttributeChanges.length > 0
+  ) {
     await validateImpacts(worldId, impacts, body.time, false);
   }
 
@@ -166,7 +185,11 @@ export async function update(
     if (isEpochEvent(old)) {
       safeBody = { content: body.content };
     } else {
-      safeBody = { time: body.time, content: body.content, impacts: old.impacts };
+      safeBody = {
+        time: body.time,
+        content: body.content,
+        impacts: old.impacts,
+      };
     }
   } else {
     safeBody = body;
@@ -186,10 +209,14 @@ export async function update(
     if (isBirthEvent(old)) {
       for (const eid of affectedIds) {
         const entity = await getEntityByPrefixedId(worldId, eid);
-        const endEventId = (entity as { endEventId?: string } | null)?.endEventId;
+        const endEventId = (entity as { endEventId?: string } | null)
+          ?.endEventId;
         if (endEventId) {
-          const endEvt = (await repo.getEventById(worldId, endEventId)) as Event | null;
-          if (endEvt && safeBody.time! >= endEvt.time) {
+          const endEvt = (await repo.getEventById(
+            worldId,
+            endEventId,
+          )) as Event | null;
+          if (endEvt && safeBody.time != null && safeBody.time >= endEvt.time) {
             throw AppError.badRequest("创生时间必须早于消亡时间");
           }
         }
@@ -199,8 +226,16 @@ export async function update(
         const entityEvents = await repo.listEventsByEntity(eid);
         const firstEntry = entityEvents[0] as { eventId: string } | undefined;
         if (firstEntry) {
-          const birthEvt = (await repo.getEventById(worldId, firstEntry.eventId)) as Event | null;
-          if (birthEvt && birthEvt.id !== eventId && safeBody.time! <= birthEvt.time) {
+          const birthEvt = (await repo.getEventById(
+            worldId,
+            firstEntry.eventId,
+          )) as Event | null;
+          if (
+            birthEvt &&
+            birthEvt.id !== eventId &&
+            safeBody.time != null &&
+            safeBody.time <= birthEvt.time
+          ) {
             throw AppError.badRequest("消亡时间必须晚于创生时间");
           }
         }
@@ -222,10 +257,7 @@ export async function update(
   return merged;
 }
 
-export async function remove(
-  worldId: string,
-  eventId: string,
-): Promise<void> {
+export async function remove(worldId: string, eventId: string): Promise<void> {
   const existing = await repo.getEventById(worldId, eventId);
   if (!existing) throw AppError.notFound("Event");
   const evt = existing as Event;
@@ -242,17 +274,29 @@ export async function remove(
       if (prefix === "chr") {
         const c = (await repo.getCharacter(worldId, eid)) as Character | null;
         if (c?.endEventId === eventId) {
-          await repo.updateCharacter(worldId, eid, { endEventId: null, updatedAt: new Date().toISOString() });
+          await repo.updateCharacter(worldId, eid, {
+            endEventId: null,
+            updatedAt: new Date().toISOString(),
+          });
         }
       } else if (prefix === "thg") {
         const t = (await repo.getThing(worldId, eid)) as Thing | null;
         if (t?.endEventId === eventId) {
-          await repo.updateThing(worldId, eid, { endEventId: null, updatedAt: new Date().toISOString() });
+          await repo.updateThing(worldId, eid, {
+            endEventId: null,
+            updatedAt: new Date().toISOString(),
+          });
         }
       } else if (prefix === "rel") {
-        const r = (await repo.getRelationship(worldId, eid)) as Relationship | null;
+        const r = (await repo.getRelationship(
+          worldId,
+          eid,
+        )) as Relationship | null;
         if (r?.endEventId === eventId) {
-          await repo.updateRelationship(worldId, eid, { endEventId: null, updatedAt: new Date().toISOString() });
+          await repo.updateRelationship(worldId, eid, {
+            endEventId: null,
+            updatedAt: new Date().toISOString(),
+          });
         }
       }
     }

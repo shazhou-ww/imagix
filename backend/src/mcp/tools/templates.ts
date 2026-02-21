@@ -1,16 +1,18 @@
-import { type ToolRegistry, jsonResult, okResult } from "../registry.js";
 import * as templateCtrl from "../../controllers/templates.js";
+import { jsonResult, okResult, type ToolRegistry } from "../registry.js";
 
 export function registerTemplateTools(registry: ToolRegistry) {
   registry.register({
     name: "list_templates",
-    description: "List all world templates owned by a user. Templates capture world structure (taxonomy, places, attribute defs) for reuse.",
+    description:
+      "List all world templates owned by a user. Templates capture world structure (taxonomy, places, attribute defs) for reuse.",
     inputSchema: {
       type: "object",
       properties: { userId: { type: "string", description: "User ID" } },
       required: ["userId"],
     },
-    handler: async (a) => jsonResult(await templateCtrl.list(a.userId as string)),
+    handler: async (a) =>
+      jsonResult(await templateCtrl.list(a.userId as string)),
   });
 
   registry.register({
@@ -26,6 +28,7 @@ export function registerTemplateTools(registry: ToolRegistry) {
       required: ["userId", "name"],
     },
     handler: async (a) => {
+      // biome-ignore lint/suspicious/noExplicitAny: MCP tool args
       const { userId, ...body } = a as any;
       return jsonResult(await templateCtrl.create(userId, body));
     },
@@ -33,13 +36,17 @@ export function registerTemplateTools(registry: ToolRegistry) {
 
   registry.register({
     name: "get_template",
-    description: "Get a template by ID, including its snapshot (world structure snapshot).",
+    description:
+      "Get a template by ID, including its snapshot (world structure snapshot).",
     inputSchema: {
       type: "object",
-      properties: { templateId: { type: "string", description: "Template ID ('tpl...')" } },
+      properties: {
+        templateId: { type: "string", description: "Template ID ('tpl...')" },
+      },
       required: ["templateId"],
     },
-    handler: async (a) => jsonResult(await templateCtrl.getById(a.templateId as string)),
+    handler: async (a) =>
+      jsonResult(await templateCtrl.getById(a.templateId as string)),
   });
 
   registry.register({
@@ -56,6 +63,7 @@ export function registerTemplateTools(registry: ToolRegistry) {
       required: ["templateId", "userId"],
     },
     handler: async (a) => {
+      // biome-ignore lint/suspicious/noExplicitAny: MCP tool args
       const { templateId, userId, ...body } = a as any;
       return jsonResult(await templateCtrl.update(templateId, userId, body));
     },
@@ -94,8 +102,11 @@ export function registerTemplateTools(registry: ToolRegistry) {
       required: ["userId", "worldId", "name"],
     },
     handler: async (a) => {
+      // biome-ignore lint/suspicious/noExplicitAny: MCP tool args
       const { userId, worldId, ...body } = a as any;
-      return jsonResult(await templateCtrl.saveWorldAsTemplate(userId, worldId, body));
+      return jsonResult(
+        await templateCtrl.saveWorldAsTemplate(userId, worldId, body),
+      );
     },
   });
 
@@ -109,15 +120,21 @@ export function registerTemplateTools(registry: ToolRegistry) {
       properties: {
         userId: { type: "string" },
         templateId: { type: "string" },
-        name: { type: "string", description: "Override world name (defaults to template name)" },
+        name: {
+          type: "string",
+          description: "Override world name (defaults to template name)",
+        },
         description: { type: "string" },
         epoch: { type: "string", description: "Override epoch name" },
       },
       required: ["userId", "templateId"],
     },
     handler: async (a) => {
+      // biome-ignore lint/suspicious/noExplicitAny: MCP tool args
       const { userId, templateId, ...body } = a as any;
-      return jsonResult(await templateCtrl.createWorldFromTemplate(userId, templateId, body));
+      return jsonResult(
+        await templateCtrl.createWorldFromTemplate(userId, templateId, body),
+      );
     },
   });
 }

@@ -1,5 +1,9 @@
+import {
+  CreateThingBody,
+  EndEntityBody,
+  UpdateThingBody,
+} from "@imagix/shared";
 import { Hono } from "hono";
-import { CreateThingBody, UpdateThingBody, EndEntityBody } from "@imagix/shared";
 import type { AppEnv } from "../app.js";
 import { auth, p } from "../app.js";
 import * as ctrl from "../controllers/things.js";

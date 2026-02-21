@@ -19,6 +19,9 @@ api.route("$default", {
     COGNITO_USER_POOL_ID: auth.userPool.id,
     COGNITO_CLIENT_ID: auth.userPoolClient.id,
     COGNITO_DOMAIN: auth.cognitoDomain,
+    ...($app.stage === "prod" && {
+      MCP_PUBLIC_ORIGIN: "https://imagix.shazhou.me",
+    }),
   },
   nodejs: {
     esbuild: {

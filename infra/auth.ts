@@ -49,7 +49,7 @@ export const auth = (() => {
     $app.stage === "prod"
       ? [
           "https://imagix.shazhou.me/callback",
-          "https://api.imagix.shazhou.me/mcp/oauth/callback",
+          "https://imagix.shazhou.me/mcp/oauth/callback",
         ]
       : [
           "http://localhost:4510/callback",

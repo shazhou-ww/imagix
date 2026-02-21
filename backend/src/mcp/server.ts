@@ -3,6 +3,7 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
+import type { ToolContext } from "./registry.js";
 import { ToolRegistry } from "./registry.js";
 import { registerEntityTools } from "./tools/entities.js";
 import { registerEventTools } from "./tools/events.js";
@@ -11,6 +12,7 @@ import { registerRelationshipTools } from "./tools/relationships.js";
 import { registerStateTools } from "./tools/state.js";
 import { registerTaxonomyTools } from "./tools/taxonomy.js";
 import { registerTemplateTools } from "./tools/templates.js";
+import { registerUserTools } from "./tools/user.js";
 import { registerWorldTools } from "./tools/worlds.js";
 
 /**
@@ -26,6 +28,7 @@ function buildRegistry(): ToolRegistry {
   registerTaxonomyTools(registry);
   registerNarrativeTools(registry);
   registerTemplateTools(registry);
+  registerUserTools(registry);
   return registry;
 }
 
@@ -35,7 +38,7 @@ function buildRegistry(): ToolRegistry {
  * Uses the low-level `Server` API (not `McpServer`) to avoid Zod type inference
  * overhead that causes tsc to hang with 55+ tool registrations.
  */
-export function createMcpServer(): Server {
+export function createMcpServer(ctx: ToolContext): Server {
   const registry = buildRegistry();
 
   const server = new Server(
@@ -49,7 +52,7 @@ export function createMcpServer(): Server {
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
-    return registry.callTool(name, args ?? {});
+    return registry.callTool(name, args ?? {}, ctx);
   });
 
   return server;

@@ -28,7 +28,7 @@ app.all("/", requireMcpAuth, async (c) => {
     enableJsonResponse: true,
   });
 
-  const server = createMcpServer();
+  const server = createMcpServer({ userId: c.get("userId") });
 
   await server.connect(transport);
 

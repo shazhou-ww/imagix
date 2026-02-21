@@ -11,12 +11,21 @@ export interface JsonSchema {
   additionalProperties?: boolean;
 }
 
+/** Context injected into every tool handler from the auth layer */
+export interface ToolContext {
+  /** Authenticated user ID (from JWT sub or "local-dev" in dev mode) */
+  userId: string;
+}
+
 /** A registered MCP tool */
 export interface ToolDef {
   name: string;
   description: string;
   inputSchema: JsonSchema;
-  handler: (args: Record<string, unknown>) => Promise<ToolResult>;
+  handler: (
+    args: Record<string, unknown>,
+    ctx: ToolContext,
+  ) => Promise<ToolResult>;
 }
 
 /** MCP tool call result — index signature satisfies ServerResult constraint */
@@ -52,6 +61,7 @@ export class ToolRegistry {
   async callTool(
     name: string,
     args: Record<string, unknown>,
+    ctx: ToolContext,
   ): Promise<ToolResult> {
     const tool = this.tools.get(name);
     if (!tool) {
@@ -61,7 +71,7 @@ export class ToolRegistry {
       };
     }
     try {
-      return await tool.handler(args);
+      return await tool.handler(args, ctx);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       return {

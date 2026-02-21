@@ -65,6 +65,11 @@ const pendingAuths = new Map<string, PendingAuth>();
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function getOrigin(c: Context): string {
+  // In production, requests arrive via CloudFront but c.req.url reflects the
+  // API Gateway domain. Use MCP_PUBLIC_ORIGIN to return the correct public origin.
+  if (process.env.MCP_PUBLIC_ORIGIN) {
+    return process.env.MCP_PUBLIC_ORIGIN;
+  }
   const url = new URL(c.req.url);
   return `${url.protocol}//${url.host}`;
 }
@@ -285,6 +290,24 @@ oauthRoutes.post("/token", async (c) => {
 
 export const requireMcpAuth = createMiddleware<AppEnv>(async (c, next) => {
   const header = c.req.header("authorization") ?? c.req.header("Authorization");
+
+  // Local dev: use configured user sub (VS Code MCP HTTP client doesn't support OAuth)
+  if (!c.env?.event) {
+    const localSub = process.env.MCP_LOCAL_USER_SUB;
+    if (!localSub) {
+      return c.json(
+        {
+          error: "server_error",
+          error_description:
+            "MCP_LOCAL_USER_SUB not set. Add your Cognito sub to .env.",
+        },
+        500,
+      );
+    }
+    c.set("userId", localSub);
+    await next();
+    return;
+  }
 
   if (!header?.startsWith("Bearer ")) {
     const origin = getOrigin(c);

@@ -23,33 +23,31 @@ export function registerNarrativeTools(registry: ToolRegistry) {
 
   registry.register({
     name: "list_user_stories",
-    description: "List all stories owned by a specific user across all worlds.",
+    description: "List all stories owned by the current user across all worlds.",
     inputSchema: {
       type: "object",
-      properties: { userId: { type: "string", description: "User ID" } },
-      required: ["userId"],
+      properties: {},
     },
-    handler: async (a) =>
-      jsonResult(await storyCtrl.listByUser(a.userId as string)),
+    handler: async (_a, ctx) =>
+      jsonResult(await storyCtrl.listByUser(ctx.userId)),
   });
 
   registry.register({
     name: "create_story",
-    description: "Create a new story. Requires userId (owner) and worldId.",
+    description: "Create a new story in a world. The current user becomes the owner.",
     inputSchema: {
       type: "object",
       properties: {
         worldId: wid,
-        userId: { type: "string", description: "Owner user ID" },
         title: { type: "string", description: "Story title" },
         synopsis: { type: "string", description: "Story synopsis" },
       },
-      required: ["worldId", "userId", "title"],
+      required: ["worldId", "title"],
     },
-    handler: async (a) => {
+    handler: async (a, ctx) => {
       // biome-ignore lint/suspicious/noExplicitAny: MCP tool args
-      const { worldId, userId, ...body } = a as any;
-      return jsonResult(await storyCtrl.create(worldId, userId, body));
+      const { worldId, ...body } = a as any;
+      return jsonResult(await storyCtrl.create(worldId, ctx.userId, body));
     },
   });
 

@@ -5,14 +5,13 @@ export function registerWorldTools(registry: ToolRegistry) {
   registry.register({
     name: "list_worlds",
     description:
-      "List all worlds owned by a user. Returns an array of world objects with id, name, description, settings, epoch, and timestamps.",
+      "List all worlds owned by the current user. Returns an array of world objects with id, name, description, settings, epoch, and timestamps.",
     inputSchema: {
       type: "object",
-      properties: { userId: { type: "string", description: "User ID" } },
-      required: ["userId"],
+      properties: {},
     },
-    handler: async (args) =>
-      jsonResult(await worldCtrl.list(args.userId as string)),
+    handler: async (_args, ctx) =>
+      jsonResult(await worldCtrl.list(ctx.userId)),
   });
 
   registry.register({
@@ -22,7 +21,6 @@ export function registerWorldTools(registry: ToolRegistry) {
     inputSchema: {
       type: "object",
       properties: {
-        userId: { type: "string", description: "Owner user ID" },
         name: { type: "string", description: "World name" },
         description: { type: "string", description: "World description" },
         settings: {
@@ -36,12 +34,10 @@ export function registerWorldTools(registry: ToolRegistry) {
             "Epoch description — the event at time=0 (e.g. 'Genesis')",
         },
       },
-      required: ["userId", "name", "epoch"],
+      required: ["name", "epoch"],
     },
-    handler: async (args) => {
-      // biome-ignore lint/suspicious/noExplicitAny: MCP tool args
-      const { userId, ...body } = args as any;
-      return jsonResult(await worldCtrl.create(userId, body));
+    handler: async (args, ctx) => {
+      return jsonResult(await worldCtrl.create(ctx.userId, args as any));
     },
   });
 

@@ -2,6 +2,10 @@
   "servers": {
     "imagix": {
       "type": "http",
+      "url": "https://imagix.shazhou.me/mcp"
+    },
+    "imagix-local": {
+      "type": "http",
       "url": "http://localhost:4511/mcp"
     }
   }

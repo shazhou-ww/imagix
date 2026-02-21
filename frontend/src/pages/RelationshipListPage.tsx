@@ -67,10 +67,10 @@ export default function RelationshipListPage() {
   const birthEventMap = useMemo(() => {
     const map = new Map<string, WorldEvent>();
     for (const evt of events ?? []) {
-      if (evt.system && evt.participantIds.length > 0 &&
-          evt.impacts?.attributeChanges?.some((ac) => ac.attribute === "$alive" && ac.value === true)) {
-        for (const pid of evt.participantIds) map.set(pid, evt);
-      }
+      const birthAc = evt.system && evt.impacts?.attributeChanges?.find(
+        (ac) => ac.attribute === "$alive" && ac.value === true,
+      );
+      if (birthAc) map.set(birthAc.entityId, evt);
     }
     return map;
   }, [events]);

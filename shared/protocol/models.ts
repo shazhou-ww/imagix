@@ -31,6 +31,10 @@ export const chrId = id.refine((v) =>
 export const thgId = id.refine((v) =>
   isValidIdWithPrefix(v, EntityPrefix.Thing),
 );
+/** 地点 ID */
+export const plcId = id.refine((v) =>
+  isValidIdWithPrefix(v, EntityPrefix.Place),
+);
 /** 关系 ID */
 export const relId = id.refine((v) =>
   isValidIdWithPrefix(v, EntityPrefix.Relationship),
@@ -252,6 +256,34 @@ export const RelationshipSchema = z.object({
 export type Relationship = z.infer<typeof RelationshipSchema>;
 
 // ---------------------------------------------------------------------------
+// Place — 地点（空间层级结构）
+// ---------------------------------------------------------------------------
+
+/**
+ * 地点 Schema。
+ * 故事世界中的空间容器，具有层级包含关系（国 → 城 → 街 → 建筑 → 房间）。
+ * 地点是永恒的空间概念，不参与生命周期机制（无 $alive、$age、endEventId）。
+ */
+export const PlaceSchema = z.object({
+  /** 地点唯一标识。 */
+  id: plcId,
+  /** 所属世界 ID。 */
+  worldId: wldId,
+  /** 地点名称，如 "临安城"、"知味楼"。 */
+  name: z.string(),
+  /** 父地点 ID，null 表示顶层地点。 */
+  parentId: plcId.nullable(),
+  /** 地点描述。 */
+  description: z.string().default(""),
+  /** 创建时间。 */
+  createdAt: z.string(),
+  /** 最后更新时间。 */
+  updatedAt: z.string(),
+});
+
+export type Place = z.infer<typeof PlaceSchema>;
+
+// ---------------------------------------------------------------------------
 // Event & StateImpact — 事件与状态影响
 // ---------------------------------------------------------------------------
 
@@ -260,8 +292,6 @@ export type Relationship = z.infer<typeof RelationshipSchema>;
  * 描述一个事件对某个角色或事物的某个属性值的变更。
  */
 export const AttributeChangeSchema = z.object({
-  /** 目标实体类型：角色或事物。 */
-  entityType: z.enum(["character", "thing"]),
   /** 目标实体 ID。 */
   entityId: entityId,
   /** 要变更的属性名称（需与分类节点定义的属性 Schema 匹配）。 */
@@ -323,10 +353,8 @@ export const EventSchema = z.object({
    * 时间派生公式（如年龄增长）会在事件持续期间内自动计算。
    */
   duration: z.number().default(0),
-  /** 事件发生地点，引用某个事物（如地点类事物）；null 表示无明确地点。 */
-  placeId: thgId.nullable(),
-  /** 参与者 ID 列表（角色或事物）。 */
-  participantIds: z.array(entityId).default([]),
+  /** 事件发生地点，引用某个地点；null 表示无明确地点。 */
+  placeId: plcId.nullable(),
   /** 事件内容：提纲挈领的关键梗概，不做详细文学展开。 */
   content: z.string(),
   /** 状态影响声明：该事件导致的属性值变化。 */

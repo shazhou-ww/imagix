@@ -48,24 +48,20 @@ export async function create(
     time: body.establishTime,
     duration: 0,
     placeId: null,
-    participantIds: [rel.id],
     content: `关系建立：${relName}`,
     impacts: {
       attributeChanges: [
         {
-          entityType: "thing",
           entityId: rel.id,
           attribute: "$age",
           value: 0,
         },
         {
-          entityType: "thing",
           entityId: rel.id,
           attribute: "$name",
           value: relName,
         },
         {
-          entityType: "thing",
           entityId: rel.id,
           attribute: "$alive",
           value: true,
@@ -144,12 +140,10 @@ export async function end(
     time: body.time,
     duration: 0,
     placeId: null,
-    participantIds: [relId],
     content: body.content ?? `关系解除`,
     impacts: {
       attributeChanges: [
         {
-          entityType: "thing",
           entityId: relId,
           attribute: "$alive",
           value: false,

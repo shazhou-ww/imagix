@@ -7,6 +7,7 @@ import {
   AttributeDefinitionSchema,
   CharacterSchema,
   ThingSchema,
+  PlaceSchema,
   RelationshipSchema,
   EventLinkSchema,
   type World,
@@ -36,7 +37,6 @@ export async function create(userId: string, body: CreateWorldBody): Promise<Wor
     worldId: world.id,
     time: 0,
     placeId: null,
-    participantIds: [],
     content: body.epoch,
     impacts: {
       attributeChanges: [],
@@ -163,7 +163,7 @@ export async function update(
   if (body.epoch !== undefined) {
     const eventsAtZero = await repo.listEvents(worldId, { timeFrom: 0, timeTo: 0 });
     const epochEvt = eventsAtZero.find(
-      (e) => (e as any).system === true && ((e as any).participantIds?.length ?? 0) === 0,
+      (e) => (e as any).system === true && ((e as any).impacts?.attributeChanges?.length ?? 0) === 0,
     );
     if (epochEvt) {
       const merged = EventSchema.parse({
@@ -179,7 +179,37 @@ export async function update(
 }
 
 export async function remove(worldId: string): Promise<void> {
-  await repo.deleteWorld(worldId);
+  const world = await repo.getWorld(worldId);
+  if (!world) throw AppError.notFound("World");
+
+  // Cascade: collect all entity IDs and story IDs under this world
+  const worldItems = await repo.queryAllByPk(`WORLD#${worldId}`);
+
+  const entityIds: string[] = [];
+  const storyIds: string[] = [];
+
+  for (const item of worldItems) {
+    const sk = item.sk as string;
+    if (sk.startsWith("CHAR#")) entityIds.push(sk.slice(5));
+    else if (sk.startsWith("THING#")) entityIds.push(sk.slice(6));
+    else if (sk.startsWith("REL#")) entityIds.push(sk.slice(4));
+    else if (sk.startsWith("STORY#")) storyIds.push(sk.slice(6));
+  }
+
+  // Delete all ENTITY# reverse index items
+  for (const eid of entityIds) {
+    const entityItems = await repo.queryAllByPk(`ENTITY#${eid}`);
+    if (entityItems.length > 0) await repo.batchDeleteItems(entityItems);
+  }
+
+  // Delete all STORY# chapters/plots
+  for (const sid of storyIds) {
+    const storyItems = await repo.queryAllByPk(`STORY#${sid}`);
+    if (storyItems.length > 0) await repo.batchDeleteItems(storyItems);
+  }
+
+  // Delete all world items
+  if (worldItems.length > 0) await repo.batchDeleteItems(worldItems);
 }
 
 // ---------------------------------------------------------------------------
@@ -197,6 +227,7 @@ export async function exportWorld(worldId: string) {
     attributeDefinitions,
     characters,
     things,
+    places,
     relationships,
     events,
     eventLinks,
@@ -208,6 +239,7 @@ export async function exportWorld(worldId: string) {
     repo.listAttributeDefinitions(worldId),
     repo.listCharacters(worldId),
     repo.listThings(worldId),
+    repo.listPlaces(worldId),
     repo.listRelationships(worldId),
     repo.listEvents(worldId),
     repo.listEventLinks(worldId),
@@ -229,6 +261,7 @@ export async function exportWorld(worldId: string) {
     attributeDefinitions: strip(attributeDefinitions as Record<string, unknown>[]),
     characters: strip(characters as Record<string, unknown>[]),
     things: strip(things as Record<string, unknown>[]),
+    places: strip(places as Record<string, unknown>[]),
     relationships: strip(relationships as Record<string, unknown>[]),
     events: strip(events as Record<string, unknown>[]),
     eventLinks: strip(eventLinks as Record<string, unknown>[]),
@@ -273,6 +306,13 @@ export async function importWorld(
   for (const raw of things) {
     const thing = ThingSchema.parse({ ...raw, worldId });
     await repo.putThing(thing);
+  }
+
+  // Places
+  const places = (data.places ?? []) as Record<string, unknown>[];
+  for (const raw of places) {
+    const place = PlaceSchema.parse({ ...raw, worldId });
+    await repo.putPlace(place);
   }
 
   // Relationships

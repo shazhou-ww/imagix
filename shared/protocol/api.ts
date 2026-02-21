@@ -1,7 +1,7 @@
 import { z } from "zod";
 import {
   txnId,
-  thgId,
+  plcId,
   chrId,
   evtId,
   entityId,
@@ -52,6 +52,20 @@ export const UpdateTaxonomyNodeBody = CreateTaxonomyNodeBody.partial();
 
 export type CreateTaxonomyNodeBody = z.infer<typeof CreateTaxonomyNodeBody>;
 export type UpdateTaxonomyNodeBody = z.infer<typeof UpdateTaxonomyNodeBody>;
+
+// ---------------------------------------------------------------------------
+// Place
+// ---------------------------------------------------------------------------
+
+export const CreatePlaceBody = z.object({
+  name: z.string().min(1),
+  parentId: plcId.nullable().default(null),
+  description: z.string().optional(),
+});
+export const UpdatePlaceBody = CreatePlaceBody.partial();
+
+export type CreatePlaceBody = z.infer<typeof CreatePlaceBody>;
+export type UpdatePlaceBody = z.infer<typeof UpdatePlaceBody>;
 
 // ---------------------------------------------------------------------------
 // AttributeDefinition（世界级属性术语字典）
@@ -122,8 +136,7 @@ export type CreateRelationshipBody = z.infer<typeof CreateRelationshipBody>;
 export const CreateEventBody = z.object({
   time: z.number(),
   duration: z.number().optional(),
-  placeId: thgId.nullable().optional(),
-  participantIds: z.array(entityId).optional(),
+  placeId: plcId.nullable().optional(),
   content: z.string().min(1),
   impacts: StateImpactSchema.optional(),
 });

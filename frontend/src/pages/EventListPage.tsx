@@ -69,7 +69,6 @@ function displayAttrName(attrName: string, entityId: string): string {
 // Group flat AttributeChange[] by entityId for grouped UI rendering
 interface AttrChangeGroup {
   entityId: string;
-  entityType: "character" | "thing";
   changes: { attribute: string; value: string | number | boolean; flatIdx: number }[];
 }
 
@@ -79,7 +78,7 @@ function groupByEntity(changes: AttributeChange[]): AttrChangeGroup[] {
   changes.forEach((ac, idx) => {
     let group = map.get(ac.entityId);
     if (!group) {
-      group = { entityId: ac.entityId, entityType: ac.entityType, changes: [] };
+      group = { entityId: ac.entityId, changes: [] };
       map.set(ac.entityId, group);
       groups.push(group);
     }
@@ -112,7 +111,11 @@ export default function EventListPage() {
 
   // 编辑系统事件（创生/消亡）时的时序校验
   const timeError = useMemo(() => {
-    if (!editingEvent?.system || editingEvent.participantIds.length === 0) return "";
+    if (!editingEvent?.system) return "";
+    const affectedIds = [
+      ...new Set(editingEvent.impacts?.attributeChanges?.map(ac => ac.entityId) ?? []),
+    ];
+    if (affectedIds.length === 0) return "";
     const isBirth = editingEvent.impacts?.attributeChanges?.some(
       (ac) => ac.attribute === "$alive" && ac.value === true,
     );
@@ -121,21 +124,17 @@ export default function EventListPage() {
     );
     if (!isBirth && !isEnd) return "";
 
-    for (const pid of editingEvent.participantIds) {
+    for (const pid of affectedIds) {
       if (isBirth) {
-        // 创生事件：时间必须早于消亡事件
         const endEvt = (events ?? []).find(
           (e) => e.id !== editingEvent.id && e.system &&
-            e.participantIds.includes(pid) &&
-            e.impacts?.attributeChanges?.some((ac) => ac.attribute === "$alive" && ac.value === false),
+            e.impacts?.attributeChanges?.some((ac) => ac.entityId === pid && ac.attribute === "$alive" && ac.value === false),
         );
         if (endEvt && time >= endEvt.time) return "创生时间必须早于消亡时间";
       } else {
-        // 消亡事件：时间必须晚于创生事件
         const birthEvt = (events ?? []).find(
           (e) => e.id !== editingEvent.id && e.system &&
-            e.participantIds.includes(pid) &&
-            e.impacts?.attributeChanges?.some((ac) => ac.attribute === "$alive" && ac.value === true),
+            e.impacts?.attributeChanges?.some((ac) => ac.entityId === pid && ac.attribute === "$alive" && ac.value === true),
         );
         if (birthEvt && time <= birthEvt.time) return "消亡时间必须晚于创生时间";
       }
@@ -190,7 +189,7 @@ export default function EventListPage() {
 
   // Toggle an attribute change on/off for a participant
   const toggleAttrChange = useCallback(
-    (entityId: string, entityType: "character" | "thing", attrName: string, currentValue?: string | number | boolean) => {
+    (entityId: string, attrName: string, currentValue?: string | number | boolean) => {
       setAttrChanges((prev) => {
         const idx = prev.findIndex((ac) => ac.entityId === entityId && ac.attribute === attrName);
         if (idx >= 0) return prev.filter((_, i) => i !== idx);
@@ -201,7 +200,7 @@ export default function EventListPage() {
           else if (def?.type === "boolean") value = false;
           else if (def?.type === "enum") value = def.enumValues?.[0] ?? "";
         }
-        return [...prev, { entityType, entityId, attribute: attrName, value }];
+        return [...prev, { entityId, attribute: attrName, value }];
       });
     },
     [attrDefs],
@@ -236,7 +235,9 @@ export default function EventListPage() {
     setTime(evt.time);
     setDuration(evt.duration ?? 0);
     setContent(evt.content);
-    setParticipantIds(evt.participantIds ?? []);
+    // Derive participant IDs from impacts
+    const entityIds = [...new Set(evt.impacts?.attributeChanges?.map(ac => ac.entityId) ?? [])];
+    setParticipantIds(entityIds);
     setAttrChanges(evt.impacts?.attributeChanges ?? []);
     setSaveError("");
     setDialogOpen(true);
@@ -258,7 +259,7 @@ export default function EventListPage() {
     };
     if (editingEvent) {
       updateEvent.mutate(
-        { eventId: editingEvent.id, body: { time, duration, content: content.trim(), participantIds, impacts } },
+        { eventId: editingEvent.id, body: { time, duration, content: content.trim(), impacts } },
         {
           onSuccess: () => setDialogOpen(false),
           onError: (err) => setSaveError(err instanceof Error ? err.message : "操作失败"),
@@ -266,7 +267,7 @@ export default function EventListPage() {
       );
     } else {
       createEvent.mutate(
-        { time, duration, content: content.trim(), participantIds, impacts },
+        { time, duration, content: content.trim(), impacts },
         {
           onSuccess: () => setDialogOpen(false),
           onError: (err) => setSaveError(err instanceof Error ? err.message : "操作失败"),
@@ -354,32 +355,46 @@ export default function EventListPage() {
                     <Typography variant="body1">{evt.content}</Typography>
                     {evt.system && (
                       <Chip
-                        label={evt.participantIds.length === 0
-                          ? "纪元"
-                          : (() => { const e = entityOptions.find((e) => e.id === evt.participantIds[0]); const t = evt.participantIds[0].startsWith("chr") ? "角色" : evt.participantIds[0].startsWith("rel") ? "关系" : "事物"; return `创生·${t}·${e?.name ?? evt.participantIds[0].slice(0, 8)}`; })()}
+                        label={(() => {
+                          const acs = evt.impacts?.attributeChanges ?? [];
+                          if (acs.length === 0) return "纪元";
+                          const isBirth = acs.some(ac => ac.attribute === "$alive" && ac.value === true);
+                          const isEnd = acs.some(ac => ac.attribute === "$alive" && ac.value === false);
+                          const entityId = acs[0]?.entityId ?? "";
+                          const entity = entityOptions.find(e => e.id === entityId);
+                          const typeLabel = entityId.startsWith("chr") ? "角色" : entityId.startsWith("rel") ? "关系" : "事物";
+                          const name = entity?.name ?? entityId.slice(0, 8);
+                          if (isBirth) return `创生·${typeLabel}·${name}`;
+                          if (isEnd) return `消亡·${typeLabel}·${name}`;
+                          return "系统";
+                        })()}
                         size="small"
-                        color={evt.participantIds.length === 0 ? "warning" : "info"}
+                        color={(evt.impacts?.attributeChanges?.length ?? 0) === 0 ? "warning" : "info"}
                         sx={{ height: 20, fontSize: "0.7rem" }}
                       />
                     )}
                   </Box>
-                  {evt.participantIds.length > 0 && (
-                    <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", mt: 0.5 }}>
-                      {evt.participantIds.map((pid) => {
-                        const entity = entityOptions.find((e) => e.id === pid);
-                        return (
-                          <Chip
-                            key={pid}
-                            label={entity?.name ?? pid.slice(0, 8)}
-                            size="small"
-                            variant="outlined"
-                            color={entity?.type === "character" ? "primary" : "secondary"}
-                            sx={{ height: 22, fontSize: "0.75rem" }}
-                          />
-                        );
-                      })}
-                    </Box>
-                  )}
+                  {(() => {
+                    const entityIds = [...new Set(evt.impacts?.attributeChanges?.map(ac => ac.entityId) ?? [])];
+                    if (entityIds.length === 0) return null;
+                    return (
+                      <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", mt: 0.5 }}>
+                        {entityIds.map((eid) => {
+                          const entity = entityOptions.find((e) => e.id === eid);
+                          return (
+                            <Chip
+                              key={eid}
+                              label={entity?.name ?? eid.slice(0, 8)}
+                              size="small"
+                              variant="outlined"
+                              color={entity?.type === "character" ? "primary" : "secondary"}
+                              sx={{ height: 22, fontSize: "0.75rem" }}
+                            />
+                          );
+                        })}
+                      </Box>
+                    );
+                  })()}
                   {/* Summary counts for collapsed state */}
                   {!expandedEvents.has(evt.id) && (
                     <Box sx={{ display: "flex", gap: 1, mt: 0.5, alignItems: "center" }}>
@@ -518,11 +533,21 @@ export default function EventListPage() {
           {editingEvent ? "编辑事件" : "添加事件"}
           {editingEvent?.system && (
             <Chip
-              label={editingEvent.participantIds.length === 0
-                ? "纪元事件"
-                : (() => { const e = entityOptions.find((e) => e.id === editingEvent.participantIds[0]); const t = editingEvent.participantIds[0].startsWith("chr") ? "角色" : editingEvent.participantIds[0].startsWith("rel") ? "关系" : "事物"; return `创生事件·${t}·${e?.name ?? editingEvent.participantIds[0].slice(0, 8)}`; })()}
+              label={(() => {
+                const acs = editingEvent.impacts?.attributeChanges ?? [];
+                if (acs.length === 0) return "纪元事件";
+                const isBirth = acs.some(ac => ac.attribute === "$alive" && ac.value === true);
+                const isEnd = acs.some(ac => ac.attribute === "$alive" && ac.value === false);
+                const entityId = acs[0]?.entityId ?? "";
+                const entity = entityOptions.find(e => e.id === entityId);
+                const typeLabel = entityId.startsWith("chr") ? "角色" : entityId.startsWith("rel") ? "关系" : "事物";
+                const name = entity?.name ?? entityId.slice(0, 8);
+                if (isBirth) return `创生事件·${typeLabel}·${name}`;
+                if (isEnd) return `消亡事件·${typeLabel}·${name}`;
+                return "系统事件";
+              })()}
               size="small"
-              color={editingEvent.participantIds.length === 0 ? "warning" : "info"}
+              color={(editingEvent.impacts?.attributeChanges?.length ?? 0) === 0 ? "warning" : "info"}
               sx={{ height: 22, fontSize: "0.75rem" }}
             />
           )}
@@ -535,7 +560,7 @@ export default function EventListPage() {
               <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: "block" }}>
                 事件时间
               </Typography>
-              <EpochTimeInput value={time} onChange={setTime} showPreview disabled={!!editingEvent?.system && editingEvent.participantIds.length === 0} />
+              <EpochTimeInput value={time} onChange={setTime} showPreview disabled={!!editingEvent?.system && (editingEvent.impacts?.attributeChanges?.length ?? 0) === 0} />
             </Box>
             <Box sx={{ flex: 1 }}>
               <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: "block" }}>
@@ -667,7 +692,7 @@ export default function EventListPage() {
                                   checked={isChanging}
                                   disabled={isLocked}
                                   onChange={() =>
-                                    toggleAttrChange(pid, entity?.type ?? "character", attrName, currentVal)
+                                    toggleAttrChange(pid, attrName, currentVal)
                                   }
                                 />
                               </TableCell>
@@ -754,7 +779,7 @@ export default function EventListPage() {
                                     onClick={() => {
                                       // Remove the change if active, and remove from visible rows
                                       if (isChanging) {
-                                        toggleAttrChange(pid, entity?.type ?? "character", attrName, currentVal);
+                                        toggleAttrChange(pid, attrName, currentVal);
                                       }
                                       // If it came from current state, we can't truly delete it,
                                       // so only non-state rows disappear (changes-only rows)
@@ -782,7 +807,7 @@ export default function EventListPage() {
                     getOptionLabel={(o) => o.name}
                     value={null}
                     onChange={(_, v) => {
-                      if (v) toggleAttrChange(pid, entity?.type ?? "character", v.name);
+                      if (v) toggleAttrChange(pid, v.name);
                     }}
                     renderInput={(params) => (
                       <TextField {...params} label="添加属性" placeholder="选择属性" />

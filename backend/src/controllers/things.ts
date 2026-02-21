@@ -34,24 +34,20 @@ export async function create(
     time: body.creationTime,
     duration: 0,
     placeId: null,
-    participantIds: [thing.id],
     content: `${body.name}创建`,
     impacts: {
       attributeChanges: [
         {
-          entityType: "thing",
           entityId: thing.id,
           attribute: "$age",
           value: 0,
         },
         {
-          entityType: "thing",
           entityId: thing.id,
           attribute: "$name",
           value: body.name,
         },
         {
-          entityType: "thing",
           entityId: thing.id,
           attribute: "$alive",
           value: true,
@@ -135,12 +131,10 @@ export async function end(
     time: body.time,
     duration: 0,
     placeId: null,
-    participantIds: [thingId],
     content: body.content ?? `${t.name}消亡`,
     impacts: {
       attributeChanges: [
         {
-          entityType: "thing",
           entityId: thingId,
           attribute: "$alive",
           value: false,

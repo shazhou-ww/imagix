@@ -3,6 +3,7 @@ import {
   EntityPrefix,
   EventSchema,
   type Event,
+  type StateImpact,
   type Character,
   type Thing,
   type Relationship,
@@ -10,54 +11,89 @@ import {
   type UpdateEventBody,
 } from "@imagix/shared";
 import * as repo from "../db/repository.js";
+import { extractAffectedEntityIds } from "../db/repository.js";
 import { AppError } from "./errors.js";
 
 // ---------------------------------------------------------------------------
-// Helpers — 参与者存续时间校验
+// Helpers — impacts 引用完整性验证
 // ---------------------------------------------------------------------------
 
-/**
- * 校验参与者在事件时间点是否存续。
- * 规则：若实体有消亡事件且消亡时间 < eventTime，则不允许参与。
- */
-async function validateParticipantsAlive(
+/** Resolve entity by prefixed ID. */
+async function getEntityByPrefixedId(
   worldId: string,
-  participantIds: string[],
-  eventTime: number,
-): Promise<void> {
-  for (const pid of participantIds) {
-    const prefix = pid.slice(0, 3);
-    let endEventId: string | undefined;
+  entityId: string,
+): Promise<(Character | Thing | Relationship) | null> {
+  const prefix = entityId.slice(0, 3);
+  if (prefix === "chr") return (await repo.getCharacter(worldId, entityId)) as Character | null;
+  if (prefix === "thg") return (await repo.getThing(worldId, entityId)) as Thing | null;
+  if (prefix === "rel") return (await repo.getRelationship(worldId, entityId)) as Relationship | null;
+  return null;
+}
 
-    if (prefix === "chr") {
-      const c = (await repo.getCharacter(worldId, pid)) as Character | null;
-      if (!c) throw AppError.badRequest(`参与者 ${pid} 不存在`);
-      if (c.deletedAt) throw AppError.badRequest(`参与者 ${pid} 已被删除`);
-      endEventId = c.endEventId;
-    } else if (prefix === "thg") {
-      const t = (await repo.getThing(worldId, pid)) as Thing | null;
-      if (!t) throw AppError.badRequest(`参与者 ${pid} 不存在`);
-      if (t.deletedAt) throw AppError.badRequest(`参与者 ${pid} 已被删除`);
-      endEventId = t.endEventId;
-    } else if (prefix === "rel") {
-      const r = (await repo.getRelationship(worldId, pid)) as Relationship | null;
-      if (!r) throw AppError.badRequest(`参与者 ${pid} 不存在`);
-      if (r.deletedAt) throw AppError.badRequest(`参与者 ${pid} 已被删除`);
-      endEventId = r.endEventId;
+/**
+ * 验证 impacts 引用完整性。
+ * 1. 实体/关系必须存在且未软删除
+ * 2. 实体在事件时间点必须存续（未消亡），例外：创生/消亡事件本身
+ * 3. $ 前缀属性仅允许系统事件修改
+ */
+async function validateImpacts(
+  worldId: string,
+  impacts: StateImpact,
+  eventTime: number,
+  isSystem: boolean,
+): Promise<void> {
+  for (const ac of impacts.attributeChanges) {
+    const entity = await getEntityByPrefixedId(worldId, ac.entityId);
+    if (!entity) throw AppError.badRequest(`实体 ${ac.entityId} 不存在`);
+    if ((entity as { deletedAt?: string }).deletedAt) {
+      throw AppError.badRequest(`实体 ${ac.entityId} 已被删除`);
     }
 
-    if (endEventId) {
-      const endEvt = await repo.getEventById(worldId, endEventId);
-      if (endEvt) {
-        const endTime = (endEvt as Event).time;
-        if (eventTime > endTime) {
-          throw AppError.badRequest(
-            `参与者 ${pid} 在时间 ${endTime} 已消亡，不能参与时间 ${eventTime} 的事件`,
-          );
+    if (ac.attribute.startsWith("$") && !isSystem) {
+      throw AppError.badRequest(`系统属性 ${ac.attribute} 不允许普通事件修改`);
+    }
+
+    // 存续性校验（跳过 $alive 变更本身——创生/消亡事件）
+    if (ac.attribute !== "$alive") {
+      const endEventId = (entity as { endEventId?: string }).endEventId;
+      if (endEventId) {
+        const endEvt = await repo.getEventById(worldId, endEventId);
+        if (endEvt && eventTime > (endEvt as Event).time) {
+          throw AppError.badRequest(`实体 ${ac.entityId} 在该时间已消亡`);
         }
       }
     }
   }
+
+  for (const rac of impacts.relationshipAttributeChanges) {
+    const rel = (await repo.getRelationship(worldId, rac.relationshipId)) as Relationship | null;
+    if (!rel) throw AppError.badRequest(`关系 ${rac.relationshipId} 不存在`);
+    if (rel.deletedAt) throw AppError.badRequest(`关系 ${rac.relationshipId} 已被删除`);
+
+    if (rac.attribute.startsWith("$") && !isSystem) {
+      throw AppError.badRequest(`系统属性 ${rac.attribute} 不允许普通事件修改`);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// System event detection helpers (impacts-based, no participantIds)
+// ---------------------------------------------------------------------------
+
+function isEpochEvent(evt: Event): boolean {
+  return evt.system && evt.impacts.attributeChanges.length === 0;
+}
+
+function isBirthEvent(evt: Event): boolean {
+  return evt.system && evt.impacts.attributeChanges.some(
+    (ac) => ac.attribute === "$alive" && ac.value === true,
+  );
+}
+
+function isEndEvent(evt: Event): boolean {
+  return evt.system && evt.impacts.attributeChanges.some(
+    (ac) => ac.attribute === "$alive" && ac.value === false,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -68,11 +104,14 @@ export async function create(
   worldId: string,
   body: CreateEventBody,
 ): Promise<Event> {
-  const participants = body.participantIds ?? [];
+  const impacts = body.impacts ?? {
+    attributeChanges: [],
+    relationshipAttributeChanges: [],
+  };
 
-  // 校验参与者在事件时间点是否存续
-  if (participants.length > 0) {
-    await validateParticipantsAlive(worldId, participants, body.time);
+  // 验证 impacts 引用完整性
+  if (impacts.attributeChanges.length > 0 || impacts.relationshipAttributeChanges.length > 0) {
+    await validateImpacts(worldId, impacts, body.time, false);
   }
 
   const now = new Date().toISOString();
@@ -82,12 +121,8 @@ export async function create(
     time: body.time,
     duration: body.duration ?? 0,
     placeId: body.placeId ?? null,
-    participantIds: participants,
     content: body.content,
-    impacts: body.impacts ?? {
-      attributeChanges: [],
-      relationshipAttributeChanges: [],
-    },
+    impacts,
     createdAt: now,
     updatedAt: now,
   });
@@ -122,62 +157,50 @@ export async function update(
 
   const old = existing as Event;
 
-  // 纪元事件（无参与者的系统事件）：只允许修改描述
-  // 创建/消亡事件（有参与者的系统事件）：允许修改时间和描述，但参与者/属性/持续时间不可变
+  // 系统事件编辑限制：
+  // 纪元事件：只允许修改 content
+  // 创生/消亡事件：允许修改 time 和 content，impacts 不可变
   // 普通事件：全部可改
   let safeBody: typeof body;
   if (old.system) {
-    const isEpoch = old.participantIds.length === 0;
-    if (isEpoch) {
+    if (isEpochEvent(old)) {
       safeBody = { content: body.content };
     } else {
-      safeBody = { time: body.time, content: body.content, participantIds: old.participantIds, impacts: old.impacts };
+      safeBody = { time: body.time, content: body.content, impacts: old.impacts };
     }
   } else {
     safeBody = body;
   }
 
-  // 若修改了参与者或时间，校验存续时间
-  const newParticipants = safeBody.participantIds ?? old.participantIds;
   const newTime = safeBody.time ?? old.time;
-  if (
-    !old.system &&
-    (safeBody.participantIds !== undefined || safeBody.time !== undefined) &&
-    newParticipants.length > 0
-  ) {
-    await validateParticipantsAlive(worldId, newParticipants, newTime);
+
+  // 普通事件 impacts 变更验证
+  if (!old.system && safeBody.impacts) {
+    await validateImpacts(worldId, safeBody.impacts, newTime, false);
   }
 
   // 系统事件修改时间：创生/消亡事件之间的时序约束
-  if (old.system && safeBody.time !== undefined && safeBody.time !== old.time && old.participantIds.length > 0) {
-    const isBirthEvent = old.impacts.attributeChanges.some(
-      (ac) => ac.attribute === "$alive" && ac.value === true,
-    );
-    const isEndEvent = old.impacts.attributeChanges.some(
-      (ac) => ac.attribute === "$alive" && ac.value === false,
-    );
+  if (old.system && safeBody.time !== undefined && safeBody.time !== old.time) {
+    const affectedIds = extractAffectedEntityIds(old);
 
-    for (const pid of old.participantIds) {
-      if (isBirthEvent) {
-        // 修改创生事件时间：必须早于消亡事件时间
-        const prefix = pid.slice(0, 3);
-        let endEventId: string | undefined;
-        if (prefix === "chr") endEventId = ((await repo.getCharacter(worldId, pid)) as Character | null)?.endEventId;
-        else if (prefix === "thg") endEventId = ((await repo.getThing(worldId, pid)) as Thing | null)?.endEventId;
-        else if (prefix === "rel") endEventId = ((await repo.getRelationship(worldId, pid)) as Relationship | null)?.endEventId;
+    if (isBirthEvent(old)) {
+      for (const eid of affectedIds) {
+        const entity = await getEntityByPrefixedId(worldId, eid);
+        const endEventId = (entity as { endEventId?: string } | null)?.endEventId;
         if (endEventId) {
           const endEvt = (await repo.getEventById(worldId, endEventId)) as Event | null;
-          if (endEvt && safeBody.time >= endEvt.time) {
+          if (endEvt && safeBody.time! >= endEvt.time) {
             throw AppError.badRequest("创生时间必须早于消亡时间");
           }
         }
-      } else if (isEndEvent) {
-        // 修改消亡事件时间：必须晚于创生事件时间
-        const entityEvents = await repo.listEventsByEntity(pid);
+      }
+    } else if (isEndEvent(old)) {
+      for (const eid of affectedIds) {
+        const entityEvents = await repo.listEventsByEntity(eid);
         const firstEntry = entityEvents[0] as { eventId: string } | undefined;
         if (firstEntry) {
           const birthEvt = (await repo.getEventById(worldId, firstEntry.eventId)) as Event | null;
-          if (birthEvt && birthEvt.id !== eventId && safeBody.time <= birthEvt.time) {
+          if (birthEvt && birthEvt.id !== eventId && safeBody.time! <= birthEvt.time) {
             throw AppError.badRequest("消亡时间必须晚于创生时间");
           }
         }
@@ -191,8 +214,8 @@ export async function update(
     updatedAt: new Date().toISOString(),
   });
 
-  // time or participants changed → delete old denorm items, rewrite all
-  if (body.time !== undefined || body.participantIds !== undefined) {
+  // time or impacts changed → delete old denorm items, rewrite all
+  if (body.time !== undefined || body.impacts !== undefined) {
     await repo.deleteEvent(old);
   }
   await repo.putEvent(merged);
@@ -208,32 +231,28 @@ export async function remove(
   const evt = existing as Event;
 
   if (evt.system) {
-    // 消亡事件（系统事件，但含 $alive=false 的 impact）可删除
-    // 通过检查 impacts 中是否有 $alive=false 来判断
-    const isEndEvent = evt.impacts.attributeChanges.some(
-      (ac) => ac.attribute === "$alive" && ac.value === false,
-    );
-    if (!isEndEvent) {
+    if (!isEndEvent(evt)) {
       throw AppError.forbidden("系统预置事件不可删除（创生事件和纪元事件）");
     }
 
     // 清理实体上的 endEventId 引用
-    for (const pid of evt.participantIds) {
-      const prefix = pid.slice(0, 3);
+    const affectedIds = extractAffectedEntityIds(evt);
+    for (const eid of affectedIds) {
+      const prefix = eid.slice(0, 3);
       if (prefix === "chr") {
-        const c = (await repo.getCharacter(worldId, pid)) as Character | null;
+        const c = (await repo.getCharacter(worldId, eid)) as Character | null;
         if (c?.endEventId === eventId) {
-          await repo.updateCharacter(worldId, pid, { endEventId: null, updatedAt: new Date().toISOString() });
+          await repo.updateCharacter(worldId, eid, { endEventId: null, updatedAt: new Date().toISOString() });
         }
       } else if (prefix === "thg") {
-        const t = (await repo.getThing(worldId, pid)) as Thing | null;
+        const t = (await repo.getThing(worldId, eid)) as Thing | null;
         if (t?.endEventId === eventId) {
-          await repo.updateThing(worldId, pid, { endEventId: null, updatedAt: new Date().toISOString() });
+          await repo.updateThing(worldId, eid, { endEventId: null, updatedAt: new Date().toISOString() });
         }
       } else if (prefix === "rel") {
-        const r = (await repo.getRelationship(worldId, pid)) as Relationship | null;
+        const r = (await repo.getRelationship(worldId, eid)) as Relationship | null;
         if (r?.endEventId === eventId) {
-          await repo.updateRelationship(worldId, pid, { endEventId: null, updatedAt: new Date().toISOString() });
+          await repo.updateRelationship(worldId, eid, { endEventId: null, updatedAt: new Date().toISOString() });
         }
       }
     }

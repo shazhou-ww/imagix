@@ -13,6 +13,7 @@ import type {
   AttributeDefinition,
   Character,
   Thing,
+  Place,
   Relationship,
   Event,
   EventLink,
@@ -28,6 +29,7 @@ import {
   attributeDefinitionSk,
   characterSk,
   thingSk,
+  placeSk,
   relationshipSk,
   eventSk,
   eventIndexSk,
@@ -401,12 +403,61 @@ export async function updateRelationship(
 }
 
 // ---------------------------------------------------------------------------
-// Event (with denormalized participant index + EVT_IDX for ID lookup)
+// Place
+// ---------------------------------------------------------------------------
+
+export async function putPlace(place: Place) {
+  await put({
+    pk: worldPk(place.worldId),
+    sk: placeSk(place.id),
+    ...place,
+  });
+}
+
+export async function getPlace(worldId: string, placeId: string) {
+  return get(worldPk(worldId), placeSk(placeId));
+}
+
+export async function listPlaces(worldId: string) {
+  return queryByPkPrefix(worldPk(worldId), PREFIX.PLACE);
+}
+
+export async function updatePlace(
+  worldId: string,
+  placeId: string,
+  fields: Record<string, unknown>,
+) {
+  await updateFields(worldPk(worldId), placeSk(placeId), fields);
+}
+
+export async function deletePlace(worldId: string, placeId: string) {
+  await del(worldPk(worldId), placeSk(placeId));
+}
+
+// ---------------------------------------------------------------------------
+// Event helpers
+// ---------------------------------------------------------------------------
+
+/** Extract all entity IDs affected by an event's impacts. */
+export function extractAffectedEntityIds(evt: Event): string[] {
+  const ids = new Set<string>();
+  for (const ac of evt.impacts.attributeChanges) {
+    ids.add(ac.entityId);
+  }
+  for (const rac of evt.impacts.relationshipAttributeChanges) {
+    ids.add(rac.relationshipId);
+  }
+  return [...ids];
+}
+
+// ---------------------------------------------------------------------------
+// Event (with denormalized entity→event index + EVT_IDX for ID lookup)
 // ---------------------------------------------------------------------------
 
 export async function putEvent(evt: Event) {
   const pk = worldPk(evt.worldId);
   const sk = eventSk(evt.time, evt.id);
+  const affectedIds = extractAffectedEntityIds(evt);
 
   const items = [
     { PutRequest: { Item: { pk, sk, ...evt } } },
@@ -420,10 +471,10 @@ export async function putEvent(evt: Event) {
         },
       },
     },
-    ...evt.participantIds.map((pid) => ({
+    ...affectedIds.map((eid) => ({
       PutRequest: {
         Item: {
-          pk: entityPk(pid),
+          pk: entityPk(eid),
           sk: eventSk(evt.time, evt.id),
           worldId: evt.worldId,
           eventId: evt.id,
@@ -489,13 +540,14 @@ export async function listEventsByEntity(
 export async function deleteEvent(evt: Event) {
   const pk = worldPk(evt.worldId);
   const sk = eventSk(evt.time, evt.id);
+  const affectedIds = extractAffectedEntityIds(evt);
 
   const items = [
     { DeleteRequest: { Key: { pk, sk } } },
     { DeleteRequest: { Key: { pk, sk: eventIndexSk(evt.id) } } },
-    ...evt.participantIds.map((pid) => ({
+    ...affectedIds.map((eid) => ({
       DeleteRequest: {
-        Key: { pk: entityPk(pid), sk: eventSk(evt.time, evt.id) },
+        Key: { pk: entityPk(eid), sk: eventSk(evt.time, evt.id) },
       },
     })),
   ];
@@ -633,4 +685,43 @@ export async function updatePlot(
 
 export async function deletePlot(storyId: string, plotId: string) {
   await del(storyPk(storyId), plotSk(plotId));
+}
+
+// ---------------------------------------------------------------------------
+// Cascade helpers
+// ---------------------------------------------------------------------------
+
+/** Query all items with the given pk (no sk prefix filter). */
+export async function queryAllByPk(pk: string) {
+  const items: Record<string, unknown>[] = [];
+  let lastKey: Record<string, unknown> | undefined;
+  do {
+    const res = await docClient.send(
+      new QueryCommand({
+        TableName: TABLE_NAME,
+        KeyConditionExpression: "pk = :pk",
+        ExpressionAttributeValues: { ":pk": pk },
+        ...(lastKey && { ExclusiveStartKey: lastKey }),
+      }),
+    );
+    if (res.Items) items.push(...res.Items);
+    lastKey = res.LastEvaluatedKey as Record<string, unknown> | undefined;
+  } while (lastKey);
+  return items;
+}
+
+/** Batch delete items (each must have pk and sk). */
+export async function batchDeleteItems(items: Record<string, unknown>[]) {
+  const requests = items.map((item) => ({
+    DeleteRequest: {
+      Key: { pk: item.pk, sk: item.sk },
+    },
+  }));
+  for (let i = 0; i < requests.length; i += 25) {
+    await docClient.send(
+      new BatchWriteCommand({
+        RequestItems: { [TABLE_NAME]: requests.slice(i, i + 25) },
+      }),
+    );
+  }
 }

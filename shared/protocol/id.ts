@@ -25,6 +25,7 @@ export const EntityPrefix = {
   Character: "chr",
   Thing: "thg",
   Relationship: "rel",
+  Place: "plc",
   Event: "evt",
   EventLink: "elk",
   Story: "sty",

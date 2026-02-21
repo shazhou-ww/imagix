@@ -19,12 +19,16 @@ import stateRoutes from "./routes/state.js";
 import entityEventRoutes from "./routes/entity-events.js";
 import templateRoutes from "./routes/templates.js";
 import mcpRoutes from "./mcp/index.js";
+import { wellKnownRoutes } from "./mcp/auth.js";
 
 const app = createApp();
 
 app.get("/api/health", (c) =>
   c.json({ status: "ok", service: "imagix-api" }),
 );
+
+// OAuth discovery metadata (must be at root /.well-known/)
+app.route("/.well-known", wellKnownRoutes);
 
 app.route("/api/worlds", worldRoutes);
 app.route("/api/templates", templateRoutes);

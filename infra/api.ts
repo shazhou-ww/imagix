@@ -17,6 +17,8 @@ api.route("$default", {
   link: [database],
   environment: {
     COGNITO_USER_POOL_ID: auth.userPool.id,
+    COGNITO_CLIENT_ID: auth.userPoolClient.id,
+    COGNITO_DOMAIN: auth.cognitoDomain,
   },
   nodejs: {
     esbuild: {

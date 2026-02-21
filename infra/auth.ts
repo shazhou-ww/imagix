@@ -38,8 +38,8 @@ export const auth = (() => {
 
   const callbackUrls =
     $app.stage === "prod"
-      ? ["https://imagix.shazhou.me/callback"]
-      : ["http://localhost:4510/callback"];
+      ? ["https://imagix.shazhou.me/callback", "https://api.imagix.shazhou.me/mcp/oauth/callback"]
+      : ["http://localhost:4510/callback", "http://localhost:4511/mcp/oauth/callback"];
   const logoutUrls =
     $app.stage === "prod"
       ? ["https://imagix.shazhou.me"]

@@ -3,20 +3,24 @@
  *
  * Each POST request creates a fresh Server + Transport pair, handles the
  * JSON-RPC message, and returns. No sessions are kept between requests.
+ *
+ * OAuth: MCP clients authenticate via the OAuth flow defined in ./auth.ts.
+ * The /oauth sub-routes handle registration, authorization, and token exchange.
+ * The MCP endpoint itself requires a valid Bearer token.
  */
 import { Hono } from "hono";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import type { AppEnv } from "../app.js";
-import { auth } from "../app.js";
 import { createMcpServer } from "./server.js";
+import { oauthRoutes, requireMcpAuth } from "./auth.js";
 
 const app = new Hono<AppEnv>();
 
-// Apply auth middleware to all MCP routes
-app.use("*", auth);
+// OAuth endpoints (no auth required — they ARE the auth flow)
+app.route("/oauth", oauthRoutes);
 
-// Handle all MCP requests (POST for JSON-RPC, GET for SSE, DELETE for session)
-app.all("/", async (c) => {
+// MCP endpoint (requires Bearer token)
+app.all("/", requireMcpAuth, async (c) => {
   // Create a stateless transport for each request (no session, JSON responses)
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined, // stateless

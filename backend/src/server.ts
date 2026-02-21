@@ -9,6 +9,24 @@
  *   PORT              — server listen port         (default: 4511)
  */
 
+// Load root .env (Bun only auto-loads .env from CWD which is backend/)
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+try {
+  // import.meta.dir = backend/src → go up 2 levels to project root
+  const rootEnv = resolve(import.meta.dir, "..", "..", ".env");
+  const lines = readFileSync(rootEnv, "utf-8").split("\n");
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eqIdx = trimmed.indexOf("=");
+    if (eqIdx === -1) continue;
+    const key = trimmed.slice(0, eqIdx).trim();
+    const val = trimmed.slice(eqIdx + 1).trim();
+    if (!process.env[key]) process.env[key] = val;
+  }
+} catch { /* root .env may not exist */ }
+
 import { createApp } from "./app.js";
 
 import worldRoutes from "./routes/worlds.js";
@@ -29,12 +47,16 @@ import stateRoutes from "./routes/state.js";
 import entityEventRoutes from "./routes/entity-events.js";
 import templateRoutes from "./routes/templates.js";
 import mcpRoutes from "./mcp/index.js";
+import { wellKnownRoutes } from "./mcp/auth.js";
 
 const app = createApp();
 
 app.get("/api/health", (c) =>
   c.json({ status: "ok", service: "imagix-api", env: "local" }),
 );
+
+// OAuth discovery metadata (must be at root /.well-known/)
+app.route("/.well-known", wellKnownRoutes);
 
 app.route("/api/worlds", worldRoutes);
 app.route("/api/templates", templateRoutes);

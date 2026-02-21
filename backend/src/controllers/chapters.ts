@@ -10,11 +10,17 @@ import {
 import * as repo from "../db/repository.js";
 import { AppError } from "./errors.js";
 
+async function resolveWorldId(storyId: string): Promise<string> {
+  const worldId = await repo.getStoryWorldId(storyId);
+  if (!worldId) throw AppError.notFound("Story");
+  return worldId;
+}
+
 export async function create(
-  worldId: string,
   storyId: string,
   body: CreateChapterBody,
 ): Promise<Chapter> {
+  const worldId = await resolveWorldId(storyId);
   const story = (await repo.getStory(worldId, storyId)) as Story | null;
   if (!story) throw AppError.notFound("Story");
 
@@ -66,10 +72,10 @@ export async function update(
 }
 
 export async function remove(
-  worldId: string,
   storyId: string,
   chapterId: string,
 ): Promise<void> {
+  const worldId = await resolveWorldId(storyId);
   const story = (await repo.getStory(worldId, storyId)) as Story | null;
   if (!story) throw AppError.notFound("Story");
 

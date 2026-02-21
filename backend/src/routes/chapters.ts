@@ -8,7 +8,7 @@ const app = new Hono<AppEnv>()
   .use("*", auth)
   .post("/", async (c) => {
     const body = CreateChapterBody.parse(await c.req.json());
-    const chapter = await ctrl.create(p(c, "worldId"), p(c, "storyId"), body);
+    const chapter = await ctrl.create(p(c, "storyId"), body);
     return c.json(chapter, 201);
   })
   .get("/", async (c) => {
@@ -25,7 +25,7 @@ const app = new Hono<AppEnv>()
     return c.json(chapter);
   })
   .delete("/:chapterId", async (c) => {
-    await ctrl.remove(p(c, "worldId"), p(c, "storyId"), p(c, "chapterId"));
+    await ctrl.remove(p(c, "storyId"), p(c, "chapterId"));
     return c.json({ ok: true });
   });
 

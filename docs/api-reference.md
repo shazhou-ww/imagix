@@ -107,10 +107,9 @@ pfx_crockford_base32(128bit)
 
 | 状态码 | 含义 |
 |--------|------|
-| `400` | 请求参数无效 |
-| `403` | 无权限（如操作他人的世界） |
+| `400` | 请求参数无效（包括冲突场景，如删除有子节点的地点） |
+| `403` | 无权限（如操作他人的世界，或修改系统预置数据） |
 | `404` | 资源不存在 |
-| `409` | 冲突（如删除有子节点的地点） |
 | `500` | 服务器内部错误 |
 
 ---
@@ -151,7 +150,7 @@ POST /api/worlds
 创建时自动执行：
 - 创建 time=0 的纪元事件
 - 创建三棵分类树的根节点（CHAR / THING / REL），含 age 时间派生公式
-- 创建关系方向子节点（from→to / to→from）
+- 在关系（REL）根节点下创建 3 个实体类型组合子节点：角色→角色、角色→事物、事物→事物
 - 创建系统属性定义（`$age`、`$name`、`$alive`）
 
 **响应** `201` → `World`
@@ -198,9 +197,11 @@ DELETE /api/worlds/:worldId
 GET /api/worlds/:worldId/export
 ```
 
-导出世界的全部数据（实体、事件、分类树等），用于备份或迁移。
+导出世界的全部数据（实体、事件、分类树、故事、章节、情节等），用于备份或迁移。
 
-**响应** `200` → 完整世界数据 JSON
+**响应** `200` → 完整世界数据 JSON，包含以下字段：
+
+`world`, `taxonomy`, `attributeDefinitions`, `characters`, `things`, `places`, `relationships`, `events`, `eventLinks`, `stories`, `chapters`, `plots`
 
 #### 导入世界数据
 
@@ -208,7 +209,9 @@ GET /api/worlds/:worldId/export
 POST /api/worlds/:worldId/import
 ```
 
-**请求体** — 导出格式的 JSON
+**请求体** — 导出格式的 JSON（支持所有导出字段）
+
+将数据导入到指定世界，相同 ID 的记录会被覆盖。
 
 **响应** `200` → `{ "ok": true }`
 
@@ -713,7 +716,12 @@ GET /api/worlds/:worldId/events/:eventId
 PUT /api/worlds/:worldId/events/:eventId
 ```
 
-系统事件（诞生/消亡/纪元）不可编辑。
+系统事件限制编辑：
+- **纪元事件**：仅允许修改 `content`
+- **创生/消亡事件**：允许修改 `time` 和 `content`，`impacts` 不可变
+- **普通事件**：所有字段均可修改
+
+修改系统创生/消亡事件的时间时，会校验时序约束（创生时间必须早于消亡时间）。
 
 **响应** `200` → `Event`
 
@@ -723,7 +731,9 @@ PUT /api/worlds/:worldId/events/:eventId
 DELETE /api/worlds/:worldId/events/:eventId
 ```
 
-系统事件不可删除。
+- **创生事件和纪元事件**不可删除
+- **消亡事件**可以删除，删除后自动清除实体上的 `endEventId` 引用
+- 删除事件同时会清理关联的所有 EventLink
 
 **响应** `200` → `{ "ok": true }`
 
@@ -995,6 +1005,8 @@ POST /api/stories/:storyId/chapters/:chapterId/plots
 ```
 GET /api/stories/:storyId/chapters/:chapterId/plots
 ```
+
+返回该故事下的所有情节（按故事级别返回，不按章节过滤）。路径中的 `chapterId` 可为任意值（如 `_`）。
 
 **响应** `200` → `Plot[]`
 

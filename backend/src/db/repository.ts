@@ -597,10 +597,22 @@ export async function putStory(story: Story) {
     gsi1sk: `${PREFIX.STORY}${story.id}`,
     ...story,
   });
+  // Reverse-lookup: allow chapter/plot routes to find worldId from storyId
+  await put({
+    pk: storyPk(story.id),
+    sk: "#META",
+    worldId: story.worldId,
+  });
 }
 
 export async function getStory(worldId: string, storyId: string) {
   return get(worldPk(worldId), storySk(storyId));
+}
+
+/** Look up the worldId for a story using only storyId (via reverse-lookup record). */
+export async function getStoryWorldId(storyId: string): Promise<string | null> {
+  const item = await get(storyPk(storyId), "#META");
+  return (item as { worldId?: string } | null)?.worldId ?? null;
 }
 
 export async function listStoriesByWorld(worldId: string) {
@@ -621,6 +633,7 @@ export async function updateStory(
 
 export async function deleteStory(worldId: string, storyId: string) {
   await del(worldPk(worldId), storySk(storyId));
+  await del(storyPk(storyId), "#META");
 }
 
 // ---------------------------------------------------------------------------

@@ -28,7 +28,7 @@ const crudApp = new Hono<AppEnv>()
     return c.json(plot);
   })
   .delete("/:plotId", async (c) => {
-    await ctrl.remove(p(c, "storyId"), p(c, "chapterId"), p(c, "plotId"));
+    await ctrl.remove(p(c, "storyId"), p(c, "plotId"));
     return c.json({ ok: true });
   });
 

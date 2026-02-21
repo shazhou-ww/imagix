@@ -68,16 +68,19 @@ export async function update(
 
 export async function remove(
   storyId: string,
-  chapterId: string,
   plotId: string,
 ): Promise<void> {
-  const chapter = (await repo.getChapter(storyId, chapterId)) as Chapter | null;
-  if (!chapter) throw AppError.notFound("Chapter");
+  const plot = (await repo.getPlot(storyId, plotId)) as Plot | null;
+  if (!plot) throw AppError.notFound("Plot");
+
+  const chapter = (await repo.getChapter(storyId, plot.chapterId)) as Chapter | null;
 
   await repo.deletePlot(storyId, plotId);
 
-  await repo.updateChapter(storyId, chapterId, {
-    plotIds: chapter.plotIds.filter((id) => id !== plotId),
-    updatedAt: new Date().toISOString(),
-  });
+  if (chapter) {
+    await repo.updateChapter(storyId, plot.chapterId, {
+      plotIds: chapter.plotIds.filter((id) => id !== plotId),
+      updatedAt: new Date().toISOString(),
+    });
+  }
 }

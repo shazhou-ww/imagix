@@ -10,9 +10,13 @@ import {
   PlaceSchema,
   RelationshipSchema,
   EventLinkSchema,
+  StorySchema,
+  ChapterSchema,
+  PlotSchema,
   type World,
   type CreateWorldBody,
   type UpdateWorldBody,
+  type Story,
 } from "@imagix/shared";
 import * as repo from "../db/repository.js";
 import { AppError } from "./errors.js";
@@ -252,6 +256,19 @@ export async function exportWorld(worldId: string) {
   const strip = (items: Record<string, unknown>[]) =>
     items.map(({ pk, sk, gsi1pk, gsi1sk, ...rest }) => rest);
 
+  // Collect chapters and plots for each story
+  const storyList = stories as { id: string }[];
+  const allChapters: Record<string, unknown>[] = [];
+  const allPlots: Record<string, unknown>[] = [];
+  for (const s of storyList) {
+    const [chapters, plots] = await Promise.all([
+      repo.listChapters(s.id),
+      repo.listPlots(s.id),
+    ]);
+    allChapters.push(...(chapters as Record<string, unknown>[]));
+    allPlots.push(...(plots as Record<string, unknown>[]));
+  }
+
   return {
     world: (() => {
       const { pk, sk, gsi1pk, gsi1sk, ...rest } = world as Record<string, unknown>;
@@ -266,6 +283,8 @@ export async function exportWorld(worldId: string) {
     events: strip(events as Record<string, unknown>[]),
     eventLinks: strip(eventLinks as Record<string, unknown>[]),
     stories: strip(stories as Record<string, unknown>[]),
+    chapters: strip(allChapters),
+    plots: strip(allPlots),
   };
 }
 
@@ -334,5 +353,27 @@ export async function importWorld(
   for (const raw of eventLinks) {
     const link = EventLinkSchema.parse({ ...raw, worldId });
     await repo.putEventLink(link);
+  }
+
+  // Stories
+  const existingWorld = existing as { userId: string };
+  const stories = (data.stories ?? []) as Record<string, unknown>[];
+  for (const raw of stories) {
+    const story = StorySchema.parse({ ...raw, worldId, userId: (raw as { userId?: string }).userId ?? existingWorld.userId }) as Story;
+    await repo.putStory(story);
+  }
+
+  // Chapters
+  const chapters = (data.chapters ?? []) as Record<string, unknown>[];
+  for (const raw of chapters) {
+    const chapter = ChapterSchema.parse(raw);
+    await repo.putChapter(chapter);
+  }
+
+  // Plots
+  const plots = (data.plots ?? []) as Record<string, unknown>[];
+  for (const raw of plots) {
+    const plot = PlotSchema.parse(raw);
+    await repo.putPlot(plot);
   }
 }

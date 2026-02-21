@@ -165,11 +165,13 @@ function NodeDetailPanel({
   saving: boolean;
 }) {
   const [name, setName] = useState(node.name);
+  const [description, setDescription] = useState(node.description ?? "");
   const [timeFormula, setTimeFormula] = useState(node.timeFormula ?? "");
   const [dirty, setDirty] = useState(false);
 
   const resetToNode = useCallback((n: TaxonomyNode) => {
     setName(n.name);
+    setDescription(n.description ?? "");
     setTimeFormula(n.timeFormula ?? "");
     setDirty(false);
   }, []);
@@ -200,6 +202,7 @@ function NodeDetailPanel({
     if (!name.trim()) return;
     onSave(node.id, {
       name: name.trim(),
+      description: description.trim() || undefined,
       parentId: node.parentId,
       timeFormula: timeFormula.trim() || undefined,
     });
@@ -289,6 +292,21 @@ function NodeDetailPanel({
         size="small"
         required
         disabled={node.system}
+      />
+
+      {/* Description */}
+      <TextField
+        label="分类描述（可选）"
+        value={description}
+        onChange={(e) => {
+          setDescription(e.target.value);
+          markDirty();
+        }}
+        size="small"
+        multiline
+        rows={2}
+        disabled={node.system}
+        placeholder="描述该分类的含义或用途"
       />
 
       <Divider />

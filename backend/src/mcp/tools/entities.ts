@@ -30,6 +30,10 @@ export function registerEntityTools(registry: ToolRegistry) {
       properties: {
         worldId: wid,
         name: { type: "string", description: "Character name" },
+        description: {
+          type: "string",
+          description: "Character description (optional)",
+        },
         categoryNodeId: {
           type: "string",
           description: "CHAR taxonomy node ID ('txn...')",
@@ -63,13 +67,14 @@ export function registerEntityTools(registry: ToolRegistry) {
 
   registry.register({
     name: "update_character",
-    description: "Update a character's static metadata (name, categoryNodeId).",
+    description: "Update a character's static metadata (name, description, categoryNodeId).",
     inputSchema: {
       type: "object",
       properties: {
         worldId: wid,
         characterId: { type: "string", description: "Character ID" },
         name: { type: "string" },
+        description: { type: "string" },
         categoryNodeId: { type: "string" },
       },
       required: ["worldId", "characterId"],
@@ -158,6 +163,10 @@ export function registerEntityTools(registry: ToolRegistry) {
       properties: {
         worldId: wid,
         name: { type: "string", description: "Thing name" },
+        description: {
+          type: "string",
+          description: "Thing description (optional)",
+        },
         categoryNodeId: {
           type: "string",
           description: "THING taxonomy node ID ('txn...')",
@@ -200,6 +209,7 @@ export function registerEntityTools(registry: ToolRegistry) {
         worldId: wid,
         thingId: { type: "string" },
         name: { type: "string" },
+        description: { type: "string" },
         categoryNodeId: { type: "string" },
       },
       required: ["worldId", "thingId"],

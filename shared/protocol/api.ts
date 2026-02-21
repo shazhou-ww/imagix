@@ -45,6 +45,7 @@ export type UpdateWorldBody = z.infer<typeof UpdateWorldBody>;
 
 export const CreateTaxonomyNodeBody = z.object({
   name: z.string().min(1),
+  description: z.string().optional(),
   parentId: txnId.nullable().default(null),
   timeFormula: z.string().optional(),
 });
@@ -100,6 +101,7 @@ export type UpdateAttributeDefinitionBody = z.infer<
 
 export const CreateCharacterBody = z.object({
   name: z.string().min(1),
+  description: z.string().optional(),
   categoryNodeId: txnId,
   /** 诞生时间（相对纪元的毫秒数）。后端会自动创建「诞生」事件。 */
   birthTime: z.number(),
@@ -115,6 +117,7 @@ export type UpdateCharacterBody = z.infer<typeof UpdateCharacterBody>;
 
 export const CreateThingBody = z.object({
   name: z.string().min(1),
+  description: z.string().optional(),
   categoryNodeId: txnId,
   /** 创建时间（相对纪元的毫秒数）。后端会自动创建「创建」事件。 */
   creationTime: z.number(),

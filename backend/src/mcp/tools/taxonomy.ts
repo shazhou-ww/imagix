@@ -41,6 +41,10 @@ export function registerTaxonomyTools(registry: ToolRegistry) {
         worldId: wid,
         tree: { type: "string", enum: ["CHAR", "THING", "REL"] },
         name: { type: "string", description: "Node name" },
+        description: {
+          type: "string",
+          description: "Node description (optional)",
+        },
         parentId: {
           type: ["string", "null"],
           description: "Parent node ID (null for root)",
@@ -56,6 +60,7 @@ export function registerTaxonomyTools(registry: ToolRegistry) {
       jsonResult(
         await taxonomyCtrl.create(a.worldId as string, a.tree as TaxonomyTree, {
           name: a.name as string,
+          description: (a.description as string) ?? undefined,
           parentId: (a.parentId as string) ?? null,
           timeFormula: (a.timeFormula as string) ?? null,
         }),
@@ -65,7 +70,7 @@ export function registerTaxonomyTools(registry: ToolRegistry) {
   registry.register({
     name: "update_taxonomy_node",
     description:
-      "Update a taxonomy node (name, parentId, timeFormula). System preset nodes cannot be edited.",
+      "Update a taxonomy node (name, description, parentId, timeFormula). System preset nodes cannot be edited.",
     inputSchema: {
       type: "object",
       properties: {
@@ -73,6 +78,7 @@ export function registerTaxonomyTools(registry: ToolRegistry) {
         tree: { type: "string", enum: ["CHAR", "THING", "REL"] },
         nodeId: { type: "string", description: "Taxonomy node ID ('txn...')" },
         name: { type: "string" },
+        description: { type: "string" },
         parentId: { type: ["string", "null"] },
         timeFormula: { type: ["string", "null"] },
       },

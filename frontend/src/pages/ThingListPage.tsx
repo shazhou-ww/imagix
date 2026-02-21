@@ -73,6 +73,7 @@ export default function ThingListPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingThing, setEditingThing] = useState<Thing | null>(null);
   const [thingName, setThingName] = useState("");
+  const [thingDescription, setThingDescription] = useState("");
   const [categoryNodeId, setCategoryNodeId] = useState("");
   const [creationTime, setCreationTime] = useState<number>(0);
   const [deleteTarget, setDeleteTarget] = useState<Thing | null>(null);
@@ -157,6 +158,7 @@ export default function ThingListPage() {
   const openCreate = () => {
     setEditingThing(null);
     setThingName("");
+    setThingDescription("");
     setCategoryNodeId(thingNodes?.[0]?.id ?? "");
     setCreationTime(0);
     setDialogOpen(true);
@@ -165,6 +167,7 @@ export default function ThingListPage() {
   const openEdit = (thing: Thing) => {
     setEditingThing(thing);
     setThingName(thing.name ?? "");
+    setThingDescription(thing.description ?? "");
     setCategoryNodeId(thing.categoryNodeId);
     setDialogOpen(true);
   };
@@ -175,13 +178,13 @@ export default function ThingListPage() {
       updateThing.mutate(
         {
           thingId: editingThing.id,
-          body: { name: thingName.trim(), categoryNodeId },
+          body: { name: thingName.trim(), description: thingDescription.trim() || undefined, categoryNodeId },
         },
         { onSuccess: () => setDialogOpen(false) },
       );
     } else {
       createThing.mutate(
-        { name: thingName.trim(), categoryNodeId, creationTime },
+        { name: thingName.trim(), description: thingDescription.trim() || undefined, categoryNodeId, creationTime },
         { onSuccess: () => setDialogOpen(false) },
       );
     }
@@ -369,6 +372,16 @@ export default function ThingListPage() {
                         </IconButton>
                       </Tooltip>
                     </Box>
+                    {/* Description */}
+                    {thing.description && (
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ mb: 0.5 }}
+                      >
+                        {thing.description}
+                      </Typography>
+                    )}
                     {/* Classification path */}
                     <Box
                       sx={{
@@ -532,6 +545,14 @@ export default function ThingListPage() {
             onChange={(e) => setThingName(e.target.value)}
             autoFocus
             required
+          />
+          <TextField
+            label="事物描述（可选）"
+            value={thingDescription}
+            onChange={(e) => setThingDescription(e.target.value)}
+            multiline
+            rows={2}
+            placeholder="简要描述事物的来历、特性等"
           />
           {(thingNodes ?? []).length === 0 ? (
             <Box sx={{ textAlign: "center", py: 2 }}>

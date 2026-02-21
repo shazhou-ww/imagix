@@ -79,6 +79,7 @@ export default function CharacterListPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingChar, setEditingChar] = useState<Character | null>(null);
   const [charName, setCharName] = useState("");
+  const [charDescription, setCharDescription] = useState("");
   const [categoryNodeId, setCategoryNodeId] = useState("");
   const [birthTime, setBirthTime] = useState<number>(0);
   const [deleteTarget, setDeleteTarget] = useState<Character | null>(null);
@@ -165,6 +166,7 @@ export default function CharacterListPage() {
   const openCreate = () => {
     setEditingChar(null);
     setCharName("");
+    setCharDescription("");
     setCategoryNodeId(charNodes?.[0]?.id ?? "");
     setBirthTime(0);
     setDialogOpen(true);
@@ -173,6 +175,7 @@ export default function CharacterListPage() {
   const openEdit = (char: Character) => {
     setEditingChar(char);
     setCharName(char.name ?? "");
+    setCharDescription(char.description ?? "");
     setCategoryNodeId(char.categoryNodeId);
     setDialogOpen(true);
   };
@@ -183,13 +186,13 @@ export default function CharacterListPage() {
       updateChar.mutate(
         {
           charId: editingChar.id,
-          body: { name: charName.trim(), categoryNodeId },
+          body: { name: charName.trim(), description: charDescription.trim() || undefined, categoryNodeId },
         },
         { onSuccess: () => setDialogOpen(false) },
       );
     } else {
       createChar.mutate(
-        { name: charName.trim(), categoryNodeId, birthTime },
+        { name: charName.trim(), description: charDescription.trim() || undefined, categoryNodeId, birthTime },
         { onSuccess: () => setDialogOpen(false) },
       );
     }
@@ -374,6 +377,16 @@ export default function CharacterListPage() {
                         </IconButton>
                       </Tooltip>
                     </Box>
+                    {/* Description */}
+                    {char.description && (
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ mb: 0.5 }}
+                      >
+                        {char.description}
+                      </Typography>
+                    )}
                     {/* Classification path */}
                     <Box
                       sx={{
@@ -537,6 +550,14 @@ export default function CharacterListPage() {
             onChange={(e) => setCharName(e.target.value)}
             autoFocus
             required
+          />
+          <TextField
+            label="角色描述（可选）"
+            value={charDescription}
+            onChange={(e) => setCharDescription(e.target.value)}
+            multiline
+            rows={2}
+            placeholder="简要描述角色的背景、性格等"
           />
           {(charNodes ?? []).length === 0 ? (
             <Box sx={{ textAlign: "center", py: 2 }}>

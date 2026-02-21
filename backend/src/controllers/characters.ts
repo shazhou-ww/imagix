@@ -23,6 +23,7 @@ export async function create(
     id: createId(EntityPrefix.Character),
     worldId,
     name: body.name,
+    description: body.description,
     categoryNodeId: body.categoryNodeId,
     createdAt: now,
     updatedAt: now,

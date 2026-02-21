@@ -121,6 +121,8 @@ export const TaxonomyNodeSchema = z.object({
   tree: TaxonomyTree,
   /** 分类名称，如 "修仙者"、"道具"、"血缘关系"。 */
   name: z.string(),
+  /** 分类描述。 */
+  description: z.string().default(""),
   /** 父节点 ID，null 表示根节点。 */
   parentId: txnId.nullable(),
   /**
@@ -186,6 +188,8 @@ export const CharacterSchema = z.object({
   worldId: wldId,
   /** 角色名称，如 "张三丰"、"林黛玉"。 */
   name: z.string(),
+  /** 角色描述。 */
+  description: z.string().default(""),
   /** 角色分类节点引用，从角色分类树 (CHAR) 中选取。 */
   categoryNodeId: txnId,
   /** 消亡事件 ID。若存在，表示该角色已消亡。 */
@@ -216,6 +220,8 @@ export const ThingSchema = z.object({
   worldId: wldId,
   /** 事物名称，如 "轩辕剑"、"洛阳城"。 */
   name: z.string(),
+  /** 事物描述。 */
+  description: z.string().default(""),
   /** 事物分类节点引用，从事物分类树 (THING) 中选取。 */
   categoryNodeId: txnId,
   /** 消亡事件 ID。若存在，表示该事物已消亡。 */

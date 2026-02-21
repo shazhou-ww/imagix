@@ -42,6 +42,12 @@ export async function create(
           attribute: "$age",
           value: 0,
         },
+        {
+          entityType: "character",
+          entityId: char.id,
+          attribute: "$name",
+          value: body.name,
+        },
       ],
       relationshipChanges: [],
       relationshipAttributeChanges: [],

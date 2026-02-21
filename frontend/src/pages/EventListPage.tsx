@@ -146,7 +146,7 @@ export default function EventListPage() {
         const def = attrDefs?.find((d) => d.name === attrName);
         let value: string | number | boolean = currentValue ?? "";
         if (value === "" || value === undefined) {
-          if (def?.type === "number" || def?.type === "time") value = 0;
+          if (def?.type === "number" || def?.type === "timestamp" || def?.type === "timespan") value = 0;
           else if (def?.type === "boolean") value = false;
           else if (def?.type === "enum") value = def.enumValues?.[0] ?? "";
         }
@@ -327,9 +327,11 @@ export default function EventListPage() {
                       {evt.impacts.attributeChanges.map((ac, i) => {
                         const entity = entityOptions.find((e) => e.id === ac.entityId);
                         const def = attrDefs?.find((d) => d.name === ac.attribute);
-                        const displayValue = def?.type === "time" && typeof ac.value === "number"
+                        const displayValue = def?.type === "timespan" && typeof ac.value === "number"
                           ? formatDuration(ac.value)
-                          : String(ac.value);
+                          : def?.type === "timestamp" && typeof ac.value === "number"
+                            ? (() => { const t = parseEpochMs(ac.value); const p = ac.value < 0 ? "前" : ""; return `${p}${Math.abs(t.years)}/${t.months + 1}/${t.days + 1}`; })()
+                            : String(ac.value);
                         return (
                           <Chip
                             key={`${ac.entityId}-${ac.attribute}-${i}`}
@@ -497,7 +499,11 @@ export default function EventListPage() {
 
                           const fmtVal = (v: unknown) => {
                             if (v === undefined || v === null) return "未设置";
-                            if (def?.type === "time" && typeof v === "number") return formatDuration(v);
+                            if (def?.type === "timespan" && typeof v === "number") return formatDuration(v);
+                            if (def?.type === "timestamp" && typeof v === "number") {
+                              const t = parseEpochMs(v); const p = v < 0 ? "前" : "";
+                              return `${p}${Math.abs(t.years)}/${t.months + 1}/${t.days + 1}`;
+                            }
                             if (typeof v === "boolean") return v ? "是" : "否";
                             return String(v);
                           };
@@ -558,7 +564,14 @@ export default function EventListPage() {
                                         <MenuItem key={v} value={v}>{v}</MenuItem>
                                       ))}
                                     </TextField>
-                                  ) : def?.type === "time" ? (
+                                  ) : def?.type === "timestamp" ? (
+                                    <EpochTimeInput
+                                      value={typeof changeVal === "number" ? changeVal : 0}
+                                      onChange={(ms) => updateAttrRow(changeIdx, { value: ms })}
+                                      size="small"
+                                      showPreview
+                                    />
+                                  ) : def?.type === "timespan" ? (
                                     <EpochTimeInput
                                       value={typeof changeVal === "number" ? changeVal : 0}
                                       onChange={(ms) => updateAttrRow(changeIdx, { value: ms })}

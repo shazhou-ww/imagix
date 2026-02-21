@@ -81,8 +81,8 @@ export const AttributeDefinitionSchema = z.object({
   worldId: wldId,
   /** 属性名称，如 "修为境界"、"灵根"。 */
   name: z.string(),
-  /** 属性值类型。enum 表示字符串枚举，需配合 enumValues 使用；time 使用世界纪元毫秒数。 */
-  type: z.enum(["string", "number", "boolean", "enum", "time"]),
+  /** 属性值类型。enum 表示字符串枚举，需配合 enumValues 使用；timestamp 使用世界纪元毫秒数；timespan 表示时间跨度（毫秒）。 */
+  type: z.enum(["string", "number", "boolean", "enum", "timestamp", "timespan"]),
   /** 当 type 为 "enum" 时，可选值列表（至少 1 项）。其他类型时忽略。 */
   enumValues: z.array(z.string()).min(1).optional(),
   /** 属性的可选说明。 */

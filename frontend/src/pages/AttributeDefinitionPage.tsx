@@ -34,7 +34,8 @@ import EmptyState from "@/components/EmptyState";
 const TYPE_OPTIONS: { value: string; label: string }[] = [
   { value: "string", label: "文本" },
   { value: "number", label: "数字" },
-  { value: "time", label: "时间" },
+  { value: "timestamp", label: "时间戳" },
+  { value: "timespan", label: "时间跨度" },
   { value: "boolean", label: "布尔" },
   { value: "enum", label: "枚举" },
 ];
@@ -42,7 +43,8 @@ const TYPE_OPTIONS: { value: string; label: string }[] = [
 const TYPE_LABELS: Record<string, string> = {
   string: "文本",
   number: "数字",
-  time: "时间",
+  timestamp: "时间戳",
+  timespan: "时间跨度",
   boolean: "布尔",
   enum: "枚举",
 };

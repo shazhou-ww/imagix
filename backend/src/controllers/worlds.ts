@@ -85,18 +85,44 @@ export async function create(userId: string, body: CreateWorldBody): Promise<Wor
   });
   await repo.putTaxonomyNode(relRoot);
 
-  // 预置「$age」属性定义（time 类型，不可删除/编辑）
+  // 预置关系方向子分类节点（角色→角色、角色→事物、事物→事物）
+  for (const name of ["角色→角色", "角色→事物", "事物→事物"]) {
+    const dirNode = TaxonomyNodeSchema.parse({
+      id: createId(EntityPrefix.TaxonomyNode),
+      worldId: world.id,
+      tree: "REL",
+      name,
+      parentId: relRoot.id,
+      system: true,
+    });
+    await repo.putTaxonomyNode(dirNode);
+  }
+
+  // 预置「$age」属性定义（timespan 类型，不可删除/编辑）
   const ageAttr = AttributeDefinitionSchema.parse({
     id: createId(EntityPrefix.AttributeDefinition),
     worldId: world.id,
     name: "$age",
-    type: "time",
+    type: "timespan",
     description: "存续时间。角色诞生 / 事物创建 / 关系建立时自动设为 0，随时间流逝自动递增。",
     system: true,
     createdAt: now,
     updatedAt: now,
   });
   await repo.putAttributeDefinition(ageAttr);
+
+  // 预置「$name」属性定义（string 类型，不可删除/编辑）
+  const nameAttr = AttributeDefinitionSchema.parse({
+    id: createId(EntityPrefix.AttributeDefinition),
+    worldId: world.id,
+    name: "$name",
+    type: "string",
+    description: "实体名称。角色/事物取其名称，关系格式为 关系类型·源·目标。",
+    system: true,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await repo.putAttributeDefinition(nameAttr);
 
   return world;
 }
@@ -120,6 +146,23 @@ export async function update(
     if (!w) throw AppError.notFound("World");
   });
   await repo.updateWorld(worldId, { ...body, updatedAt: new Date().toISOString() });
+
+  // 若修改了纪元描述，同步更新纪元事件的 content
+  if (body.epoch !== undefined) {
+    const eventsAtZero = await repo.listEvents(worldId, { timeFrom: 0, timeTo: 0 });
+    const epochEvt = eventsAtZero.find(
+      (e) => (e as any).system === true && ((e as any).participantIds?.length ?? 0) === 0,
+    );
+    if (epochEvt) {
+      const merged = EventSchema.parse({
+        ...epochEvt,
+        content: body.epoch,
+        updatedAt: new Date().toISOString(),
+      });
+      await repo.putEvent(merged);
+    }
+  }
+
   return (await repo.getWorld(worldId)) as World;
 }
 

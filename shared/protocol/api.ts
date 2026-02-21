@@ -44,7 +44,7 @@ export type UpdateTaxonomyNodeBody = z.infer<typeof UpdateTaxonomyNodeBody>;
 
 export const CreateAttributeDefinitionBody = z.object({
   name: z.string().min(1),
-  type: z.enum(["string", "number", "boolean", "enum", "time"]),
+  type: z.enum(["string", "number", "boolean", "enum", "timestamp", "timespan"]),
   enumValues: z.array(z.string()).min(1).optional(),
   description: z.string().optional(),
 });
@@ -93,6 +93,9 @@ export const CreateRelationshipBody = z.object({
   toId: entityId,
   /** 建立时间（相对纪元的毫秒数）。后端会自动创建「建立」事件。 */
   establishTime: z.number(),
+}).refine((data) => data.fromId !== data.toId, {
+  message: "关系的源实体和目标实体不能相同",
+  path: ["toId"],
 });
 
 export type CreateRelationshipBody = z.infer<typeof CreateRelationshipBody>;

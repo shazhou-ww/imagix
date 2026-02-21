@@ -20,7 +20,7 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
   useRelationships,
@@ -38,7 +38,6 @@ export default function RelationshipListPage() {
   const { worldId } = useParams<{ worldId: string }>();
   const { data: relationships, isLoading } = useRelationships(worldId);
   const { data: relNodes } = useTaxonomyTree(worldId, "REL");
-  const { data: charNodes } = useTaxonomyTree(worldId, "CHAR");
   const { data: characters } = useCharacters(worldId);
   const { data: things } = useThings(worldId);
   const createRel = useCreateRelationship(worldId!);
@@ -57,33 +56,78 @@ export default function RelationshipListPage() {
     return map;
   }, [relNodes]);
 
-  // Build entity options for from/to selectors
-  const entityOptions = useMemo(() => {
-    const charNodeMap = new Map<string, TaxonomyNode>();
-    for (const n of charNodes ?? []) charNodeMap.set(n.id, n);
-    const opts: { id: string; label: string }[] = [];
-    for (const c of characters ?? []) {
-      const node = charNodeMap.get(c.categoryNodeId);
-      opts.push({ id: c.id, label: `[角色] ${node?.name ?? c.id}` });
-    }
-    for (const t of things ?? []) {
-      opts.push({ id: t.id, label: `[事物] ${t.id}` });
-    }
-    return opts;
-  }, [characters, things, charNodes]);
+  // Direction sub-nodes: the 3 system children of the REL root ("角色→角色", "角色→事物", "事物→事物")
+  const directionNodes = useMemo(
+    () => (relNodes ?? []).filter((n) => n.parentId !== null && relNodeMap.get(n.parentId!)?.parentId === null),
+    [relNodes, relNodeMap],
+  );
 
+  // Leaf type nodes: nodes whose parent is one of the direction nodes (user-created relationship types)
+  const typeNodes = useMemo(
+    () => {
+      const dirIds = new Set(directionNodes.map((n) => n.id));
+      return (relNodes ?? []).filter((n) => n.parentId && dirIds.has(n.parentId));
+    },
+    [relNodes, directionNodes],
+  );
+
+  /** Given a type node id, find its direction ancestor name to determine from/to entity types */
+  const getDirection = useCallback(
+    (nodeId: string): "char-char" | "char-thing" | "thing-thing" | null => {
+      const dirIds = new Set(directionNodes.map((n) => n.id));
+      let current = nodeId;
+      // Walk up until we find a direction node
+      while (current) {
+        if (dirIds.has(current)) {
+          const name = relNodeMap.get(current)?.name ?? "";
+          if (name.includes("角色") && name.includes("事物")) return "char-thing";
+          if (name.includes("事物")) return "thing-thing";
+          return "char-char";
+        }
+        const parent = relNodeMap.get(current)?.parentId;
+        if (!parent) break;
+        current = parent;
+      }
+      return null;
+    },
+    [directionNodes, relNodeMap],
+  );
+
+  const direction = getDirection(typeNodeId);
+
+  // Build entity options based on direction type
+  const charOptions = useMemo(
+    () => (characters ?? []).map((c) => ({ id: c.id, label: c.name })),
+    [characters],
+  );
+  const thingOptions = useMemo(
+    () => (things ?? []).map((t) => ({ id: t.id, label: t.name })),
+    [things],
+  );
+
+  const fromOptions = direction === "thing-thing" ? thingOptions : charOptions;
+  const toOptions = direction === "char-char" ? charOptions : thingOptions;
+
+  // Label map for displaying entity names on cards
   const entityLabelMap = useMemo(() => {
     const map = new Map<string, string>();
-    for (const o of entityOptions) map.set(o.id, o.label);
+    for (const c of characters ?? []) map.set(c.id, c.name);
+    for (const t of things ?? []) map.set(t.id, t.name);
     return map;
-  }, [entityOptions]);
+  }, [characters, things]);
 
   const openCreate = () => {
-    setTypeNodeId(relNodes?.[0]?.id ?? "");
+    setTypeNodeId("");
     setFromId("");
     setToId("");
     setEstablishTime(0);
     setDialogOpen(true);
+  };
+
+  const handleTypeChange = (nodeId: string) => {
+    setTypeNodeId(nodeId);
+    setFromId("");
+    setToId("");
   };
 
   const handleCreate = () => {
@@ -171,41 +215,51 @@ export default function RelationshipListPage() {
           <TextField
             label="关系类型"
             value={typeNodeId}
-            onChange={(e) => setTypeNodeId(e.target.value)}
+            onChange={(e) => handleTypeChange(e.target.value)}
             select
             slotProps={{ inputLabel: { htmlFor: undefined } }}
             required
-            helperText="请先在分类体系中定义关系类型树"
+            helperText="在分类体系的关系类型树中，于对应方向分类下定义具体关系类型"
           >
-            {(relNodes ?? []).map((n) => (
-              <MenuItem key={n.id} value={n.id}>
-                {n.name}
-              </MenuItem>
-            ))}
+            {directionNodes.map((dirNode) => {
+              const children = typeNodes.filter((n) => n.parentId === dirNode.id);
+              return [
+                <MenuItem key={`header-${dirNode.id}`} disabled sx={{ opacity: 0.7, fontWeight: "bold", fontSize: "0.85rem" }}>
+                  {dirNode.name}
+                </MenuItem>,
+                ...children.map((n) => (
+                  <MenuItem key={n.id} value={n.id} sx={{ pl: 4 }}>
+                    {n.name}
+                  </MenuItem>
+                )),
+              ];
+            })}
           </TextField>
           <TextField
-            label="源实体 (From)"
+            label={direction === "thing-thing" ? "源事物" : "源角色"}
             value={fromId}
             onChange={(e) => setFromId(e.target.value)}
             select
             slotProps={{ inputLabel: { htmlFor: undefined } }}
             required
+            disabled={!direction}
           >
-            {entityOptions.map((o) => (
+            {fromOptions.map((o) => (
               <MenuItem key={o.id} value={o.id}>
                 {o.label}
               </MenuItem>
             ))}
           </TextField>
           <TextField
-            label="目标实体 (To)"
+            label={direction === "char-char" ? "目标角色" : "目标事物"}
             value={toId}
             onChange={(e) => setToId(e.target.value)}
             select
             slotProps={{ inputLabel: { htmlFor: undefined } }}
             required
+            disabled={!direction}
           >
-            {entityOptions.map((o) => (
+            {toOptions.map((o) => (
               <MenuItem key={o.id} value={o.id}>
                 {o.label}
               </MenuItem>
@@ -224,7 +278,7 @@ export default function RelationshipListPage() {
           <Button
             variant="contained"
             onClick={handleCreate}
-            disabled={!typeNodeId || !fromId || !toId || createRel.isPending}
+            disabled={!typeNodeId || !fromId || !toId || fromId === toId || createRel.isPending}
           >
             创建
           </Button>

@@ -5,6 +5,9 @@ import {
   EventSchema,
   type Relationship,
   type CreateRelationshipBody,
+  type TaxonomyNode,
+  type Character,
+  type Thing,
 } from "@imagix/shared";
 import * as repo from "../db/repository.js";
 import { AppError } from "./errors.js";
@@ -23,7 +26,19 @@ export async function create(
   });
   await repo.putRelationship(rel);
 
-  // 自动创建「建立」事件（含 $age=0 的属性变更）
+  // 查询关系类型名称和 from/to 实体名称以构建 $name
+  const typeNode = await repo.getTaxonomyNode(worldId, "REL", body.typeNodeId) as TaxonomyNode | null;
+  const typeName = typeNode?.name ?? "未知类型";
+  // from/to 可能是角色或事物
+  const fromChar = await repo.getCharacter(worldId, body.fromId) as Character | null;
+  const fromThing = fromChar ? null : await repo.getThing(worldId, body.fromId) as Thing | null;
+  const fromName = fromChar?.name ?? fromThing?.name ?? body.fromId;
+  const toChar = await repo.getCharacter(worldId, body.toId) as Character | null;
+  const toThing = toChar ? null : await repo.getThing(worldId, body.toId) as Thing | null;
+  const toName = toChar?.name ?? toThing?.name ?? body.toId;
+  const relName = `${typeName}·${fromName}·${toName}`;
+
+  // 自动创建「建立」事件（含 $age=0 和 $name 的属性变更）
   const establishEvent = EventSchema.parse({
     id: createId(EntityPrefix.Event),
     worldId,
@@ -31,7 +46,7 @@ export async function create(
     duration: 0,
     placeId: null,
     participantIds: [rel.id],
-    content: `关系建立`,
+    content: `关系建立：${relName}`,
     impacts: {
       attributeChanges: [
         {
@@ -39,6 +54,12 @@ export async function create(
           entityId: rel.id,
           attribute: "$age",
           value: 0,
+        },
+        {
+          entityType: "thing",
+          entityId: rel.id,
+          attribute: "$name",
+          value: relName,
         },
       ],
       relationshipChanges: [],

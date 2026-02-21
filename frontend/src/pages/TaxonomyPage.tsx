@@ -66,6 +66,7 @@ function TreeNodeItem({ node, nodes, depth, selectedId, onSelect, onAddChild }: 
           display: "flex",
           alignItems: "center",
           pl: depth * 2.5,
+          pr: 1,
           py: 0.75,
           cursor: "pointer",
           bgcolor: isSelected ? "primary.50" : "transparent",
@@ -297,7 +298,7 @@ export default function TaxonomyPage() {
     return nodes.find((n) => n.id === selectedNode.id) ?? null;
   }, [selectedNode, nodes]);
 
-  const openCreate = (initialParentId: string | null = null) => {
+  const openCreate = (initialParentId: string) => {
     setCreateName("");
     setCreateParentId(initialParentId);
     setCreateDialogOpen(true);
@@ -336,9 +337,6 @@ export default function TaxonomyPage() {
         <Typography variant="h4" fontWeight="bold">
           分类体系
         </Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => openCreate()}>
-          添加根节点
-        </Button>
       </Box>
 
       <Tabs
@@ -361,12 +359,7 @@ export default function TaxonomyPage() {
       ) : !rootNodes.length ? (
         <EmptyState
           title="暂无分类节点"
-          description={`为「${TREES.find((t) => t.value === currentTree)?.label}」添加分类层级`}
-          action={
-            <Button variant="outlined" onClick={() => openCreate()}>
-              添加根节点
-            </Button>
-          }
+          description={`「${TREES.find((t) => t.value === currentTree)?.label}」尚无分类层级，请创建新世界以初始化`}
         />
       ) : (
         <Box sx={{ display: "flex", gap: 2, minHeight: 400 }}>
@@ -433,8 +426,8 @@ export default function TaxonomyPage() {
             onChange={(e) => setCreateParentId(e.target.value || null)}
             select
             slotProps={{ inputLabel: { htmlFor: undefined } }}
+            required
           >
-            <MenuItem value="">无（根节点）</MenuItem>
             {(nodes ?? []).map((n) => (
               <MenuItem key={n.id} value={n.id}>
                 {n.name}
@@ -447,7 +440,7 @@ export default function TaxonomyPage() {
           <Button
             variant="contained"
             onClick={handleCreate}
-            disabled={!createName.trim() || createNode.isPending}
+            disabled={!createName.trim() || !createParentId || createNode.isPending}
           >
             创建
           </Button>

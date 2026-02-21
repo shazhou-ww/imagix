@@ -116,7 +116,7 @@ export const TaxonomyNodeSchema = z.object({
    * 在事件溯源回放时，每个事件应用前先执行此公式，推算时间流逝导致的属性变化。
    * 输入上下文: { attributes: Record<string, any>, lastTime: number, currentTime: number }
    * 输出: Record<string, any>（需要变更的属性名→新值映射）
-   * 示例: `{ "年龄": attributes.年龄 + (currentTime - lastTime) }`
+   * 示例: `{ "$age": attributes.$age + (currentTime - lastTime) }`
    */
   timeFormula: z.string().optional(),
   /** 系统预置节点，不可编辑或删除。 */
@@ -321,6 +321,12 @@ export const EventSchema = z.object({
    * t=0 对应 World.epoch 描述的纪元原点事件。
    */
   time: z.number(),
+  /**
+   * 事件持续时间，以毫秒为单位，默认 0 表示瞬时事件。
+   * 事件占据 [time, time+duration] 的时间区间。
+   * 时间派生公式（如年龄增长）会在事件持续期间内自动计算。
+   */
+  duration: z.number().default(0),
   /** 事件发生地点，引用某个事物（如地点类事物）；null 表示无明确地点。 */
   placeId: thgId.nullable(),
   /** 参与者 ID 列表（角色或事物）。 */

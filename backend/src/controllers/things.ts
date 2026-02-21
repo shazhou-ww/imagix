@@ -2,6 +2,7 @@ import {
   createId,
   EntityPrefix,
   ThingSchema,
+  EventSchema,
   type Thing,
   type CreateThingBody,
   type UpdateThingBody,
@@ -22,6 +23,34 @@ export async function create(
     updatedAt: now,
   });
   await repo.putThing(thing);
+
+  // 自动创建「创建」事件（含 $age=0 的属性变更）
+  const creationEvent = EventSchema.parse({
+    id: createId(EntityPrefix.Event),
+    worldId,
+    time: body.creationTime,
+    duration: 0,
+    placeId: null,
+    participantIds: [thing.id],
+    content: `${body.name}创建`,
+    impacts: {
+      attributeChanges: [
+        {
+          entityType: "thing",
+          entityId: thing.id,
+          attribute: "$age",
+          value: 0,
+        },
+      ],
+      relationshipChanges: [],
+      relationshipAttributeChanges: [],
+    },
+    system: true,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await repo.putEvent(creationEvent);
+
   return thing;
 }
 

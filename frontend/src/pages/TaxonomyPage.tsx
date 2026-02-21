@@ -259,7 +259,7 @@ function NodeDetailPanel({
           rows={3}
           fullWidth
           disabled={node.system}
-          placeholder='例如: { "年龄": attributes.年龄 + (currentTime - lastTime) }'
+          placeholder='例如: { "$age": attributes.`$age` + (currentTime - lastTime) }'
           helperText={node.system ? "系统预置公式，不可修改" : "JSONata 表达式，事件溯源回放时自动执行。子节点继承，可覆盖。"}
         />
       </Box>

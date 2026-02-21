@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Thing, CreateThingBody, UpdateThingBody } from "@imagix/shared";
 import { api } from "../client";
+import { eventKeys } from "./useEvents";
 
 export const thingKeys = {
   all: (worldId: string) => ["things", worldId] as const,
@@ -28,7 +29,10 @@ export function useCreateThing(worldId: string) {
   return useMutation({
     mutationFn: (body: CreateThingBody) =>
       api.post<Thing>(`/worlds/${worldId}/things`, body),
-    onSuccess: () => qc.invalidateQueries({ queryKey: thingKeys.all(worldId) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: thingKeys.all(worldId) });
+      qc.invalidateQueries({ queryKey: eventKeys.all(worldId) });
+    },
   });
 }
 
@@ -46,6 +50,9 @@ export function useDeleteThing(worldId: string) {
   return useMutation({
     mutationFn: (thingId: string) =>
       api.delete(`/worlds/${worldId}/things/${thingId}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: thingKeys.all(worldId) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: thingKeys.all(worldId) });
+      qc.invalidateQueries({ queryKey: eventKeys.all(worldId) });
+    },
   });
 }

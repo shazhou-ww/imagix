@@ -16,8 +16,8 @@ import {
 import * as repo from "../db/repository.js";
 import { AppError } from "./errors.js";
 
-/** 角色根分类节点预置的 JSONata 时间公式：随时间流逝自动递增年龄 */
-const AGE_TIME_FORMULA = '{ "年龄": attributes.年龄 + (currentTime - lastTime) }';
+/** 所有根分类节点预置的 JSONata 时间公式：随时间流逝自动递增 $age（存续时间） */
+const AGE_TIME_FORMULA = '{ "$age": attributes.`$age` + (currentTime - lastTime) }';
 
 export async function create(userId: string, body: CreateWorldBody): Promise<World> {
   const now = new Date().toISOString();
@@ -61,24 +61,37 @@ export async function create(userId: string, body: CreateWorldBody): Promise<Wor
   });
   await repo.putTaxonomyNode(charRoot);
 
-  // 预置事物根分类节点
+  // 预置事物根分类节点（含 $age 自动计算公式）
   const thingRoot = TaxonomyNodeSchema.parse({
     id: createId(EntityPrefix.TaxonomyNode),
     worldId: world.id,
     tree: "THING",
     name: "事物",
     parentId: null,
+    timeFormula: AGE_TIME_FORMULA,
     system: true,
   });
   await repo.putTaxonomyNode(thingRoot);
 
-  // 预置「年龄」属性定义（time 类型，不可删除/编辑）
+  // 预置关系根分类节点（含 $age 自动计算公式）
+  const relRoot = TaxonomyNodeSchema.parse({
+    id: createId(EntityPrefix.TaxonomyNode),
+    worldId: world.id,
+    tree: "REL",
+    name: "关系",
+    parentId: null,
+    timeFormula: AGE_TIME_FORMULA,
+    system: true,
+  });
+  await repo.putTaxonomyNode(relRoot);
+
+  // 预置「$age」属性定义（time 类型，不可删除/编辑）
   const ageAttr = AttributeDefinitionSchema.parse({
     id: createId(EntityPrefix.AttributeDefinition),
     worldId: world.id,
-    name: "年龄",
+    name: "$age",
     type: "time",
-    description: "角色年龄，出生时自动设为 0，随时间流逝自动递增。",
+    description: "存续时间。角色诞生 / 事物创建 / 关系建立时自动设为 0，随时间流逝自动递增。",
     system: true,
     createdAt: now,
     updatedAt: now,

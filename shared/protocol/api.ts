@@ -60,7 +60,7 @@ export type UpdateAttributeDefinitionBody = z.infer<typeof UpdateAttributeDefini
 export const CreateCharacterBody = z.object({
   name: z.string().min(1),
   categoryNodeId: txnId,
-  /** 出生时间（相对纪元的毫秒数）。后端会自动创建出生事件。 */
+  /** 诞生时间（相对纪元的毫秒数）。后端会自动创建「诞生」事件。 */
   birthTime: z.number(),
 });
 export const UpdateCharacterBody = CreateCharacterBody.partial();
@@ -75,6 +75,8 @@ export type UpdateCharacterBody = z.infer<typeof UpdateCharacterBody>;
 export const CreateThingBody = z.object({
   name: z.string().min(1),
   categoryNodeId: txnId,
+  /** 创建时间（相对纪元的毫秒数）。后端会自动创建「创建」事件。 */
+  creationTime: z.number(),
 });
 export const UpdateThingBody = CreateThingBody.partial();
 
@@ -89,6 +91,8 @@ export const CreateRelationshipBody = z.object({
   typeNodeId: txnId,
   fromId: entityId,
   toId: entityId,
+  /** 建立时间（相对纪元的毫秒数）。后端会自动创建「建立」事件。 */
+  establishTime: z.number(),
 });
 
 export type CreateRelationshipBody = z.infer<typeof CreateRelationshipBody>;
@@ -99,6 +103,7 @@ export type CreateRelationshipBody = z.infer<typeof CreateRelationshipBody>;
 
 export const CreateEventBody = z.object({
   time: z.number(),
+  duration: z.number().optional(),
   placeId: thgId.nullable().optional(),
   participantIds: z.array(entityId).optional(),
   content: z.string().min(1),
@@ -181,6 +186,8 @@ export type UpdatePlotBody = z.infer<typeof UpdatePlotBody>;
 
 export const EntityStateQuery = z.object({
   time: z.coerce.number(),
+  /** 标明此次计算是为某个事件，该事件自身的影响会被排除。用于编辑事件时计算「事件发生前」的状态。 */
+  forEvent: z.string().optional(),
 });
 
 export type EntityStateQuery = z.infer<typeof EntityStateQuery>;

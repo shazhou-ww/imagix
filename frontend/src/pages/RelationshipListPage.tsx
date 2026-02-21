@@ -31,6 +31,7 @@ import { useTaxonomyTree } from "@/api/hooks/useTaxonomy";
 import { useCharacters } from "@/api/hooks/useCharacters";
 import { useThings } from "@/api/hooks/useThings";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import EpochTimeInput from "@/components/EpochTimeInput";
 import EmptyState from "@/components/EmptyState";
 
 export default function RelationshipListPage() {
@@ -47,6 +48,7 @@ export default function RelationshipListPage() {
   const [typeNodeId, setTypeNodeId] = useState("");
   const [fromId, setFromId] = useState("");
   const [toId, setToId] = useState("");
+  const [establishTime, setEstablishTime] = useState<number>(0);
   const [deleteTarget, setDeleteTarget] = useState<Relationship | null>(null);
 
   const relNodeMap = useMemo(() => {
@@ -80,13 +82,14 @@ export default function RelationshipListPage() {
     setTypeNodeId(relNodes?.[0]?.id ?? "");
     setFromId("");
     setToId("");
+    setEstablishTime(0);
     setDialogOpen(true);
   };
 
   const handleCreate = () => {
     if (!typeNodeId || !fromId || !toId) return;
     createRel.mutate(
-      { typeNodeId, fromId, toId },
+      { typeNodeId, fromId, toId, establishTime },
       { onSuccess: () => setDialogOpen(false) },
     );
   };
@@ -208,6 +211,13 @@ export default function RelationshipListPage() {
               </MenuItem>
             ))}
           </TextField>
+          <Box>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>建立时间</Typography>
+            <EpochTimeInput value={establishTime} onChange={setEstablishTime} showPreview />
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
+              创建后会自动生成「建立」事件。
+            </Typography>
+          </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)}>取消</Button>

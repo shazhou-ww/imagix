@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Relationship, CreateRelationshipBody } from "@imagix/shared";
 import { api } from "../client";
+import { eventKeys } from "./useEvents";
 
 export const relationshipKeys = {
   all: (worldId: string) => ["relationships", worldId] as const,
@@ -39,8 +40,10 @@ export function useCreateRelationship(worldId: string) {
   return useMutation({
     mutationFn: (body: CreateRelationshipBody) =>
       api.post<Relationship>(`/worlds/${worldId}/relationships`, body),
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: relationshipKeys.all(worldId) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: relationshipKeys.all(worldId) });
+      qc.invalidateQueries({ queryKey: eventKeys.all(worldId) });
+    },
   });
 }
 
@@ -49,7 +52,9 @@ export function useDeleteRelationship(worldId: string) {
   return useMutation({
     mutationFn: (relId: string) =>
       api.delete(`/worlds/${worldId}/relationships/${relId}`),
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: relationshipKeys.all(worldId) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: relationshipKeys.all(worldId) });
+      qc.invalidateQueries({ queryKey: eventKeys.all(worldId) });
+    },
   });
 }

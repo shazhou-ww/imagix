@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Character, CreateCharacterBody, UpdateCharacterBody } from "@imagix/shared";
 import { api } from "../client";
+import { eventKeys } from "./useEvents";
 
 export const characterKeys = {
   all: (worldId: string) => ["characters", worldId] as const,
@@ -28,7 +29,10 @@ export function useCreateCharacter(worldId: string) {
   return useMutation({
     mutationFn: (body: CreateCharacterBody) =>
       api.post<Character>(`/worlds/${worldId}/characters`, body),
-    onSuccess: () => qc.invalidateQueries({ queryKey: characterKeys.all(worldId) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: characterKeys.all(worldId) });
+      qc.invalidateQueries({ queryKey: eventKeys.all(worldId) });
+    },
   });
 }
 
@@ -46,6 +50,9 @@ export function useDeleteCharacter(worldId: string) {
   return useMutation({
     mutationFn: (charId: string) =>
       api.delete(`/worlds/${worldId}/characters/${charId}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: characterKeys.all(worldId) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: characterKeys.all(worldId) });
+      qc.invalidateQueries({ queryKey: eventKeys.all(worldId) });
+    },
   });
 }

@@ -4,16 +4,15 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import PersonIcon from "@mui/icons-material/Person";
 import PlaceIcon from "@mui/icons-material/Place";
-import RemoveCircleOutlineIcon from "@mui/icons-material/RemoveCircleOutline";
 import {
   Autocomplete,
   Box,
   Button,
   Card,
   CardContent,
+  Checkbox,
   Chip,
   CircularProgress,
-  Collapse,
   Dialog,
   DialogActions,
   DialogContent,
@@ -24,6 +23,12 @@ import {
   MenuItem,
   Paper,
   Switch,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   TextField,
   Tooltip,
   Typography,
@@ -43,7 +48,17 @@ import { useEntitiesState } from "@/api/hooks/useEntityState";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import EpochTimeInput from "@/components/EpochTimeInput";
 import EmptyState from "@/components/EmptyState";
-import { formatEpochMs, formatDuration, parseEpochMs } from "@/utils/time";
+import { formatDuration, parseEpochMs } from "@/utils/time";
+
+/** Translate internal $age attribute to human-readable display name based on entity type. */
+function displayAttrName(attrName: string, entityId: string): string {
+  if (attrName !== "$age") return attrName;
+  const prefix = entityId.slice(0, 3);
+  if (prefix === "chr") return "年龄";
+  if (prefix === "thg") return "存续时间";
+  if (prefix === "rel") return "持续时间";
+  return attrName;
+}
 
 // Group flat AttributeChange[] by entityId for grouped UI rendering
 interface AttrChangeGroup {
@@ -80,11 +95,11 @@ export default function EventListPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<WorldEvent | null>(null);
   const [time, setTime] = useState<number>(0);
+  const [duration, setDuration] = useState<number>(0);
   const [content, setContent] = useState("");
   const [participantIds, setParticipantIds] = useState<string[]>([]);
   const [attrChanges, setAttrChanges] = useState<AttributeChange[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<WorldEvent | null>(null);
-  const [showStates, setShowStates] = useState(false);
 
   // Build entity options for autocomplete
   const entityOptions = useMemo(() => {
@@ -94,52 +109,51 @@ export default function EventListPage() {
     return opts;
   }, [characters, things]);
 
-  // Fetch participant states at current event time (only when dialog open & showStates)
+  // Fetch participant states at current event time, excluding the editing event itself
   const { data: participantStates } = useEntitiesState(
-    dialogOpen && showStates ? worldId : undefined,
-    dialogOpen && showStates ? participantIds : undefined,
-    dialogOpen && showStates ? time : undefined,
+    dialogOpen ? worldId : undefined,
+    dialogOpen ? participantIds : undefined,
+    dialogOpen ? time : undefined,
+    editingEvent?.id,
   );
 
   // Grouped view of attribute changes
   const groupedAttrChanges = useMemo(() => groupByEntity(attrChanges), [attrChanges]);
 
-  // Add a new entity group (with one empty attribute row)
-  const addEntityGroup = useCallback(
+  // Add a participant (and optionally their attr change rows are added later)
+  const addParticipant = useCallback(
     (entity: { id: string; type: "character" | "thing" }) => {
-      setAttrChanges((prev) => [
-        ...prev,
-        { entityType: entity.type, entityId: entity.id, attribute: "", value: "" },
-      ]);
+      setParticipantIds((prev) => prev.includes(entity.id) ? prev : [...prev, entity.id]);
     },
     [],
   );
 
-  // Add a new attribute row to an existing entity group
-  const addAttrToGroup = useCallback(
-    (entityId: string, entityType: "character" | "thing") => {
-      setAttrChanges((prev) => [
-        ...prev,
-        { entityType, entityId, attribute: "", value: "" },
-      ]);
-    },
-    [],
-  );
-
-  // Remove an entire entity group
-  const removeEntityGroup = useCallback(
+  // Remove a participant and all their attribute changes
+  const removeParticipant = useCallback(
     (entityId: string) => {
+      setParticipantIds((prev) => prev.filter((id) => id !== entityId));
       setAttrChanges((prev) => prev.filter((ac) => ac.entityId !== entityId));
     },
     [],
   );
 
-  // Remove a single attribute row by flat index
-  const removeAttrRow = useCallback(
-    (flatIdx: number) => {
-      setAttrChanges((prev) => prev.filter((_, i) => i !== flatIdx));
+  // Toggle an attribute change on/off for a participant
+  const toggleAttrChange = useCallback(
+    (entityId: string, entityType: "character" | "thing", attrName: string, currentValue?: string | number | boolean) => {
+      setAttrChanges((prev) => {
+        const idx = prev.findIndex((ac) => ac.entityId === entityId && ac.attribute === attrName);
+        if (idx >= 0) return prev.filter((_, i) => i !== idx);
+        const def = attrDefs?.find((d) => d.name === attrName);
+        let value: string | number | boolean = currentValue ?? "";
+        if (value === "" || value === undefined) {
+          if (def?.type === "number" || def?.type === "time") value = 0;
+          else if (def?.type === "boolean") value = false;
+          else if (def?.type === "enum") value = def.enumValues?.[0] ?? "";
+        }
+        return [...prev, { entityType, entityId, attribute: attrName, value }];
+      });
     },
-    [],
+    [attrDefs],
   );
 
   // Update a single attribute row by flat index
@@ -158,38 +172,46 @@ export default function EventListPage() {
   const openCreate = () => {
     setEditingEvent(null);
     setTime(0);
+    setDuration(0);
     setContent("");
     setParticipantIds([]);
     setAttrChanges([]);
-    setShowStates(false);
     setDialogOpen(true);
   };
 
   const openEdit = (evt: WorldEvent) => {
     setEditingEvent(evt);
     setTime(evt.time);
+    setDuration(evt.duration ?? 0);
     setContent(evt.content);
     setParticipantIds(evt.participantIds ?? []);
     setAttrChanges(evt.impacts?.attributeChanges ?? []);
-    setShowStates(false);
     setDialogOpen(true);
   };
 
   const handleSave = () => {
     if (!content.trim()) return;
+    // Filter out attribute changes where value is unchanged from current state
+    // (participantStates already excludes the forEvent, so comparison is correct)
+    const effectiveChanges = attrChanges.filter((ac) => {
+      const state = participantStates?.find((s) => s.entityId === ac.entityId);
+      const currentVal = state?.attributes?.[ac.attribute];
+      // Keep if: no current value (new attribute), or value actually changed
+      return currentVal === undefined || ac.value !== currentVal;
+    });
     const impacts = {
-      attributeChanges: attrChanges,
+      attributeChanges: effectiveChanges,
       relationshipChanges: editingEvent?.impacts?.relationshipChanges ?? [],
       relationshipAttributeChanges: editingEvent?.impacts?.relationshipAttributeChanges ?? [],
     };
     if (editingEvent) {
       updateEvent.mutate(
-        { eventId: editingEvent.id, body: { time, content: content.trim(), participantIds, impacts } },
+        { eventId: editingEvent.id, body: { time, duration, content: content.trim(), participantIds, impacts } },
         { onSuccess: () => setDialogOpen(false) },
       );
     } else {
       createEvent.mutate(
-        { time, content: content.trim(), participantIds, impacts },
+        { time, duration, content: content.trim(), participantIds, impacts },
         { onSuccess: () => setDialogOpen(false) },
       );
     }
@@ -260,12 +282,29 @@ export default function EventListPage() {
                         <Typography variant="caption" color="primary.main">
                           {timeLine}
                         </Typography>
+                        {evt.duration > 0 && (
+                          <Typography variant="caption" color="text.secondary" noWrap>
+                            {formatDuration(evt.duration)}
+                          </Typography>
+                        )}
                       </>
                     );
                   })()}
                 </Box>
                 <Box sx={{ flex: 1 }}>
-                  <Typography variant="body1">{evt.content}</Typography>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <Typography variant="body1">{evt.content}</Typography>
+                    {evt.system && (
+                      <Chip
+                        label={evt.participantIds.length === 0
+                          ? "纪元"
+                          : (() => { const e = entityOptions.find((e) => e.id === evt.participantIds[0]); const t = evt.participantIds[0].startsWith("chr") ? "角色" : evt.participantIds[0].startsWith("rel") ? "关系" : "事物"; return `创生·${t}·${e?.name ?? evt.participantIds[0].slice(0, 8)}`; })()}
+                        size="small"
+                        color={evt.participantIds.length === 0 ? "warning" : "info"}
+                        sx={{ height: 20, fontSize: "0.7rem" }}
+                      />
+                    )}
+                  </Box>
                   {evt.participantIds.length > 0 && (
                     <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", mt: 0.5 }}>
                       {evt.participantIds.map((pid) => {
@@ -294,7 +333,7 @@ export default function EventListPage() {
                         return (
                           <Chip
                             key={`${ac.entityId}-${ac.attribute}-${i}`}
-                            label={`${entity?.name ?? ac.entityId.slice(0, 8)}·${ac.attribute}=${displayValue}`}
+                            label={`${entity?.name ?? ac.entityId.slice(0, 8)}·${displayAttrName(ac.attribute, ac.entityId)}=${displayValue}`}
                             size="small"
                             variant="outlined"
                             color="info"
@@ -327,84 +366,39 @@ export default function EventListPage() {
 
       {/* Create / Edit Dialog */}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="lg" fullWidth>
-        <DialogTitle>{editingEvent ? "编辑事件" : "添加事件"}</DialogTitle>
-        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}>
-          <EpochTimeInput value={time} onChange={setTime} showPreview disabled={!!editingEvent?.system} />
-
-          {/* Participant selector */}
-          <Autocomplete
-            multiple
-            size="small"
-            options={entityOptions}
-            groupBy={(o) => (o.type === "character" ? "角色" : "事物")}
-            getOptionLabel={(o) => o.name}
-            value={entityOptions.filter((e) => participantIds.includes(e.id))}
-            onChange={(_, selected) => setParticipantIds(selected.map((s) => s.id))}
-            isOptionEqualToValue={(opt, val) => opt.id === val.id}
-            renderInput={(params) => (
-              <TextField {...params} label="参与者" placeholder="选择参与的角色或事物" />
-            )}
-            renderTags={(value, getTagProps) =>
-              value.map((option, index) => (
-                <Chip
-                  {...getTagProps({ index })}
-                  key={option.id}
-                  label={option.name}
-                  size="small"
-                  color={option.type === "character" ? "primary" : "secondary"}
-                  variant="outlined"
-                />
-              ))
-            }
-          />
-
-          {/* Participant state at event time */}
-          {participantIds.length > 0 && (
-            <Box>
-              <Button
-                size="small"
-                onClick={() => setShowStates((v) => !v)}
-                sx={{ mb: 0.5 }}
-              >
-                {showStates ? "隐藏参与者属性" : "查看参与者当前属性"}
-              </Button>
-              <Collapse in={showStates}>
-                {participantStates?.map((state) => {
-                  const entity = entityOptions.find((e) => e.id === state.entityId);
-                  const entries = Object.entries(state.attributes);
-                  if (entries.length === 0) return null;
-                  return (
-                    <Paper
-                      key={state.entityId}
-                      variant="outlined"
-                      sx={{ p: 1, mb: 1 }}
-                    >
-                      <Typography variant="caption" fontWeight="bold">
-                        {entity?.name ?? state.entityId.slice(0, 10)} 在 {formatEpochMs(time)} 时的属性
-                      </Typography>
-                      <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", mt: 0.5 }}>
-                        {entries.map(([attr, val]) => {
-                          const def = attrDefs?.find((d) => d.name === attr);
-                          const display = def?.type === "time" && typeof val === "number"
-                            ? formatDuration(val)
-                            : String(val);
-                          return (
-                            <Chip
-                              key={attr}
-                              label={`${attr}=${display}`}
-                              size="small"
-                              variant="outlined"
-                              sx={{ height: 22, fontSize: "0.75rem" }}
-                            />
-                          );
-                        })}
-                      </Box>
-                    </Paper>
-                  );
-                })}
-              </Collapse>
-            </Box>
+        <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          {editingEvent ? "编辑事件" : "添加事件"}
+          {editingEvent?.system && (
+            <Chip
+              label={editingEvent.participantIds.length === 0
+                ? "纪元事件"
+                : (() => { const e = entityOptions.find((e) => e.id === editingEvent.participantIds[0]); const t = editingEvent.participantIds[0].startsWith("chr") ? "角色" : editingEvent.participantIds[0].startsWith("rel") ? "关系" : "事物"; return `创生事件·${t}·${e?.name ?? editingEvent.participantIds[0].slice(0, 8)}`; })()}
+              size="small"
+              color={editingEvent.participantIds.length === 0 ? "warning" : "info"}
+              sx={{ height: 22, fontSize: "0.75rem" }}
+            />
           )}
+        </DialogTitle>
+        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}>
+          <Box sx={{ display: "flex", flexDirection: { xs: "column", md: "row" }, gap: 2 }}>
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: "block" }}>
+                事件时间
+              </Typography>
+              <EpochTimeInput value={time} onChange={setTime} showPreview disabled={!!editingEvent?.system && editingEvent.participantIds.length === 0} />
+            </Box>
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: "block" }}>
+                持续时间（留 0 表示瞬时事件）
+              </Typography>
+              <EpochTimeInput value={duration} onChange={setDuration} showPreview={false} disabled={!!editingEvent?.system} />
+              {duration > 0 && (
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
+                  持续 {formatDuration(duration)}
+                </Typography>
+              )}
+            </Box>
+          </Box>
 
           <TextField
             label="事件内容"
@@ -415,23 +409,39 @@ export default function EventListPage() {
             required
           />
 
-          {/* Attribute Changes Section — grouped by entity */}
+          {/* Participants & attribute changes */}
           <Divider sx={{ mt: 1 }} />
-          <Typography variant="subtitle2">属性变更</Typography>
+          <Typography variant="subtitle2">参与者与属性变更</Typography>
 
-          {groupedAttrChanges.map((group) => {
-            const entity = entityOptions.find((e) => e.id === group.entityId);
-            const isChar = group.entityType === "character";
-            const hasLockedRows = group.changes.some(
+          {participantIds.map((pid) => {
+            const entity = entityOptions.find((e) => e.id === pid);
+            const isChar = entity?.type === "character";
+            const group = groupedAttrChanges.find((g) => g.entityId === pid);
+            const hasLockedRows = group?.changes.some(
               (ch) => attrDefs?.find((d) => d.name === ch.attribute)?.system,
             );
+            const state = participantStates?.find((s) => s.entityId === pid);
+            const stateAttrs = state?.attributes ?? {};
+
+            // Only show attributes from current state + active changes
+            const allAttrNames = [
+              ...new Set([
+                ...Object.keys(stateAttrs),
+                ...(group?.changes ?? []).map((c) => c.attribute).filter(Boolean),
+              ]),
+            ];
+
+            // Attributes not yet in the table — available to add
+            const visibleSet = new Set(allAttrNames);
+            const addableAttrs = (attrDefs ?? []).filter((d) => !visibleSet.has(d.name));
+
             return (
               <Paper
-                key={group.entityId}
+                key={pid}
                 variant="outlined"
                 sx={{ p: 1.5, display: "flex", flexDirection: "column", gap: 1 }}
               >
-                {/* Entity header */}
+                {/* Participant header */}
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   {isChar ? (
                     <PersonIcon fontSize="small" color="primary" />
@@ -439,7 +449,7 @@ export default function EventListPage() {
                     <PlaceIcon fontSize="small" color="secondary" />
                   )}
                   <Typography variant="subtitle2" sx={{ flex: 1 }}>
-                    {entity?.name ?? group.entityId.slice(0, 10)}
+                    {entity?.name ?? pid.slice(0, 10)}
                   </Typography>
                   <Chip
                     label={isChar ? "角色" : "事物"}
@@ -449,11 +459,11 @@ export default function EventListPage() {
                     sx={{ height: 20, fontSize: "0.7rem" }}
                   />
                   {!hasLockedRows && (
-                    <Tooltip title="移除该实体的所有变更">
+                    <Tooltip title="移除该参与者">
                       <IconButton
                         size="small"
                         color="error"
-                        onClick={() => removeEntityGroup(group.entityId)}
+                        onClick={() => removeParticipant(pid)}
                       >
                         <DeleteIcon fontSize="small" />
                       </IconButton>
@@ -461,148 +471,183 @@ export default function EventListPage() {
                   )}
                 </Box>
 
-                {/* Attribute rows */}
-                {group.changes.map((ch) => {
-                  const selectedAttrDef = attrDefs?.find((d) => d.name === ch.attribute);
-                  const isLocked = !!selectedAttrDef?.system;
-                  return (
-                    <Box
-                      key={ch.flatIdx}
-                      sx={{ display: "flex", gap: 1, alignItems: "center", pl: 3 }}
-                    >
-                      {/* Attribute selector */}
-                      <TextField
-                        size="small"
-                        label="属性"
-                        select
-                        slotProps={{ inputLabel: { htmlFor: undefined } }}
-                        value={ch.attribute}
-                        disabled={isLocked}
-                        onChange={(e) => {
-                          const def = attrDefs?.find((d) => d.name === e.target.value);
-                          let defaultValue: string | number | boolean = "";
-                          if (def?.type === "number" || def?.type === "time") defaultValue = 0;
-                          if (def?.type === "boolean") defaultValue = false;
-                          if (def?.type === "enum") defaultValue = def.enumValues?.[0] ?? "";
-                          updateAttrRow(ch.flatIdx, { attribute: e.target.value, value: defaultValue });
-                        }}
-                        sx={{ minWidth: 140 }}
-                      >
-                        {(attrDefs ?? []).map((d) => (
-                          <MenuItem key={d.id} value={d.name}>
-                            {d.name}
-                          </MenuItem>
-                        ))}
-                      </TextField>
+                {/* Attribute table */}
+                {allAttrNames.length > 0 && (
+                  <TableContainer>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell padding="checkbox" />
+                          <TableCell>属性</TableCell>
+                          <TableCell>当前值</TableCell>
+                          <TableCell>新值</TableCell>
+                          <TableCell padding="checkbox" />
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {allAttrNames.map((attrName) => {
+                          const def = attrDefs?.find((d) => d.name === attrName);
+                          const isLocked = !!def?.system;
+                          const currentVal = stateAttrs[attrName];
+                          const changeIdx = attrChanges.findIndex(
+                            (ac) => ac.entityId === pid && ac.attribute === attrName,
+                          );
+                          const isChanging = changeIdx >= 0;
+                          const changeVal = isChanging ? attrChanges[changeIdx].value : undefined;
 
-                      {/* Value input — adapts to attribute type */}
-                      {isLocked ? (
-                        <Typography variant="body2" color="text.secondary" sx={{ minWidth: 80 }}>
-                          {selectedAttrDef?.type === "time" ? formatDuration(typeof ch.value === "number" ? ch.value : 0) : String(ch.value)}
-                        </Typography>
-                      ) : selectedAttrDef?.type === "boolean" ? (
-                        <FormControlLabel
-                          control={
-                            <Switch
-                              size="small"
-                              checked={ch.value === true}
-                              onChange={(e) =>
-                                updateAttrRow(ch.flatIdx, { value: e.target.checked })
-                              }
-                            />
-                          }
-                          label={ch.value ? "是" : "否"}
-                          sx={{ minWidth: 80 }}
-                        />
-                      ) : selectedAttrDef?.type === "enum" ? (
-                        <TextField
-                          size="small"
-                          label="值"
-                          select
-                          slotProps={{ inputLabel: { htmlFor: undefined } }}
-                          value={ch.value}
-                          onChange={(e) =>
-                            updateAttrRow(ch.flatIdx, { value: e.target.value })
-                          }
-                          sx={{ minWidth: 120 }}
-                        >
-                          {(selectedAttrDef.enumValues ?? []).map((v) => (
-                            <MenuItem key={v} value={v}>
-                              {v}
-                            </MenuItem>
-                          ))}
-                        </TextField>
-                      ) : selectedAttrDef?.type === "time" ? (
-                        <EpochTimeInput
-                          value={typeof ch.value === "number" ? ch.value : 0}
-                          onChange={(ms) => updateAttrRow(ch.flatIdx, { value: ms })}
-                          size="small"
-                          showPreview={false}
-                        />
-                      ) : selectedAttrDef?.type === "number" ? (
-                        <TextField
-                          size="small"
-                          label="值"
-                          type="number"
-                          value={ch.value}
-                          onChange={(e) =>
-                            updateAttrRow(ch.flatIdx, { value: Number(e.target.value) })
-                          }
-                          sx={{ minWidth: 100 }}
-                        />
-                      ) : (
-                        <TextField
-                          size="small"
-                          label="值"
-                          value={ch.value}
-                          onChange={(e) =>
-                            updateAttrRow(ch.flatIdx, { value: e.target.value })
-                          }
-                          sx={{ minWidth: 120, flex: 1 }}
-                        />
-                      )}
+                          const fmtVal = (v: unknown) => {
+                            if (v === undefined || v === null) return "未设置";
+                            if (def?.type === "time" && typeof v === "number") return formatDuration(v);
+                            if (typeof v === "boolean") return v ? "是" : "否";
+                            return String(v);
+                          };
 
-                      {/* Remove single attribute row */}
-                      {!isLocked && (
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => removeAttrRow(ch.flatIdx)}
-                        >
-                          <RemoveCircleOutlineIcon fontSize="small" />
-                        </IconButton>
-                      )}
-                    </Box>
-                  );
-                })}
+                          return (
+                            <TableRow
+                              key={attrName}
+                              sx={{ bgcolor: isChanging ? "action.selected" : undefined }}
+                            >
+                              <TableCell padding="checkbox">
+                                <Checkbox
+                                  size="small"
+                                  checked={isChanging}
+                                  disabled={isLocked}
+                                  onChange={() =>
+                                    toggleAttrChange(pid, entity?.type ?? "character", attrName, currentVal)
+                                  }
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <Typography variant="body2" fontWeight={isChanging ? "bold" : "normal"}>
+                                  {displayAttrName(attrName, pid)}
+                                </Typography>
+                              </TableCell>
+                              <TableCell>
+                                <Typography variant="body2" color="text.secondary">
+                                  {fmtVal(currentVal)}
+                                </Typography>
+                              </TableCell>
+                              <TableCell sx={{ minWidth: 180 }}>
+                                {isChanging && isLocked && (
+                                  <Typography variant="body2" color="text.secondary">
+                                    {fmtVal(changeVal)}
+                                  </Typography>
+                                )}
+                                {isChanging && !isLocked && (
+                                  def?.type === "boolean" ? (
+                                    <FormControlLabel
+                                      control={
+                                        <Switch
+                                          size="small"
+                                          checked={changeVal === true}
+                                          onChange={(e) => updateAttrRow(changeIdx, { value: e.target.checked })}
+                                        />
+                                      }
+                                      label={changeVal ? "是" : "否"}
+                                    />
+                                  ) : def?.type === "enum" ? (
+                                    <TextField
+                                      size="small"
+                                      select
+                                      fullWidth
+                                      value={changeVal}
+                                      slotProps={{ inputLabel: { htmlFor: undefined } }}
+                                      onChange={(e) => updateAttrRow(changeIdx, { value: e.target.value })}
+                                    >
+                                      {(def.enumValues ?? []).map((v) => (
+                                        <MenuItem key={v} value={v}>{v}</MenuItem>
+                                      ))}
+                                    </TextField>
+                                  ) : def?.type === "time" ? (
+                                    <EpochTimeInput
+                                      value={typeof changeVal === "number" ? changeVal : 0}
+                                      onChange={(ms) => updateAttrRow(changeIdx, { value: ms })}
+                                      size="small"
+                                      showPreview={false}
+                                    />
+                                  ) : def?.type === "number" ? (
+                                    <TextField
+                                      size="small"
+                                      type="number"
+                                      fullWidth
+                                      value={changeVal}
+                                      onChange={(e) => updateAttrRow(changeIdx, { value: Number(e.target.value) })}
+                                    />
+                                  ) : (
+                                    <TextField
+                                      size="small"
+                                      fullWidth
+                                      value={changeVal}
+                                      onChange={(e) => updateAttrRow(changeIdx, { value: e.target.value })}
+                                    />
+                                  )
+                                )}
+                              </TableCell>
+                              {/* Delete row button (not for locked/system rows) */}
+                              <TableCell padding="checkbox">
+                                {!isLocked && (
+                                  <IconButton
+                                    size="small"
+                                    color="error"
+                                    onClick={() => {
+                                      // Remove the change if active, and remove from visible rows
+                                      if (isChanging) {
+                                        toggleAttrChange(pid, entity?.type ?? "character", attrName, currentVal);
+                                      }
+                                      // If it came from current state, we can't truly delete it,
+                                      // so only non-state rows disappear (changes-only rows)
+                                    }}
+                                    // Only show for rows that are purely from changes (not from current state)
+                                    sx={{ visibility: currentVal === undefined ? "visible" : "hidden" }}
+                                  >
+                                    <DeleteIcon fontSize="small" />
+                                  </IconButton>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                )}
 
-                {/* Add attribute button within group */}
-                <Button
-                  size="small"
-                  startIcon={<AddIcon />}
-                  onClick={() => addAttrToGroup(group.entityId, group.entityType)}
-                  sx={{ alignSelf: "flex-start", ml: 3 }}
-                >
-                  添加属性
-                </Button>
+                {/* Add attribute row */}
+                {addableAttrs.length > 0 && (
+                  <Autocomplete
+                    size="small"
+                    options={addableAttrs}
+                    getOptionLabel={(o) => o.name}
+                    value={null}
+                    onChange={(_, v) => {
+                      if (v) toggleAttrChange(pid, entity?.type ?? "character", v.name);
+                    }}
+                    renderInput={(params) => (
+                      <TextField {...params} label="添加属性" placeholder="选择属性" />
+                    )}
+                    blurOnSelect
+                    sx={{ mt: 0.5, maxWidth: 300 }}
+                  />
+                )}
+
               </Paper>
             );
           })}
 
-          {/* Add entity picker */}
+          {/* Add participant picker */}
           <Autocomplete
             size="small"
             options={entityOptions.filter(
-              (e) => !groupedAttrChanges.some((g) => g.entityId === e.id),
+              (e) => !participantIds.includes(e.id),
             )}
             groupBy={(o) => (o.type === "character" ? "角色" : "事物")}
             getOptionLabel={(o) => o.name}
             value={null}
             onChange={(_, v) => {
-              if (v) addEntityGroup(v);
+              if (v) addParticipant(v);
             }}
             renderInput={(params) => (
-              <TextField {...params} label="添加实体" placeholder="选择角色或事物" />
+              <TextField {...params} label="添加参与者" placeholder="选择角色或事物" />
             )}
             blurOnSelect
           />

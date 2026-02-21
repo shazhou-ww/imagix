@@ -11,11 +11,15 @@ export function useEntityState(
   worldId?: string,
   entityId?: string,
   time?: number,
+  forEvent?: string,
 ) {
   return useQuery<EntityState>({
-    queryKey: ["entityState", worldId, entityId, time],
-    queryFn: () =>
-      api.get(`/worlds/${worldId}/entities/${entityId}/state?time=${time}`),
+    queryKey: ["entityState", worldId, entityId, time, forEvent],
+    queryFn: () => {
+      let url = `/worlds/${worldId}/entities/${entityId}/state?time=${time}`;
+      if (forEvent) url += `&forEvent=${forEvent}`;
+      return api.get(url);
+    },
     enabled: !!worldId && !!entityId && time != null,
   });
 }
@@ -28,19 +32,20 @@ export function useEntitiesState(
   worldId?: string,
   entityIds?: string[],
   time?: number,
+  forEvent?: string,
 ) {
   const ids = entityIds ?? [];
   const enabled = !!worldId && ids.length > 0 && time != null;
 
   return useQuery<EntityState[]>({
-    queryKey: ["entitiesState", worldId, ids, time],
+    queryKey: ["entitiesState", worldId, ids, time, forEvent],
     queryFn: async () => {
       const results = await Promise.all(
-        ids.map((id) =>
-          api.get<EntityState>(
-            `/worlds/${worldId}/entities/${id}/state?time=${time}`,
-          ),
-        ),
+        ids.map((id) => {
+          let url = `/worlds/${worldId}/entities/${id}/state?time=${time}`;
+          if (forEvent) url += `&forEvent=${forEvent}`;
+          return api.get<EntityState>(url);
+        }),
       );
       return results;
     },

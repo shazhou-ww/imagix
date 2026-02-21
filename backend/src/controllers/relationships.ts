@@ -2,6 +2,7 @@ import {
   createId,
   EntityPrefix,
   RelationshipSchema,
+  EventSchema,
   type Relationship,
   type CreateRelationshipBody,
 } from "@imagix/shared";
@@ -21,6 +22,34 @@ export async function create(
     updatedAt: now,
   });
   await repo.putRelationship(rel);
+
+  // 自动创建「建立」事件（含 $age=0 的属性变更）
+  const establishEvent = EventSchema.parse({
+    id: createId(EntityPrefix.Event),
+    worldId,
+    time: body.establishTime,
+    duration: 0,
+    placeId: null,
+    participantIds: [rel.id],
+    content: `关系建立`,
+    impacts: {
+      attributeChanges: [
+        {
+          entityType: "thing",
+          entityId: rel.id,
+          attribute: "$age",
+          value: 0,
+        },
+      ],
+      relationshipChanges: [],
+      relationshipAttributeChanges: [],
+    },
+    system: true,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await repo.putEvent(establishEvent);
+
   return rel;
 }
 

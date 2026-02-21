@@ -7,8 +7,11 @@ import * as ctrl from "../controllers/state.js";
 const app = new Hono<AppEnv>()
   .use("*", auth)
   .get("/", async (c) => {
-    const { time } = EntityStateQuery.parse({ time: c.req.query("time") });
-    const state = await ctrl.computeState(p(c, "entityId"), time);
+    const { time, forEvent } = EntityStateQuery.parse({
+      time: c.req.query("time"),
+      forEvent: c.req.query("forEvent") || undefined,
+    });
+    const state = await ctrl.computeState(p(c, "worldId"), p(c, "entityId"), time, { forEvent });
     return c.json(state);
   });
 

@@ -18,6 +18,7 @@ export async function create(
     id: createId(EntityPrefix.Event),
     worldId,
     time: body.time,
+    duration: body.duration ?? 0,
     placeId: body.placeId ?? null,
     participantIds: body.participantIds ?? [],
     content: body.content,
@@ -60,10 +61,20 @@ export async function update(
 
   const old = existing as Event;
 
-  // 系统预置事件只允许修改描述、参与者和属性影响（时间不可变）
-  const safeBody = old.system
-    ? { content: body.content, participantIds: body.participantIds, impacts: body.impacts }
-    : body;
+  // 纪元事件（无参与者的系统事件）：只允许修改描述
+  // 创建事件（有参与者的系统事件）：允许修改时间和描述，但参与者/属性/持续时间不可变
+  // 普通事件：全部可改
+  let safeBody: typeof body;
+  if (old.system) {
+    const isEpoch = old.participantIds.length === 0;
+    if (isEpoch) {
+      safeBody = { content: body.content };
+    } else {
+      safeBody = { time: body.time, content: body.content, participantIds: old.participantIds, impacts: old.impacts };
+    }
+  } else {
+    safeBody = body;
+  }
 
   const merged = EventSchema.parse({
     ...old,

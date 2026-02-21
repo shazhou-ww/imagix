@@ -30,6 +30,7 @@ import {
 } from "@/api/hooks/useThings";
 import { useTaxonomyTree } from "@/api/hooks/useTaxonomy";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import EpochTimeInput from "@/components/EpochTimeInput";
 import EmptyState from "@/components/EmptyState";
 
 function getAncestorChain(nodeId: string, nodeMap: Map<string, TaxonomyNode>): TaxonomyNode[] {
@@ -55,6 +56,7 @@ export default function ThingListPage() {
   const [editingThing, setEditingThing] = useState<Thing | null>(null);
   const [thingName, setThingName] = useState("");
   const [categoryNodeId, setCategoryNodeId] = useState("");
+  const [creationTime, setCreationTime] = useState<number>(0);
   const [deleteTarget, setDeleteTarget] = useState<Thing | null>(null);
 
   const nodeMap = useMemo(() => {
@@ -67,6 +69,7 @@ export default function ThingListPage() {
     setEditingThing(null);
     setThingName("");
     setCategoryNodeId(thingNodes?.[0]?.id ?? "");
+    setCreationTime(0);
     setDialogOpen(true);
   };
 
@@ -86,7 +89,7 @@ export default function ThingListPage() {
       );
     } else {
       createThing.mutate(
-        { name: thingName.trim(), categoryNodeId },
+        { name: thingName.trim(), categoryNodeId, creationTime },
         { onSuccess: () => setDialogOpen(false) },
       );
     }
@@ -226,6 +229,15 @@ export default function ThingListPage() {
                 </MenuItem>
               ))}
             </TextField>
+          )}
+          {!editingThing && (
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>创建时间</Typography>
+              <EpochTimeInput value={creationTime} onChange={setCreationTime} showPreview />
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
+                创建后会自动生成「创建」事件。
+              </Typography>
+            </Box>
           )}
         </DialogContent>
         <DialogActions>

@@ -233,10 +233,10 @@ export default function CharacterListPage() {
           )}
           {!editingChar && (
             <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>出生时间</Typography>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>诞生时间</Typography>
               <EpochTimeInput value={birthTime} onChange={setBirthTime} showPreview />
               <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
-                创建后会自动生成出生事件。
+                创建后会自动生成「诞生」事件。
               </Typography>
             </Box>
           )}

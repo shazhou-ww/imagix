@@ -5,6 +5,7 @@ import {
   EventSchema,
   EventLinkSchema,
   type Thing,
+  type Relationship,
   type Event,
   type CreateThingBody,
   type UpdateThingBody,
@@ -95,9 +96,17 @@ export async function update(
 export async function remove(worldId: string, thingId: string): Promise<void> {
   const existing = await repo.getThing(worldId, thingId);
   if (!existing) throw AppError.notFound("Thing");
-  await repo.updateThing(worldId, thingId, {
-    deletedAt: new Date().toISOString(),
-  });
+  const now = new Date().toISOString();
+
+  // 级联软删除该事物关联的所有关系
+  const rels = (await repo.listRelationshipsByEntity(thingId)) as Relationship[];
+  for (const rel of rels) {
+    if (!rel.deletedAt) {
+      await repo.updateRelationship(worldId, rel.id, { deletedAt: now });
+    }
+  }
+
+  await repo.updateThing(worldId, thingId, { deletedAt: now });
 }
 
 // ---------------------------------------------------------------------------

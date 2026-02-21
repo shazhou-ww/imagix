@@ -5,6 +5,7 @@ import {
   EventSchema,
   EventLinkSchema,
   type Character,
+  type Relationship,
   type Event,
   type CreateCharacterBody,
   type UpdateCharacterBody,
@@ -96,9 +97,17 @@ export async function update(
 export async function remove(worldId: string, charId: string): Promise<void> {
   const existing = await repo.getCharacter(worldId, charId);
   if (!existing) throw AppError.notFound("Character");
-  await repo.updateCharacter(worldId, charId, {
-    deletedAt: new Date().toISOString(),
-  });
+  const now = new Date().toISOString();
+
+  // 级联软删除该角色关联的所有关系
+  const rels = (await repo.listRelationshipsByEntity(charId)) as Relationship[];
+  for (const rel of rels) {
+    if (!rel.deletedAt) {
+      await repo.updateRelationship(worldId, rel.id, { deletedAt: now });
+    }
+  }
+
+  await repo.updateCharacter(worldId, charId, { deletedAt: now });
 }
 
 // ---------------------------------------------------------------------------

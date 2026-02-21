@@ -5,6 +5,7 @@ import type {
   Character,
   Thing,
   Relationship,
+  Event,
 } from "@imagix/shared";
 import jsonata from "jsonata";
 import * as repo from "../db/repository.js";
@@ -37,21 +38,27 @@ function treeForEntityType(
   return "REL";
 }
 
-/** Get entity's categoryNodeId / typeNodeId. */
-async function getCategoryNodeId(
+/** Entity info returned from lookup. */
+interface EntityInfo {
+  categoryNodeId: string;
+  endEventId?: string;
+}
+
+/** Get entity's categoryNodeId / typeNodeId and endEventId. */
+async function getEntityInfo(
   worldId: string,
   entityId: string,
   type: "character" | "thing" | "relationship",
-): Promise<string> {
+): Promise<EntityInfo> {
   if (type === "character") {
     const c = (await repo.getCharacter(worldId, entityId)) as Character | null;
     if (!c) throw new Error(`Character ${entityId} not found`);
-    return c.categoryNodeId;
+    return { categoryNodeId: c.categoryNodeId, endEventId: c.endEventId };
   }
   if (type === "thing") {
     const t = (await repo.getThing(worldId, entityId)) as Thing | null;
     if (!t) throw new Error(`Thing ${entityId} not found`);
-    return t.categoryNodeId;
+    return { categoryNodeId: t.categoryNodeId, endEventId: t.endEventId };
   }
   // relationship
   const r = (await repo.getRelationship(
@@ -59,7 +66,7 @@ async function getCategoryNodeId(
     entityId,
   )) as Relationship | null;
   if (!r) throw new Error(`Relationship ${entityId} not found`);
-  return r.typeNodeId;
+  return { categoryNodeId: r.typeNodeId, endEventId: r.endEventId };
 }
 
 /**
@@ -152,6 +159,10 @@ async function applyTimeFormulas(
  * expressions are evaluated (root→leaf) to derive time-dependent attributes
  * (e.g. age). After all events, the formulas are applied once more for the
  * remaining time gap up to the query `time`.
+ *
+ * If the entity has an endEvent (death/destruction/dissolution), and the
+ * query time exceeds the end time, computation is capped at the end time.
+ * The returned state will include $alive=false.
  */
 export async function computeState(
   worldId: string,
@@ -159,7 +170,24 @@ export async function computeState(
   time: number,
   opts?: { forEvent?: string },
 ): Promise<EntityState> {
-  const eventRefs = await repo.listEventsByEntity(entityId, { timeLte: time });
+  // --- Resolve entity info (category node + end event) ---
+  const eType = entityType(entityId);
+  const tree = treeForEntityType(eType);
+  const entityInfo = await getEntityInfo(worldId, entityId, eType);
+
+  // If entity has died and query time is beyond death, cap at death time
+  let effectiveTime = time;
+  if (entityInfo.endEventId) {
+    const endEvt = await repo.getEventById(worldId, entityInfo.endEventId);
+    if (endEvt) {
+      const endTime = (endEvt as Event).time;
+      if (time > endTime) {
+        effectiveTime = endTime;
+      }
+    }
+  }
+
+  const eventRefs = await repo.listEventsByEntity(entityId, { timeLte: effectiveTime });
   if (eventRefs.length === 0) {
     return { entityId, time, attributes: {} };
   }
@@ -189,10 +217,7 @@ export async function computeState(
   }
 
   // --- Resolve taxonomy timeFormulas (root → leaf) ---
-  const eType = entityType(entityId);
-  const tree = treeForEntityType(eType);
-  const categoryNodeId = await getCategoryNodeId(worldId, entityId, eType);
-  const formulas = await collectTimeFormulas(worldId, tree, categoryNodeId);
+  const formulas = await collectTimeFormulas(worldId, tree, entityInfo.categoryNodeId);
 
   // --- Replay events ---
   let lastTime: number | null = null;
@@ -216,21 +241,26 @@ export async function computeState(
     }
 
     // System events (birth/creation/establishment) always fix $age to 0
-    if (evt.system) {
+    if (evt.system && !impacts.attributeChanges.some(
+      (ac) => ac.attribute === "$alive" && ac.value === false,
+    )) {
       attributes["$age"] = 0;
     }
 
     // Apply time formulas for the event's duration (e.g. age increments during event)
-    if (duration > 0) {
+    // But NOT if this event marks death ($alive=false) — no time passes after death
+    const isDeath = attributes["$alive"] === false;
+    if (duration > 0 && !isDeath) {
       await applyTimeFormulas(attributes, currentTime, currentTime + duration, formulas);
     }
 
     lastTime = currentTime + duration;
   }
 
-  // --- After last event: apply time formulas up to the query time ---
-  if (lastTime !== null && lastTime < time) {
-    await applyTimeFormulas(attributes, lastTime, time, formulas);
+  // --- After last event: apply time formulas up to the effective time ---
+  // Do NOT apply if entity is dead ($alive=false)
+  if (lastTime !== null && lastTime < effectiveTime && attributes["$alive"] !== false) {
+    await applyTimeFormulas(attributes, lastTime, effectiveTime, formulas);
   }
 
   return { entityId, time, attributes };

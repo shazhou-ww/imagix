@@ -79,7 +79,7 @@ export function formatEpochMs(ms: number): string {
   const prefix = ms < 0 ? "纪元前 " : "";
   const parts: string[] = [];
 
-  if (Math.abs(t.years) > 0) parts.push(`第 ${Math.abs(t.years)} 年`);
+  parts.push(`第 ${Math.abs(t.years) + 1} 年`);
   if (t.months >= 0) parts.push(`${t.months + 1} 月`);
   if (t.days >= 0) parts.push(`${t.days + 1} 日`);
 

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Character, CreateCharacterBody, UpdateCharacterBody } from "@imagix/shared";
+import type { Character, CreateCharacterBody, UpdateCharacterBody, EndEntityBody } from "@imagix/shared";
 import { api } from "../client";
 import { eventKeys } from "./useEvents";
 
@@ -50,6 +50,30 @@ export function useDeleteCharacter(worldId: string) {
   return useMutation({
     mutationFn: (charId: string) =>
       api.delete(`/worlds/${worldId}/characters/${charId}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: characterKeys.all(worldId) });
+      qc.invalidateQueries({ queryKey: eventKeys.all(worldId) });
+    },
+  });
+}
+
+export function useEndCharacter(worldId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ charId, body }: { charId: string; body: EndEntityBody }) =>
+      api.post<Character>(`/worlds/${worldId}/characters/${charId}/end`, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: characterKeys.all(worldId) });
+      qc.invalidateQueries({ queryKey: eventKeys.all(worldId) });
+    },
+  });
+}
+
+export function useUndoEndCharacter(worldId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (charId: string) =>
+      api.delete<Character>(`/worlds/${worldId}/characters/${charId}/end`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: characterKeys.all(worldId) });
       qc.invalidateQueries({ queryKey: eventKeys.all(worldId) });

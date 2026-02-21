@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { CreateRelationshipBody } from "@imagix/shared";
+import { CreateRelationshipBody, EndEntityBody } from "@imagix/shared";
 import type { AppEnv } from "../app.js";
 import { auth, p } from "../app.js";
 import * as ctrl from "../controllers/relationships.js";
@@ -22,6 +22,15 @@ const app = new Hono<AppEnv>()
   .delete("/:relId", async (c) => {
     await ctrl.remove(p(c, "worldId"), p(c, "relId"));
     return c.json({ ok: true });
+  })
+  .post("/:relId/end", async (c) => {
+    const body = EndEntityBody.parse(await c.req.json());
+    const rel = await ctrl.end(p(c, "worldId"), p(c, "relId"), body);
+    return c.json(rel);
+  })
+  .delete("/:relId/end", async (c) => {
+    const rel = await ctrl.undoEnd(p(c, "worldId"), p(c, "relId"));
+    return c.json(rel);
   });
 
 export default app;

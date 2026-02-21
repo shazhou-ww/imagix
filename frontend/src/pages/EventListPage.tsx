@@ -2,9 +2,13 @@ import type { Event as WorldEvent, AttributeChange } from "@imagix/shared";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
+import ExpandLessIcon from "@mui/icons-material/ExpandLess";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import LinkIcon from "@mui/icons-material/Link";
 import PersonIcon from "@mui/icons-material/Person";
 import PlaceIcon from "@mui/icons-material/Place";
 import {
+  Alert,
   Autocomplete,
   Box,
   Button,
@@ -13,6 +17,7 @@ import {
   Checkbox,
   Chip,
   CircularProgress,
+  Collapse,
   Dialog,
   DialogActions,
   DialogContent,
@@ -45,6 +50,7 @@ import { useCharacters } from "@/api/hooks/useCharacters";
 import { useThings } from "@/api/hooks/useThings";
 import { useAttributeDefinitions } from "@/api/hooks/useAttributeDefinitions";
 import { useEntitiesState } from "@/api/hooks/useEntityState";
+import { useEventLinks } from "@/api/hooks/useEventLinks";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import EpochTimeInput from "@/components/EpochTimeInput";
 import EmptyState from "@/components/EmptyState";
@@ -100,6 +106,42 @@ export default function EventListPage() {
   const [participantIds, setParticipantIds] = useState<string[]>([]);
   const [attrChanges, setAttrChanges] = useState<AttributeChange[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<WorldEvent | null>(null);
+  const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set());
+  const [saveError, setSaveError] = useState("");
+  const { data: eventLinks } = useEventLinks(worldId);
+
+  // 编辑系统事件（创生/消亡）时的时序校验
+  const timeError = useMemo(() => {
+    if (!editingEvent?.system || editingEvent.participantIds.length === 0) return "";
+    const isBirth = editingEvent.impacts?.attributeChanges?.some(
+      (ac) => ac.attribute === "$alive" && ac.value === true,
+    );
+    const isEnd = editingEvent.impacts?.attributeChanges?.some(
+      (ac) => ac.attribute === "$alive" && ac.value === false,
+    );
+    if (!isBirth && !isEnd) return "";
+
+    for (const pid of editingEvent.participantIds) {
+      if (isBirth) {
+        // 创生事件：时间必须早于消亡事件
+        const endEvt = (events ?? []).find(
+          (e) => e.id !== editingEvent.id && e.system &&
+            e.participantIds.includes(pid) &&
+            e.impacts?.attributeChanges?.some((ac) => ac.attribute === "$alive" && ac.value === false),
+        );
+        if (endEvt && time >= endEvt.time) return "创生时间必须早于消亡时间";
+      } else {
+        // 消亡事件：时间必须晚于创生事件
+        const birthEvt = (events ?? []).find(
+          (e) => e.id !== editingEvent.id && e.system &&
+            e.participantIds.includes(pid) &&
+            e.impacts?.attributeChanges?.some((ac) => ac.attribute === "$alive" && ac.value === true),
+        );
+        if (birthEvt && time <= birthEvt.time) return "消亡时间必须晚于创生时间";
+      }
+    }
+    return "";
+  }, [editingEvent, time, events]);
 
   // Build entity options for autocomplete
   const entityOptions = useMemo(() => {
@@ -119,6 +161,15 @@ export default function EventListPage() {
 
   // Grouped view of attribute changes
   const groupedAttrChanges = useMemo(() => groupByEntity(attrChanges), [attrChanges]);
+
+  const toggleExpand = useCallback((eventId: string) => {
+    setExpandedEvents((prev) => {
+      const next = new Set(prev);
+      if (next.has(eventId)) next.delete(eventId);
+      else next.add(eventId);
+      return next;
+    });
+  }, []);
 
   // Add a participant (and optionally their attr change rows are added later)
   const addParticipant = useCallback(
@@ -176,6 +227,7 @@ export default function EventListPage() {
     setContent("");
     setParticipantIds([]);
     setAttrChanges([]);
+    setSaveError("");
     setDialogOpen(true);
   };
 
@@ -186,6 +238,7 @@ export default function EventListPage() {
     setContent(evt.content);
     setParticipantIds(evt.participantIds ?? []);
     setAttrChanges(evt.impacts?.attributeChanges ?? []);
+    setSaveError("");
     setDialogOpen(true);
   };
 
@@ -201,18 +254,23 @@ export default function EventListPage() {
     });
     const impacts = {
       attributeChanges: effectiveChanges,
-      relationshipChanges: editingEvent?.impacts?.relationshipChanges ?? [],
       relationshipAttributeChanges: editingEvent?.impacts?.relationshipAttributeChanges ?? [],
     };
     if (editingEvent) {
       updateEvent.mutate(
         { eventId: editingEvent.id, body: { time, duration, content: content.trim(), participantIds, impacts } },
-        { onSuccess: () => setDialogOpen(false) },
+        {
+          onSuccess: () => setDialogOpen(false),
+          onError: (err) => setSaveError(err instanceof Error ? err.message : "操作失败"),
+        },
       );
     } else {
       createEvent.mutate(
         { time, duration, content: content.trim(), participantIds, impacts },
-        { onSuccess: () => setDialogOpen(false) },
+        {
+          onSuccess: () => setDialogOpen(false),
+          onError: (err) => setSaveError(err instanceof Error ? err.message : "操作失败"),
+        },
       );
     }
   };
@@ -272,7 +330,7 @@ export default function EventListPage() {
                   {(() => {
                     const t = parseEpochMs(evt.time);
                     const prefix = evt.time < 0 ? "前" : "";
-                    const dateLine = `${prefix}${Math.abs(t.years)}/${t.months + 1}/${t.days + 1}`;
+                    const dateLine = `${prefix}${Math.abs(t.years) + 1}/${t.months + 1}/${t.days + 1}`;
                     const timeLine = `${String(t.hours).padStart(2, "0")}:${String(t.minutes).padStart(2, "0")}`;
                     return (
                       <>
@@ -322,31 +380,51 @@ export default function EventListPage() {
                       })}
                     </Box>
                   )}
-                  {evt.impacts?.attributeChanges?.length > 0 && (
-                    <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", mt: 0.5 }}>
-                      {evt.impacts.attributeChanges.map((ac, i) => {
-                        const entity = entityOptions.find((e) => e.id === ac.entityId);
-                        const def = attrDefs?.find((d) => d.name === ac.attribute);
-                        const displayValue = def?.type === "timespan" && typeof ac.value === "number"
-                          ? formatDuration(ac.value)
-                          : def?.type === "timestamp" && typeof ac.value === "number"
-                            ? (() => { const t = parseEpochMs(ac.value); const p = ac.value < 0 ? "前" : ""; return `${p}${Math.abs(t.years)}/${t.months + 1}/${t.days + 1}`; })()
-                            : String(ac.value);
-                        return (
+                  {/* Summary counts for collapsed state */}
+                  {!expandedEvents.has(evt.id) && (
+                    <Box sx={{ display: "flex", gap: 1, mt: 0.5, alignItems: "center" }}>
+                      {(evt.impacts?.attributeChanges?.length ?? 0) > 0 && (
+                        <Chip
+                          label={`${evt.impacts!.attributeChanges.length} 项状态变化`}
+                          size="small"
+                          variant="outlined"
+                          color="info"
+                          sx={{ height: 20, fontSize: "0.7rem", cursor: "pointer" }}
+                          onClick={() => toggleExpand(evt.id)}
+                        />
+                      )}
+                      {(() => {
+                        const links = eventLinks?.filter(
+                          (l) => l.eventIdA === evt.id || l.eventIdB === evt.id,
+                        ) ?? [];
+                        return links.length > 0 ? (
                           <Chip
-                            key={`${ac.entityId}-${ac.attribute}-${i}`}
-                            label={`${entity?.name ?? ac.entityId.slice(0, 8)}·${displayAttrName(ac.attribute, ac.entityId)}=${displayValue}`}
+                            label={`${links.length} 个关联`}
                             size="small"
                             variant="outlined"
-                            color="info"
-                            sx={{ height: 22, fontSize: "0.75rem" }}
+                            color="default"
+                            icon={<LinkIcon sx={{ fontSize: 14 }} />}
+                            sx={{ height: 20, fontSize: "0.7rem", cursor: "pointer" }}
+                            onClick={() => toggleExpand(evt.id)}
                           />
-                        );
-                      })}
+                        ) : null;
+                      })()}
                     </Box>
                   )}
                 </Box>
                 <Box sx={{ display: "flex", gap: 0.5, flexShrink: 0 }}>
+                  {((evt.impacts?.attributeChanges?.length ?? 0) > 0 ||
+                    (eventLinks?.some((l) => l.eventIdA === evt.id || l.eventIdB === evt.id) ?? false)) && (
+                    <Tooltip title={expandedEvents.has(evt.id) ? "收起" : "展开详情"}>
+                      <IconButton size="small" onClick={() => toggleExpand(evt.id)}>
+                        {expandedEvents.has(evt.id) ? (
+                          <ExpandLessIcon fontSize="small" />
+                        ) : (
+                          <ExpandMoreIcon fontSize="small" />
+                        )}
+                      </IconButton>
+                    </Tooltip>
+                  )}
                   <Tooltip title="编辑">
                     <IconButton size="small" onClick={() => openEdit(evt)}>
                       <EditIcon fontSize="small" />
@@ -361,6 +439,74 @@ export default function EventListPage() {
                   )}
                 </Box>
               </CardContent>
+              <Collapse in={expandedEvents.has(evt.id)} unmountOnExit>
+                <Divider />
+                <Box sx={{ px: 2, py: 1.5, display: "flex", flexDirection: "column", gap: 1 }}>
+                  {/* Attribute changes */}
+                  {(evt.impacts?.attributeChanges?.length ?? 0) > 0 && (
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" fontWeight="bold" sx={{ mb: 0.5, display: "block" }}>
+                        状态变化
+                      </Typography>
+                      <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
+                        {evt.impacts!.attributeChanges.map((ac, i) => {
+                          const entity = entityOptions.find((e) => e.id === ac.entityId);
+                          const def = attrDefs?.find((d) => d.name === ac.attribute);
+                          const displayValue = def?.type === "timespan" && typeof ac.value === "number"
+                            ? formatDuration(ac.value)
+                            : def?.type === "timestamp" && typeof ac.value === "number"
+                              ? (() => { const t = parseEpochMs(ac.value); const p = ac.value < 0 ? "前" : ""; return `${p}${Math.abs(t.years) + 1}/${t.months + 1}/${t.days + 1}`; })()
+                              : typeof ac.value === "boolean" ? (ac.value ? "是" : "否")
+                              : String(ac.value);
+                          return (
+                            <Chip
+                              key={`${ac.entityId}-${ac.attribute}-${i}`}
+                              label={`${entity?.name ?? ac.entityId.slice(0, 8)}·${displayAttrName(ac.attribute, ac.entityId)}=${displayValue}`}
+                              size="small"
+                              variant="outlined"
+                              color="info"
+                              sx={{ height: 22, fontSize: "0.75rem" }}
+                            />
+                          );
+                        })}
+                      </Box>
+                    </Box>
+                  )}
+                  {/* Event links */}
+                  {(() => {
+                    const links = eventLinks?.filter(
+                      (l) => l.eventIdA === evt.id || l.eventIdB === evt.id,
+                    ) ?? [];
+                    if (links.length === 0) return null;
+                    return (
+                      <Box>
+                        <Typography variant="caption" color="text.secondary" fontWeight="bold" sx={{ mb: 0.5, display: "block" }}>
+                          事件关联
+                        </Typography>
+                        <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
+                          {links.map((link) => {
+                            const otherId = link.eventIdA === evt.id ? link.eventIdB : link.eventIdA;
+                            const otherEvt = sortedEvents.find((e) => e.id === otherId);
+                            const label = otherEvt
+                              ? `${otherEvt.content.slice(0, 20)}${otherEvt.content.length > 20 ? "…" : ""}`
+                              : otherId.slice(0, 8);
+                            return (
+                              <Chip
+                                key={`${link.eventIdA}-${link.eventIdB}`}
+                                icon={<LinkIcon sx={{ fontSize: 14 }} />}
+                                label={link.description ? `${label}（${link.description}）` : label}
+                                size="small"
+                                variant="outlined"
+                                sx={{ height: 22, fontSize: "0.75rem" }}
+                              />
+                            );
+                          })}
+                        </Box>
+                      </Box>
+                    );
+                  })()}
+                </Box>
+              </Collapse>
             </Card>
           ))}
         </Box>
@@ -382,6 +528,8 @@ export default function EventListPage() {
           )}
         </DialogTitle>
         <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}>
+          {saveError && <Alert severity="error" onClose={() => setSaveError("")}>{saveError}</Alert>}
+          {timeError && <Alert severity="error">{timeError}</Alert>}
           <Box sx={{ display: "flex", flexDirection: { xs: "column", md: "row" }, gap: 2 }}>
             <Box sx={{ flex: 1 }}>
               <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: "block" }}>
@@ -393,7 +541,7 @@ export default function EventListPage() {
               <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: "block" }}>
                 持续时间（留 0 表示瞬时事件）
               </Typography>
-              <EpochTimeInput value={duration} onChange={setDuration} showPreview={false} disabled={!!editingEvent?.system} />
+              <EpochTimeInput value={duration} onChange={setDuration} showPreview={false} showEraToggle={false} disabled={!!editingEvent?.system} />
               {duration > 0 && (
                 <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
                   持续 {formatDuration(duration)}
@@ -502,7 +650,7 @@ export default function EventListPage() {
                             if (def?.type === "timespan" && typeof v === "number") return formatDuration(v);
                             if (def?.type === "timestamp" && typeof v === "number") {
                               const t = parseEpochMs(v); const p = v < 0 ? "前" : "";
-                              return `${p}${Math.abs(t.years)}/${t.months + 1}/${t.days + 1}`;
+                              return `${p}${Math.abs(t.years) + 1}/${t.months + 1}/${t.days + 1}`;
                             }
                             if (typeof v === "boolean") return v ? "是" : "否";
                             return String(v);
@@ -540,7 +688,7 @@ export default function EventListPage() {
                                   </Typography>
                                 )}
                                 {isChanging && !isLocked && (
-                                  def?.type === "boolean" ? (
+                                  (def?.type === "boolean" || typeof changeVal === "boolean") ? (
                                     <FormControlLabel
                                       control={
                                         <Switch
@@ -577,6 +725,7 @@ export default function EventListPage() {
                                       onChange={(ms) => updateAttrRow(changeIdx, { value: ms })}
                                       size="small"
                                       showPreview={false}
+                                      showEraToggle={false}
                                     />
                                   ) : def?.type === "number" ? (
                                     <TextField
@@ -670,7 +819,7 @@ export default function EventListPage() {
           <Button
             variant="contained"
             onClick={handleSave}
-            disabled={!content.trim() || createEvent.isPending || updateEvent.isPending}
+            disabled={!content.trim() || createEvent.isPending || updateEvent.isPending || !!timeError}
           >
             {editingEvent ? "保存" : "创建"}
           </Button>

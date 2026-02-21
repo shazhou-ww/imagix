@@ -1,8 +1,12 @@
-import type { Thing, TaxonomyNode } from "@imagix/shared";
+import type { Thing, TaxonomyNode, Event as WorldEvent } from "@imagix/shared";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
+import EventIcon from "@mui/icons-material/EventNote";
+import HighlightOffIcon from "@mui/icons-material/HighlightOff";
+import UndoIcon from "@mui/icons-material/Undo";
 import {
+  Alert,
   Box,
   Button,
   Card,
@@ -27,11 +31,15 @@ import {
   useCreateThing,
   useUpdateThing,
   useDeleteThing,
+  useEndThing,
+  useUndoEndThing,
 } from "@/api/hooks/useThings";
+import { useEvents } from "@/api/hooks/useEvents";
 import { useTaxonomyTree } from "@/api/hooks/useTaxonomy";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import EpochTimeInput from "@/components/EpochTimeInput";
 import EmptyState from "@/components/EmptyState";
+import { parseEpochMs } from "@/utils/time";
 
 function getAncestorChain(nodeId: string, nodeMap: Map<string, TaxonomyNode>): TaxonomyNode[] {
   const chain: TaxonomyNode[] = [];
@@ -51,6 +59,9 @@ export default function ThingListPage() {
   const createThing = useCreateThing(worldId!);
   const updateThing = useUpdateThing(worldId!);
   const deleteThing = useDeleteThing(worldId!);
+  const endThing = useEndThing(worldId!);
+  const undoEndThing = useUndoEndThing(worldId!);
+  const { data: events } = useEvents(worldId);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingThing, setEditingThing] = useState<Thing | null>(null);
@@ -58,6 +69,26 @@ export default function ThingListPage() {
   const [categoryNodeId, setCategoryNodeId] = useState("");
   const [creationTime, setCreationTime] = useState<number>(0);
   const [deleteTarget, setDeleteTarget] = useState<Thing | null>(null);
+  const [endTarget, setEndTarget] = useState<Thing | null>(null);
+  const [endTime, setEndTime] = useState<number>(0);
+  const [endContent, setEndContent] = useState("");
+
+  const birthEventMap = useMemo(() => {
+    const map = new Map<string, WorldEvent>();
+    for (const evt of events ?? []) {
+      if (evt.system && evt.participantIds.length > 0 &&
+          evt.impacts?.attributeChanges?.some((ac) => ac.attribute === "$alive" && ac.value === true)) {
+        for (const pid of evt.participantIds) map.set(pid, evt);
+      }
+    }
+    return map;
+  }, [events]);
+
+  const eventMap = useMemo(() => {
+    const map = new Map<string, WorldEvent>();
+    for (const evt of events ?? []) map.set(evt.id, evt);
+    return map;
+  }, [events]);
 
   const nodeMap = useMemo(() => {
     const map = new Map<string, TaxonomyNode>();
@@ -100,6 +131,34 @@ export default function ThingListPage() {
     deleteThing.mutate(deleteTarget.id, {
       onSuccess: () => setDeleteTarget(null),
     });
+  };
+
+  const openEndDialog = (thing: Thing) => {
+    setEndTarget(thing);
+    setEndTime(0);
+    setEndContent("");
+  };
+
+  const handleEnd = () => {
+    if (!endTarget) return;
+    endThing.mutate(
+      { thingId: endTarget.id, body: { time: endTime, content: endContent.trim() || undefined } },
+      { onSuccess: () => setEndTarget(null) },
+    );
+  };
+
+  // 消亡时间必须晚于创生时间
+  const endTimeError = useMemo(() => {
+    if (!endTarget) return "";
+    const birthEvt = birthEventMap.get(endTarget.id);
+    if (birthEvt && endTime <= birthEvt.time) return "消亡时间必须晚于创生时间";
+    return "";
+  }, [endTarget, endTime, birthEventMap]);
+
+  const fmtTime = (ms: number) => {
+    const t = parseEpochMs(ms);
+    const p = ms < 0 ? "前" : "";
+    return `${p}${Math.abs(t.years) + 1}/${t.months + 1}/${t.days + 1}`;
   };
 
   if (isLoading) {
@@ -174,6 +233,52 @@ export default function ThingListPage() {
                         ))
                       ) : (
                         <Chip label={node?.name ?? "未知分类"} size="small" variant="outlined" sx={{ height: 22, fontSize: "0.75rem" }} />
+                      )}
+                    </Box>
+                    {/* Lifecycle events */}
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, flexWrap: "wrap", mt: 1 }}>
+                      {(() => {
+                        const birth = birthEventMap.get(thing.id);
+                        return birth ? (
+                          <Chip
+                            icon={<EventIcon sx={{ fontSize: 14 }} />}
+                            label={`创生 ${fmtTime(birth.time)}`}
+                            size="small"
+                            color="success"
+                            variant="outlined"
+                            sx={{ height: 22, fontSize: "0.75rem" }}
+                          />
+                        ) : null;
+                      })()}
+                      {thing.endEventId ? (
+                        <>
+                          <Chip
+                            icon={<HighlightOffIcon sx={{ fontSize: 14 }} />}
+                            label={`消亡 ${(() => { const e = eventMap.get(thing.endEventId); return e ? fmtTime(e.time) : ""; })()}`}
+                            size="small"
+                            color="error"
+                            variant="outlined"
+                            sx={{ height: 22, fontSize: "0.75rem" }}
+                          />
+                          <Tooltip title="撤销消亡">
+                            <IconButton
+                              size="small"
+                              color="warning"
+                              onClick={() => undoEndThing.mutate(thing.id)}
+                            >
+                              <UndoIcon sx={{ fontSize: 16 }} />
+                            </IconButton>
+                          </Tooltip>
+                        </>
+                      ) : (
+                        <Chip
+                          label="标记消亡"
+                          size="small"
+                          variant="outlined"
+                          color="default"
+                          onClick={() => openEndDialog(thing)}
+                          sx={{ height: 22, fontSize: "0.75rem", cursor: "pointer" }}
+                        />
                       )}
                     </Box>
                     <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
@@ -260,6 +365,37 @@ export default function ThingListPage() {
         onConfirm={handleDelete}
         onClose={() => setDeleteTarget(null)}
       />
+
+      {/* End (Destruction) Dialog */}
+      <Dialog open={!!endTarget} onClose={() => setEndTarget(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>标记消亡 — {endTarget?.name}</DialogTitle>
+        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}>
+          {endTimeError && <Alert severity="error">{endTimeError}</Alert>}
+          <Box>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>消亡时间</Typography>
+            <EpochTimeInput value={endTime} onChange={setEndTime} showPreview />
+          </Box>
+          <TextField
+            label="消亡描述（可选）"
+            value={endContent}
+            onChange={(e) => setEndContent(e.target.value)}
+            multiline
+            rows={2}
+            placeholder="如：被摧毁、遗失、耗尽"
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEndTarget(null)}>取消</Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleEnd}
+            disabled={endThing.isPending || !!endTimeError}
+          >
+            确认消亡
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

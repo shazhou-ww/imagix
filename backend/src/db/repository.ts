@@ -392,6 +392,14 @@ export async function deleteRelationship(rel: Relationship) {
   );
 }
 
+export async function updateRelationship(
+  worldId: string,
+  relId: string,
+  fields: Record<string, unknown>,
+) {
+  await updateFields(worldPk(worldId), relationshipSk(relId), fields);
+}
+
 // ---------------------------------------------------------------------------
 // Event (with denormalized participant index + EVT_IDX for ID lookup)
 // ---------------------------------------------------------------------------

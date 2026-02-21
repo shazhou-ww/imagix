@@ -40,7 +40,6 @@ export async function create(userId: string, body: CreateWorldBody): Promise<Wor
     content: body.epoch,
     impacts: {
       attributeChanges: [],
-      relationshipChanges: [],
       relationshipAttributeChanges: [],
     },
     system: true,
@@ -123,6 +122,19 @@ export async function create(userId: string, body: CreateWorldBody): Promise<Wor
     updatedAt: now,
   });
   await repo.putAttributeDefinition(nameAttr);
+
+  // 预置「$alive」属性定义（boolean 类型，不可删除/编辑）
+  const aliveAttr = AttributeDefinitionSchema.parse({
+    id: createId(EntityPrefix.AttributeDefinition),
+    worldId: world.id,
+    name: "$alive",
+    type: "boolean",
+    description: "存活状态。实体创生时自动设为 true，消亡时自动设为 false。",
+    system: true,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await repo.putAttributeDefinition(aliveAttr);
 
   return world;
 }

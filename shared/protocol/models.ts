@@ -176,10 +176,14 @@ export const CharacterSchema = z.object({
   name: z.string(),
   /** 角色分类节点引用，从角色分类树 (CHAR) 中选取。 */
   categoryNodeId: txnId,
+  /** 消亡事件 ID。若存在，表示该角色已消亡。 */
+  endEventId: evtId.optional(),
   /** 创建时间。 */
   createdAt: z.string(),
   /** 最后更新时间。 */
   updatedAt: z.string(),
+  /** 软删除时间戳。 */
+  deletedAt: z.string().optional(),
 });
 
 export type Character = z.infer<typeof CharacterSchema>;
@@ -202,10 +206,14 @@ export const ThingSchema = z.object({
   name: z.string(),
   /** 事物分类节点引用，从事物分类树 (THING) 中选取。 */
   categoryNodeId: txnId,
+  /** 消亡事件 ID。若存在，表示该事物已消亡。 */
+  endEventId: evtId.optional(),
   /** 创建时间。 */
   createdAt: z.string(),
   /** 最后更新时间。 */
   updatedAt: z.string(),
+  /** 软删除时间戳。 */
+  deletedAt: z.string().optional(),
 });
 
 export type Thing = z.infer<typeof ThingSchema>;
@@ -231,10 +239,14 @@ export const RelationshipSchema = z.object({
   fromId: entityId,
   /** 目标实体 ID（关系的终点）。 */
   toId: entityId,
+  /** 消亡事件 ID。若存在，表示该关系已解除。 */
+  endEventId: evtId.optional(),
   /** 创建时间。 */
   createdAt: z.string(),
   /** 最后更新时间。 */
   updatedAt: z.string(),
+  /** 软删除时间戳。 */
+  deletedAt: z.string().optional(),
 });
 
 export type Relationship = z.infer<typeof RelationshipSchema>;
@@ -259,21 +271,6 @@ export const AttributeChangeSchema = z.object({
 });
 
 /**
- * 关系变更 Schema。
- * 描述一个事件导致关系的建立或解除。
- */
-export const RelationshipChangeSchema = z.object({
-  /** 变更动作：create 建立关系 / remove 解除关系。 */
-  action: z.enum(["create", "remove"]),
-  /** 关系类型节点 ID，从关系类型树 (REL) 中选取。 */
-  typeNodeId: txnId,
-  /** 源实体 ID。 */
-  fromId: entityId,
-  /** 目标实体 ID。 */
-  toId: entityId,
-});
-
-/**
  * 关系属性变更 Schema。
  * 描述一个事件对某条关系的某个属性值的变更。
  * 关系属性按方向区分：from→to 方向和 to→from 方向各自独立持有属性值。
@@ -292,14 +289,13 @@ export const RelationshipAttributeChangeSchema = z.object({
 
 /**
  * 状态影响声明 Schema。
- * 汇总一个事件导致的所有状态变更，包括属性变更、关系变更和关系属性变更。
+ * 汇总一个事件导致的所有状态变更，包括属性变更和关系属性变更。
  * 事件是所有可变状态的唯一变更源（Single Source of Truth）。
+ * 实体的创生/消亡通过实体自身的生命周期 API 管理，不再由事件 impact 直接操作。
  */
 export const StateImpactSchema = z.object({
   /** 实体属性值变更列表。 */
   attributeChanges: z.array(AttributeChangeSchema).default([]),
-  /** 关系建立 / 解除变更列表。 */
-  relationshipChanges: z.array(RelationshipChangeSchema).default([]),
   /** 关系属性值变更列表。 */
   relationshipAttributeChanges: z
     .array(RelationshipAttributeChangeSchema)
@@ -333,10 +329,9 @@ export const EventSchema = z.object({
   participantIds: z.array(entityId).default([]),
   /** 事件内容：提纲挈领的关键梗概，不做详细文学展开。 */
   content: z.string(),
-  /** 状态影响声明：该事件导致的属性值变化及关系的建立/解除。 */
+  /** 状态影响声明：该事件导致的属性值变化。 */
   impacts: StateImpactSchema.default({
     attributeChanges: [],
-    relationshipChanges: [],
     relationshipAttributeChanges: [],
   }),
   /** 系统预置事件，不可编辑或删除。 */
@@ -348,7 +343,6 @@ export const EventSchema = z.object({
 });
 
 export type AttributeChange = z.infer<typeof AttributeChangeSchema>;
-export type RelationshipChange = z.infer<typeof RelationshipChangeSchema>;
 export type RelationshipAttributeChange = z.infer<
   typeof RelationshipAttributeChangeSchema
 >;

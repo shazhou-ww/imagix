@@ -3,8 +3,11 @@ import {
   EntityPrefix,
   RelationshipSchema,
   EventSchema,
+  EventLinkSchema,
   type Relationship,
+  type Event,
   type CreateRelationshipBody,
+  type EndEntityBody,
   type TaxonomyNode,
   type Character,
   type Thing,
@@ -38,7 +41,7 @@ export async function create(
   const toName = toChar?.name ?? toThing?.name ?? body.toId;
   const relName = `${typeName}·${fromName}·${toName}`;
 
-  // 自动创建「建立」事件（含 $age=0 和 $name 的属性变更）
+  // 自动创建「建立」事件（含 $age=0, $name, $alive=true 的属性变更）
   const establishEvent = EventSchema.parse({
     id: createId(EntityPrefix.Event),
     worldId,
@@ -61,8 +64,13 @@ export async function create(
           attribute: "$name",
           value: relName,
         },
+        {
+          entityType: "thing",
+          entityId: rel.id,
+          attribute: "$alive",
+          value: true,
+        },
       ],
-      relationshipChanges: [],
       relationshipAttributeChanges: [],
     },
     system: true,
@@ -76,7 +84,7 @@ export async function create(
 
 export async function list(worldId: string): Promise<Relationship[]> {
   const items = await repo.listRelationships(worldId);
-  return items as Relationship[];
+  return (items as Relationship[]).filter((r) => !r.deletedAt);
 }
 
 export async function getById(
@@ -99,5 +107,105 @@ export async function remove(
 ): Promise<void> {
   const item = await repo.getRelationship(worldId, relId);
   if (!item) throw AppError.notFound("Relationship");
-  await repo.deleteRelationship(item as Relationship);
+  // 软删除：不真正移除记录，保留引用完整性
+  await repo.updateRelationship(worldId, relId, {
+    deletedAt: new Date().toISOString(),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// 消亡事件
+// ---------------------------------------------------------------------------
+
+export async function end(
+  worldId: string,
+  relId: string,
+  body: EndEntityBody,
+): Promise<Relationship> {
+  const item = await repo.getRelationship(worldId, relId);
+  if (!item) throw AppError.notFound("Relationship");
+  const r = item as Relationship;
+  if (r.endEventId) throw AppError.badRequest("该关系已有消亡事件");
+
+  // 解除时间必须晚于建立时间（实体事件索引按时间排序，第一条即建立事件）
+  const entityEvents = await repo.listEventsByEntity(relId);
+  const firstEntry = entityEvents[0] as { eventId: string } | undefined;
+  if (firstEntry) {
+    const birthEvent = (await repo.getEventById(worldId, firstEntry.eventId)) as Event | null;
+    if (birthEvent && body.time <= birthEvent.time) {
+      throw AppError.badRequest("解除时间必须晚于建立时间");
+    }
+  }
+
+  const now = new Date().toISOString();
+  const endEvent = EventSchema.parse({
+    id: createId(EntityPrefix.Event),
+    worldId,
+    time: body.time,
+    duration: 0,
+    placeId: null,
+    participantIds: [relId],
+    content: body.content ?? `关系解除`,
+    impacts: {
+      attributeChanges: [
+        {
+          entityType: "thing",
+          entityId: relId,
+          attribute: "$alive",
+          value: false,
+        },
+      ],
+      relationshipAttributeChanges: [],
+    },
+    system: true,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await repo.putEvent(endEvent);
+
+  if (body.causeEventId) {
+    const [eidA, eidB] = [body.causeEventId, endEvent.id].sort();
+    const link = EventLinkSchema.parse({
+      worldId,
+      eventIdA: eidA,
+      eventIdB: eidB,
+      description: `导致关系解除`,
+    });
+    await repo.putEventLink(link);
+  }
+
+  await repo.updateRelationship(worldId, relId, {
+    endEventId: endEvent.id,
+    updatedAt: now,
+  });
+  return (await repo.getRelationship(worldId, relId)) as Relationship;
+}
+
+export async function undoEnd(
+  worldId: string,
+  relId: string,
+): Promise<Relationship> {
+  const item = await repo.getRelationship(worldId, relId);
+  if (!item) throw AppError.notFound("Relationship");
+  const r = item as Relationship;
+  if (!r.endEventId) throw AppError.badRequest("该关系没有消亡事件");
+
+  const endEvt = await repo.getEventById(worldId, r.endEventId);
+  if (endEvt) {
+    await repo.deleteEvent(endEvt as Event);
+    const links = await repo.listEventLinks(worldId);
+    for (const link of links) {
+      const l = link as { eventIdA: string; eventIdB: string };
+      if (l.eventIdA === r.endEventId || l.eventIdB === r.endEventId) {
+        await repo.deleteEventLink(worldId, l.eventIdA, l.eventIdB);
+      }
+    }
+  }
+
+  const now = new Date().toISOString();
+  await repo.updateRelationship(worldId, relId, {
+    endEventId: null,
+    updatedAt: now,
+  });
+  return (await repo.getRelationship(worldId, relId)) as Relationship;
 }

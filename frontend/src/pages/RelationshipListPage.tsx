@@ -1,8 +1,12 @@
-import type { Relationship, TaxonomyNode } from "@imagix/shared";
+import type { Relationship, TaxonomyNode, Event as WorldEvent } from "@imagix/shared";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
+import EventIcon from "@mui/icons-material/EventNote";
+import HighlightOffIcon from "@mui/icons-material/HighlightOff";
+import UndoIcon from "@mui/icons-material/Undo";
 import {
+  Alert,
   Box,
   Button,
   Card,
@@ -26,13 +30,17 @@ import {
   useRelationships,
   useCreateRelationship,
   useDeleteRelationship,
+  useEndRelationship,
+  useUndoEndRelationship,
 } from "@/api/hooks/useRelationships";
+import { useEvents } from "@/api/hooks/useEvents";
 import { useTaxonomyTree } from "@/api/hooks/useTaxonomy";
 import { useCharacters } from "@/api/hooks/useCharacters";
 import { useThings } from "@/api/hooks/useThings";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import EpochTimeInput from "@/components/EpochTimeInput";
 import EmptyState from "@/components/EmptyState";
+import { parseEpochMs } from "@/utils/time";
 
 export default function RelationshipListPage() {
   const { worldId } = useParams<{ worldId: string }>();
@@ -42,6 +50,9 @@ export default function RelationshipListPage() {
   const { data: things } = useThings(worldId);
   const createRel = useCreateRelationship(worldId!);
   const deleteRel = useDeleteRelationship(worldId!);
+  const endRel = useEndRelationship(worldId!);
+  const undoEndRel = useUndoEndRelationship(worldId!);
+  const { data: events } = useEvents(worldId);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [typeNodeId, setTypeNodeId] = useState("");
@@ -49,6 +60,26 @@ export default function RelationshipListPage() {
   const [toId, setToId] = useState("");
   const [establishTime, setEstablishTime] = useState<number>(0);
   const [deleteTarget, setDeleteTarget] = useState<Relationship | null>(null);
+  const [endTarget, setEndTarget] = useState<Relationship | null>(null);
+  const [endTime, setEndTime] = useState<number>(0);
+  const [endContent, setEndContent] = useState("");
+
+  const birthEventMap = useMemo(() => {
+    const map = new Map<string, WorldEvent>();
+    for (const evt of events ?? []) {
+      if (evt.system && evt.participantIds.length > 0 &&
+          evt.impacts?.attributeChanges?.some((ac) => ac.attribute === "$alive" && ac.value === true)) {
+        for (const pid of evt.participantIds) map.set(pid, evt);
+      }
+    }
+    return map;
+  }, [events]);
+
+  const eventMap = useMemo(() => {
+    const map = new Map<string, WorldEvent>();
+    for (const evt of events ?? []) map.set(evt.id, evt);
+    return map;
+  }, [events]);
 
   const relNodeMap = useMemo(() => {
     const map = new Map<string, TaxonomyNode>();
@@ -145,6 +176,34 @@ export default function RelationshipListPage() {
     });
   };
 
+  const openEndDialog = (rel: Relationship) => {
+    setEndTarget(rel);
+    setEndTime(0);
+    setEndContent("");
+  };
+
+  const handleEnd = () => {
+    if (!endTarget) return;
+    endRel.mutate(
+      { relId: endTarget.id, body: { time: endTime, content: endContent.trim() || undefined } },
+      { onSuccess: () => setEndTarget(null) },
+    );
+  };
+
+  // 解除时间必须晚于建立时间
+  const endTimeError = useMemo(() => {
+    if (!endTarget) return "";
+    const birthEvt = birthEventMap.get(endTarget.id);
+    if (birthEvt && endTime <= birthEvt.time) return "解除时间必须晚于建立时间";
+    return "";
+  }, [endTarget, endTime, birthEventMap]);
+
+  const fmtTime = (ms: number) => {
+    const t = parseEpochMs(ms);
+    const p = ms < 0 ? "前" : "";
+    return `${p}${Math.abs(t.years) + 1}/${t.months + 1}/${t.days + 1}`;
+  };
+
   if (isLoading) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
@@ -199,6 +258,52 @@ export default function RelationshipListPage() {
                       <Typography variant="body2" noWrap sx={{ flex: 1 }}>
                         {entityLabelMap.get(rel.toId) ?? rel.toId}
                       </Typography>
+                    </Box>
+                    {/* Lifecycle events */}
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, flexWrap: "wrap", mt: 1 }}>
+                      {(() => {
+                        const birth = birthEventMap.get(rel.id);
+                        return birth ? (
+                          <Chip
+                            icon={<EventIcon sx={{ fontSize: 14 }} />}
+                            label={`建立 ${fmtTime(birth.time)}`}
+                            size="small"
+                            color="success"
+                            variant="outlined"
+                            sx={{ height: 22, fontSize: "0.75rem" }}
+                          />
+                        ) : null;
+                      })()}
+                      {rel.endEventId ? (
+                        <>
+                          <Chip
+                            icon={<HighlightOffIcon sx={{ fontSize: 14 }} />}
+                            label={`解除 ${(() => { const e = eventMap.get(rel.endEventId); return e ? fmtTime(e.time) : ""; })()}`}
+                            size="small"
+                            color="error"
+                            variant="outlined"
+                            sx={{ height: 22, fontSize: "0.75rem" }}
+                          />
+                          <Tooltip title="撤销解除">
+                            <IconButton
+                              size="small"
+                              color="warning"
+                              onClick={() => undoEndRel.mutate(rel.id)}
+                            >
+                              <UndoIcon sx={{ fontSize: 16 }} />
+                            </IconButton>
+                          </Tooltip>
+                        </>
+                      ) : (
+                        <Chip
+                          label="标记解除"
+                          size="small"
+                          variant="outlined"
+                          color="default"
+                          onClick={() => openEndDialog(rel)}
+                          sx={{ height: 22, fontSize: "0.75rem", cursor: "pointer" }}
+                        />
+                      )}
                     </Box>
                   </CardContent>
                 </Card>
@@ -293,6 +398,37 @@ export default function RelationshipListPage() {
         onConfirm={handleDelete}
         onClose={() => setDeleteTarget(null)}
       />
+
+      {/* End (Dissolve) Dialog */}
+      <Dialog open={!!endTarget} onClose={() => setEndTarget(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>标记解除</DialogTitle>
+        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}>
+          {endTimeError && <Alert severity="error">{endTimeError}</Alert>}
+          <Box>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>解除时间</Typography>
+            <EpochTimeInput value={endTime} onChange={setEndTime} showPreview />
+          </Box>
+          <TextField
+            label="解除描述（可选）"
+            value={endContent}
+            onChange={(e) => setEndContent(e.target.value)}
+            multiline
+            rows={2}
+            placeholder="如：反目成仇、合约到期"
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEndTarget(null)}>取消</Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleEnd}
+            disabled={endRel.isPending || !!endTimeError}
+          >
+            确认解除
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

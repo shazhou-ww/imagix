@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { CreateCharacterBody, UpdateCharacterBody } from "@imagix/shared";
+import { CreateCharacterBody, UpdateCharacterBody, EndEntityBody } from "@imagix/shared";
 import type { AppEnv } from "../app.js";
 import { auth, p } from "../app.js";
 import * as ctrl from "../controllers/characters.js";
@@ -27,6 +27,15 @@ const app = new Hono<AppEnv>()
   .delete("/:charId", async (c) => {
     await ctrl.remove(p(c, "worldId"), p(c, "charId"));
     return c.json({ ok: true });
+  })
+  .post("/:charId/end", async (c) => {
+    const body = EndEntityBody.parse(await c.req.json());
+    const char = await ctrl.end(p(c, "worldId"), p(c, "charId"), body);
+    return c.json(char);
+  })
+  .delete("/:charId/end", async (c) => {
+    const char = await ctrl.undoEnd(p(c, "worldId"), p(c, "charId"));
+    return c.json(char);
   });
 
 export default app;

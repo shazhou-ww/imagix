@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Relationship, CreateRelationshipBody } from "@imagix/shared";
+import type { Relationship, CreateRelationshipBody, EndEntityBody } from "@imagix/shared";
 import { api } from "../client";
 import { eventKeys } from "./useEvents";
 
@@ -52,6 +52,30 @@ export function useDeleteRelationship(worldId: string) {
   return useMutation({
     mutationFn: (relId: string) =>
       api.delete(`/worlds/${worldId}/relationships/${relId}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: relationshipKeys.all(worldId) });
+      qc.invalidateQueries({ queryKey: eventKeys.all(worldId) });
+    },
+  });
+}
+
+export function useEndRelationship(worldId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ relId, body }: { relId: string; body: EndEntityBody }) =>
+      api.post<Relationship>(`/worlds/${worldId}/relationships/${relId}/end`, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: relationshipKeys.all(worldId) });
+      qc.invalidateQueries({ queryKey: eventKeys.all(worldId) });
+    },
+  });
+}
+
+export function useUndoEndRelationship(worldId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (relId: string) =>
+      api.delete<Relationship>(`/worlds/${worldId}/relationships/${relId}/end`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: relationshipKeys.all(worldId) });
       qc.invalidateQueries({ queryKey: eventKeys.all(worldId) });

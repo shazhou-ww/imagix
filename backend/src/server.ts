@@ -13,8 +13,9 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 try {
-  // import.meta.dir = backend/src → go up 2 levels to project root
-  const rootEnv = resolve(import.meta.dir, "..", "..", ".env");
+  // import.meta.url = file:///…/backend/src/server.ts → go up 2 levels to project root
+  const thisDir = new URL(".", import.meta.url).pathname;
+  const rootEnv = resolve(thisDir, "..", "..", ".env");
   const lines = readFileSync(rootEnv, "utf-8").split("\n");
   for (const line of lines) {
     const trimmed = line.trim();

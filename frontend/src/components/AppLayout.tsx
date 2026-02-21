@@ -3,6 +3,7 @@ import AddIcon from "@mui/icons-material/Add";
 import AssignmentIcon from "@mui/icons-material/Assignment";
 import AutoStoriesIcon from "@mui/icons-material/AutoStories";
 import CableTwoToneIcon from "@mui/icons-material/CableTwoTone";
+import CategoryIcon from "@mui/icons-material/Category";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import LinkIcon from "@mui/icons-material/Link";
@@ -63,7 +64,8 @@ function getWorldNavItems(worldId: string): NavItem[] {
       path: `${base}/attributes`,
     },
     { label: "角色", icon: <PersonIcon />, path: `${base}/characters` },
-    { label: "事物", icon: <PlaceIcon />, path: `${base}/things` },
+    { label: "事物", icon: <CategoryIcon />, path: `${base}/things` },
+    { label: "地点", icon: <PlaceIcon />, path: `${base}/places` },
     { label: "关系", icon: <LinkIcon />, path: `${base}/relationships` },
     { label: "事件", icon: <TimelineIcon />, path: `${base}/events` },
     {

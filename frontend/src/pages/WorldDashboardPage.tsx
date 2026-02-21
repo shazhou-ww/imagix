@@ -1,6 +1,7 @@
 import AccountTreeIcon from "@mui/icons-material/AccountTree";
 import AssignmentIcon from "@mui/icons-material/Assignment";
 import AutoStoriesIcon from "@mui/icons-material/AutoStories";
+import CategoryIcon from "@mui/icons-material/Category";
 import LinkIcon from "@mui/icons-material/Link";
 import PersonIcon from "@mui/icons-material/Person";
 import PlaceIcon from "@mui/icons-material/Place";
@@ -18,6 +19,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useWorld } from "@/api/hooks/useWorlds";
 import { useCharacters } from "@/api/hooks/useCharacters";
 import { useThings } from "@/api/hooks/useThings";
+import { usePlaces } from "@/api/hooks/usePlaces";
 import { useRelationships } from "@/api/hooks/useRelationships";
 import { useEvents } from "@/api/hooks/useEvents";
 import { useStories } from "@/api/hooks/useStories";
@@ -28,7 +30,8 @@ const statCards = [
   { label: "分类体系", icon: <AccountTreeIcon />, color: "#5E81AC", path: "taxonomy/CHAR" },
   { label: "属性词典", icon: <AssignmentIcon />, color: "#81A1C1", path: "attributes" },
   { label: "角色", icon: <PersonIcon />, color: "#B48EAD", path: "characters" },
-  { label: "事物", icon: <PlaceIcon />, color: "#88C0D0", path: "things" },
+  { label: "事物", icon: <CategoryIcon />, color: "#88C0D0", path: "things" },
+  { label: "地点", icon: <PlaceIcon />, color: "#8FBCBB", path: "places" },
   { label: "关系", icon: <LinkIcon />, color: "#A3D9A5", path: "relationships" },
   { label: "事件", icon: <TimelineIcon />, color: "#EBCB8B", path: "events" },
   { label: "故事", icon: <AutoStoriesIcon />, color: "#E8A0BF", path: "stories" },
@@ -40,6 +43,7 @@ export default function WorldDashboardPage() {
   const { data: world, isLoading } = useWorld(worldId);
   const { data: characters } = useCharacters(worldId);
   const { data: things } = useThings(worldId);
+  const { data: places } = usePlaces(worldId);
   const { data: relationships } = useRelationships(worldId);
   const { data: events } = useEvents(worldId);
   const { data: stories } = useStories(worldId);
@@ -55,6 +59,7 @@ export default function WorldDashboardPage() {
     属性词典: attrDefs?.length,
     角色: characters?.length,
     事物: things?.length,
+    地点: places?.length,
     关系: relationships?.length,
     事件: events?.length,
     故事: stories?.length,

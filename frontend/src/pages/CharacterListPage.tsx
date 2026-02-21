@@ -24,8 +24,8 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import { useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   useCharacters,
   useCreateCharacter,
@@ -55,6 +55,7 @@ function getAncestorChain(nodeId: string, nodeMap: Map<string, TaxonomyNode>): T
 export default function CharacterListPage() {
   const { worldId } = useParams<{ worldId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { data: characters, isLoading } = useCharacters(worldId);
   const { data: charNodes } = useTaxonomyTree(worldId, "CHAR");
   const createChar = useCreateCharacter(worldId!);
@@ -63,6 +64,8 @@ export default function CharacterListPage() {
   const endChar = useEndCharacter(worldId!);
   const undoEndChar = useUndoEndCharacter(worldId!);
   const { data: events } = useEvents(worldId);
+
+  const scrolledRef = useRef(false);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingChar, setEditingChar] = useState<Character | null>(null);
@@ -98,6 +101,22 @@ export default function CharacterListPage() {
     for (const n of charNodes ?? []) map.set(n.id, n);
     return map;
   }, [charNodes]);
+
+  // Scroll to entity by hash
+  useEffect(() => {
+    if (scrolledRef.current || !characters?.length) return;
+    const hash = location.hash.slice(1);
+    if (!hash) return;
+    const el = document.getElementById(hash);
+    if (el) {
+      scrolledRef.current = true;
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.style.outline = "2px solid";
+      el.style.outlineColor = "var(--mui-palette-primary-main, #1976d2)";
+      el.style.borderRadius = "8px";
+      setTimeout(() => { el.style.outline = "none"; }, 2000);
+    }
+  }, [location.hash, characters]);
 
   const openCreate = () => {
     setEditingChar(null);
@@ -200,7 +219,7 @@ export default function CharacterListPage() {
             const chain = getAncestorChain(char.categoryNodeId, nodeMap);
             return (
               <Grid size={{ xs: 12, sm: 6, md: 4 }} key={char.id}>
-                <Card>
+                <Card id={char.id}>
                   <CardContent>
                     <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
                       <Typography variant="subtitle1" fontWeight="bold" sx={{ flex: 1 }}>
@@ -249,7 +268,8 @@ export default function CharacterListPage() {
                             size="small"
                             color="success"
                             variant="outlined"
-                            sx={{ height: 22, fontSize: "0.75rem" }}
+                            sx={{ height: 22, fontSize: "0.75rem", cursor: "pointer" }}
+                            onClick={() => navigate(`/worlds/${worldId}/events#${birth.id}`)}
                           />
                         ) : null;
                       })()}
@@ -261,7 +281,8 @@ export default function CharacterListPage() {
                             size="small"
                             color="error"
                             variant="outlined"
-                            sx={{ height: 22, fontSize: "0.75rem" }}
+                            sx={{ height: 22, fontSize: "0.75rem", cursor: "pointer" }}
+                            onClick={() => navigate(`/worlds/${worldId}/events#${char.endEventId}`)}
                           />
                           <Tooltip title="撤销消亡">
                             <IconButton

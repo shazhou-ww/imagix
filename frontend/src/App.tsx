@@ -8,6 +8,7 @@ import CharacterListPage from "@/pages/CharacterListPage";
 import EventLinkPage from "@/pages/EventLinkPage";
 import EventListPage from "@/pages/EventListPage";
 import HomePage from "@/pages/HomePage";
+import PlaceListPage from "@/pages/PlaceListPage";
 import RelationshipListPage from "@/pages/RelationshipListPage";
 import StoryListPage from "@/pages/StoryListPage";
 import TaxonomyPage from "@/pages/TaxonomyPage";
@@ -52,6 +53,7 @@ function AuthenticatedRoutes() {
           element={<CharacterListPage />}
         />
         <Route path="/worlds/:worldId/things" element={<ThingListPage />} />
+        <Route path="/worlds/:worldId/places" element={<PlaceListPage />} />
         <Route
           path="/worlds/:worldId/relationships"
           element={<RelationshipListPage />}

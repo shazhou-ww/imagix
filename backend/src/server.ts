@@ -16,6 +16,7 @@ import taxonomyRoutes from "./routes/taxonomy.js";
 import attributeDefinitionRoutes from "./routes/attribute-definitions.js";
 import characterRoutes from "./routes/characters.js";
 import thingRoutes from "./routes/things.js";
+import placeRoutes from "./routes/places.js";
 import relationshipRoutes from "./routes/relationships.js";
 import entityRelRoutes from "./routes/entity-relationships.js";
 import eventRoutes from "./routes/events.js";
@@ -25,6 +26,7 @@ import userStoryRoutes from "./routes/user-stories.js";
 import chapterRoutes from "./routes/chapters.js";
 import { plotCreateListRoutes, plotCrudRoutes } from "./routes/plots.js";
 import stateRoutes from "./routes/state.js";
+import entityEventRoutes from "./routes/entity-events.js";
 
 const app = createApp();
 
@@ -37,6 +39,7 @@ app.route("/api/worlds/:worldId/taxonomy", taxonomyRoutes);
 app.route("/api/worlds/:worldId/attribute-definitions", attributeDefinitionRoutes);
 app.route("/api/worlds/:worldId/characters", characterRoutes);
 app.route("/api/worlds/:worldId/things", thingRoutes);
+app.route("/api/worlds/:worldId/places", placeRoutes);
 app.route("/api/worlds/:worldId/relationships", relationshipRoutes);
 app.route(
   "/api/worlds/:worldId/entities/:entityId/relationships",
@@ -55,6 +58,10 @@ app.route("/api/stories/:storyId/plots", plotCrudRoutes);
 app.route(
   "/api/worlds/:worldId/entities/:entityId/state",
   stateRoutes,
+);
+app.route(
+  "/api/worlds/:worldId/entities/:entityId/events",
+  entityEventRoutes,
 );
 
 app.notFound((c) => {

@@ -38,8 +38,8 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import { useCallback, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   useEvents,
   useCreateEvent,
@@ -51,6 +51,7 @@ import { useThings } from "@/api/hooks/useThings";
 import { useAttributeDefinitions } from "@/api/hooks/useAttributeDefinitions";
 import { useEntitiesState } from "@/api/hooks/useEntityState";
 import { useEventLinks } from "@/api/hooks/useEventLinks";
+import { usePlaces } from "@/api/hooks/usePlaces";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import EpochTimeInput from "@/components/EpochTimeInput";
 import EmptyState from "@/components/EmptyState";
@@ -89,6 +90,9 @@ function groupByEntity(changes: AttributeChange[]): AttrChangeGroup[] {
 
 export default function EventListPage() {
   const { worldId } = useParams<{ worldId: string }>();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const scrolledRef = useRef(false);
   const { data: events, isLoading } = useEvents(worldId);
   const createEvent = useCreateEvent(worldId!);
   const updateEvent = useUpdateEvent(worldId!);
@@ -96,12 +100,14 @@ export default function EventListPage() {
   const { data: characters } = useCharacters(worldId);
   const { data: things } = useThings(worldId);
   const { data: attrDefs } = useAttributeDefinitions(worldId);
+  const { data: places } = usePlaces(worldId);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<WorldEvent | null>(null);
   const [time, setTime] = useState<number>(0);
   const [duration, setDuration] = useState<number>(0);
   const [content, setContent] = useState("");
+  const [placeId, setPlaceId] = useState<string | null>(null);
   const [participantIds, setParticipantIds] = useState<string[]>([]);
   const [attrChanges, setAttrChanges] = useState<AttributeChange[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<WorldEvent | null>(null);
@@ -219,11 +225,28 @@ export default function EventListPage() {
     [events],
   );
 
+  // Scroll to event by hash
+  useEffect(() => {
+    if (scrolledRef.current || !sortedEvents.length) return;
+    const hash = location.hash.slice(1);
+    if (!hash) return;
+    const el = document.getElementById(hash);
+    if (el) {
+      scrolledRef.current = true;
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.style.outline = "2px solid";
+      el.style.outlineColor = "var(--mui-palette-primary-main, #1976d2)";
+      el.style.borderRadius = "8px";
+      setTimeout(() => { el.style.outline = "none"; }, 2000);
+    }
+  }, [location.hash, sortedEvents]);
+
   const openCreate = () => {
     setEditingEvent(null);
     setTime(0);
     setDuration(0);
     setContent("");
+    setPlaceId(null);
     setParticipantIds([]);
     setAttrChanges([]);
     setSaveError("");
@@ -235,6 +258,7 @@ export default function EventListPage() {
     setTime(evt.time);
     setDuration(evt.duration ?? 0);
     setContent(evt.content);
+    setPlaceId(evt.placeId ?? null);
     // Derive participant IDs from impacts
     const entityIds = [...new Set(evt.impacts?.attributeChanges?.map(ac => ac.entityId) ?? [])];
     setParticipantIds(entityIds);
@@ -259,7 +283,7 @@ export default function EventListPage() {
     };
     if (editingEvent) {
       updateEvent.mutate(
-        { eventId: editingEvent.id, body: { time, duration, content: content.trim(), impacts } },
+        { eventId: editingEvent.id, body: { time, duration, content: content.trim(), placeId, impacts } },
         {
           onSuccess: () => setDialogOpen(false),
           onError: (err) => setSaveError(err instanceof Error ? err.message : "操作失败"),
@@ -267,7 +291,7 @@ export default function EventListPage() {
       );
     } else {
       createEvent.mutate(
-        { time, duration, content: content.trim(), impacts },
+        { time, duration, content: content.trim(), placeId, impacts },
         {
           onSuccess: () => setDialogOpen(false),
           onError: (err) => setSaveError(err instanceof Error ? err.message : "操作失败"),
@@ -315,7 +339,7 @@ export default function EventListPage() {
       ) : (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
           {sortedEvents.map((evt) => (
-            <Card key={evt.id}>
+            <Card key={evt.id} id={evt.id}>
               <CardContent sx={{ display: "flex", gap: 2, alignItems: "flex-start" }}>
                 <Box
                   sx={{
@@ -388,10 +412,30 @@ export default function EventListPage() {
                               size="small"
                               variant="outlined"
                               color={entity?.type === "character" ? "primary" : "secondary"}
-                              sx={{ height: 22, fontSize: "0.75rem" }}
+                              sx={{ height: 22, fontSize: "0.75rem", cursor: "pointer" }}
+                              onClick={() => {
+                                const prefix = eid.slice(0, 3);
+                                const page = prefix === "chr" ? "characters" : prefix === "rel" ? "relationships" : "things";
+                                navigate(`/worlds/${worldId}/${page}#${eid}`);
+                              }}
                             />
                           );
                         })}
+                      </Box>
+                    );
+                  })()}
+                  {evt.placeId && (() => {
+                    const place = places?.find((p) => p.id === evt.placeId);
+                    return (
+                      <Box sx={{ display: "flex", gap: 0.5, mt: 0.5 }}>
+                        <Chip
+                          icon={<PlaceIcon sx={{ fontSize: 14 }} />}
+                          label={place?.name ?? evt.placeId.slice(0, 8)}
+                          size="small"
+                          variant="outlined"
+                          color="default"
+                          sx={{ height: 22, fontSize: "0.75rem" }}
+                        />
                       </Box>
                     );
                   })()}
@@ -582,6 +626,18 @@ export default function EventListPage() {
             multiline
             rows={4}
             required
+          />
+
+          <Autocomplete
+            size="small"
+            options={places ?? []}
+            getOptionLabel={(o) => o.name}
+            value={places?.find((p) => p.id === placeId) ?? null}
+            onChange={(_, v) => setPlaceId(v?.id ?? null)}
+            renderInput={(params) => (
+              <TextField {...params} label="发生地点" placeholder="选择地点（可选）" />
+            )}
+            isOptionEqualToValue={(opt, val) => opt.id === val.id}
           />
 
           {/* Participants & attribute changes */}

@@ -24,8 +24,8 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import { useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   useThings,
   useCreateThing,
@@ -54,6 +54,8 @@ function getAncestorChain(nodeId: string, nodeMap: Map<string, TaxonomyNode>): T
 export default function ThingListPage() {
   const { worldId } = useParams<{ worldId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const scrolledRef = useRef(false);
   const { data: things, isLoading } = useThings(worldId);
   const { data: thingNodes } = useTaxonomyTree(worldId, "THING");
   const createThing = useCreateThing(worldId!);
@@ -95,6 +97,22 @@ export default function ThingListPage() {
     for (const n of thingNodes ?? []) map.set(n.id, n);
     return map;
   }, [thingNodes]);
+
+  // Scroll to entity by hash
+  useEffect(() => {
+    if (scrolledRef.current || !things?.length) return;
+    const hash = location.hash.slice(1);
+    if (!hash) return;
+    const el = document.getElementById(hash);
+    if (el) {
+      scrolledRef.current = true;
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.style.outline = "2px solid";
+      el.style.outlineColor = "var(--mui-palette-primary-main, #1976d2)";
+      el.style.borderRadius = "8px";
+      setTimeout(() => { el.style.outline = "none"; }, 2000);
+    }
+  }, [location.hash, things]);
 
   const openCreate = () => {
     setEditingThing(null);
@@ -197,7 +215,7 @@ export default function ThingListPage() {
             const chain = getAncestorChain(thing.categoryNodeId, nodeMap);
             return (
               <Grid size={{ xs: 12, sm: 6, md: 4 }} key={thing.id}>
-                <Card>
+                <Card id={thing.id}>
                   <CardContent>
                     <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
                       <Typography variant="subtitle1" fontWeight="bold" sx={{ flex: 1 }}>
@@ -246,7 +264,8 @@ export default function ThingListPage() {
                             size="small"
                             color="success"
                             variant="outlined"
-                            sx={{ height: 22, fontSize: "0.75rem" }}
+                            sx={{ height: 22, fontSize: "0.75rem", cursor: "pointer" }}
+                            onClick={() => navigate(`/worlds/${worldId}/events#${birth.id}`)}
                           />
                         ) : null;
                       })()}
@@ -258,7 +277,8 @@ export default function ThingListPage() {
                             size="small"
                             color="error"
                             variant="outlined"
-                            sx={{ height: 22, fontSize: "0.75rem" }}
+                            sx={{ height: 22, fontSize: "0.75rem", cursor: "pointer" }}
+                            onClick={() => navigate(`/worlds/${worldId}/events#${thing.endEventId}`)}
                           />
                           <Tooltip title="撤销消亡">
                             <IconButton

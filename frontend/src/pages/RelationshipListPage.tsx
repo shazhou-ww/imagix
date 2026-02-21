@@ -24,8 +24,8 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import { useCallback, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   useRelationships,
   useCreateRelationship,
@@ -44,6 +44,9 @@ import { parseEpochMs } from "@/utils/time";
 
 export default function RelationshipListPage() {
   const { worldId } = useParams<{ worldId: string }>();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const scrolledRef = useRef(false);
   const { data: relationships, isLoading } = useRelationships(worldId);
   const { data: relNodes } = useTaxonomyTree(worldId, "REL");
   const { data: characters } = useCharacters(worldId);
@@ -147,6 +150,22 @@ export default function RelationshipListPage() {
     return map;
   }, [characters, things]);
 
+  // Scroll to entity by hash
+  useEffect(() => {
+    if (scrolledRef.current || !relationships?.length) return;
+    const hash = location.hash.slice(1);
+    if (!hash) return;
+    const el = document.getElementById(hash);
+    if (el) {
+      scrolledRef.current = true;
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.style.outline = "2px solid";
+      el.style.outlineColor = "var(--mui-palette-primary-main, #1976d2)";
+      el.style.borderRadius = "8px";
+      setTimeout(() => { el.style.outline = "none"; }, 2000);
+    }
+  }, [location.hash, relationships]);
+
   const openCreate = () => {
     setTypeNodeId("");
     setFromId("");
@@ -239,7 +258,7 @@ export default function RelationshipListPage() {
             const typeNode = relNodeMap.get(rel.typeNodeId);
             return (
               <Grid size={{ xs: 12, sm: 6 }} key={rel.id}>
-                <Card>
+                <Card id={rel.id}>
                   <CardContent>
                     <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
                       <Chip label={typeNode?.name ?? "未知类型"} size="small" color="primary" />
@@ -270,7 +289,8 @@ export default function RelationshipListPage() {
                             size="small"
                             color="success"
                             variant="outlined"
-                            sx={{ height: 22, fontSize: "0.75rem" }}
+                            sx={{ height: 22, fontSize: "0.75rem", cursor: "pointer" }}
+                            onClick={() => navigate(`/worlds/${worldId}/events#${birth.id}`)}
                           />
                         ) : null;
                       })()}
@@ -282,7 +302,8 @@ export default function RelationshipListPage() {
                             size="small"
                             color="error"
                             variant="outlined"
-                            sx={{ height: 22, fontSize: "0.75rem" }}
+                            sx={{ height: 22, fontSize: "0.75rem", cursor: "pointer" }}
+                            onClick={() => navigate(`/worlds/${worldId}/events#${rel.endEventId}`)}
                           />
                           <Tooltip title="撤销解除">
                             <IconButton

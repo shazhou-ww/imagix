@@ -7,18 +7,22 @@ import CategoryIcon from "@mui/icons-material/Category";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import LinkIcon from "@mui/icons-material/Link";
-import LogoutIcon from "@mui/icons-material/Logout";
 import MenuIcon from "@mui/icons-material/Menu";
+import NoteAddIcon from "@mui/icons-material/NoteAdd";
 import PersonIcon from "@mui/icons-material/Person";
 import PlaceIcon from "@mui/icons-material/Place";
 import PublicIcon from "@mui/icons-material/Public";
 import SettingsIcon from "@mui/icons-material/Settings";
 import TimelineIcon from "@mui/icons-material/Timeline";
+import TuneIcon from "@mui/icons-material/Tune";
 import {
   AppBar,
   Avatar,
   Box,
   Button,
+  Card,
+  CardActionArea,
+  CardContent,
   Collapse,
   Dialog,
   DialogActions,
@@ -26,6 +30,7 @@ import {
   DialogTitle,
   Divider,
   Drawer,
+  Grid,
   IconButton,
   List,
   ListItemButton,
@@ -41,6 +46,8 @@ import { type ReactNode, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/auth/AuthContext";
 import { useCreateWorld, useWorlds } from "@/api/hooks/useWorlds";
+import { useTemplates, useCreateWorldFromTemplate } from "@/api/hooks/useTemplates";
+import type { WorldTemplate } from "@imagix/shared";
 
 const DRAWER_WIDTH = 240;
 
@@ -78,6 +85,244 @@ function getWorldNavItems(worldId: string): NavItem[] {
   ];
 }
 
+// ---------------------------------------------------------------------------
+// Create World Dialog — two-step: template selection → detail form
+// ---------------------------------------------------------------------------
+
+function CreateWorldDialog({
+  open,
+  onClose,
+  onCreated,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onCreated: (worldId: string) => void;
+}) {
+  const { data: templates } = useTemplates();
+  const createWorld = useCreateWorld();
+  const createWorldFromTemplate = useCreateWorldFromTemplate();
+
+  const [step, setStep] = useState<"select" | "details">("select");
+  const [selectedTemplate, setSelectedTemplate] = useState<WorldTemplate | null>(null);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [epoch, setEpoch] = useState("");
+
+  const reset = () => {
+    setStep("select");
+    setSelectedTemplate(null);
+    setName("");
+    setDescription("");
+    setEpoch("");
+  };
+
+  const handleClose = () => {
+    onClose();
+    setTimeout(reset, 200);
+  };
+
+  const handleSelectEmpty = () => {
+    setSelectedTemplate(null);
+    setName("");
+    setDescription("");
+    setEpoch("");
+    setStep("details");
+  };
+
+  const handleSelectTemplate = (tpl: WorldTemplate) => {
+    setSelectedTemplate(tpl);
+    setName(tpl.snapshot.world.name);
+    setDescription(tpl.snapshot.world.description);
+    setEpoch(tpl.snapshot.world.epoch);
+    setStep("details");
+  };
+
+  const handleCreate = () => {
+    if (selectedTemplate) {
+      createWorldFromTemplate.mutate(
+        {
+          templateId: selectedTemplate.id,
+          body: {
+            name: name.trim() || undefined,
+            description: description.trim() || undefined,
+            epoch: epoch.trim() || undefined,
+          },
+        },
+        { onSuccess: (world) => { handleClose(); onCreated(world.id); } },
+      );
+    } else {
+      if (!name.trim() || !epoch.trim()) return;
+      createWorld.mutate(
+        { name: name.trim(), description: description.trim() || undefined, epoch: epoch.trim() },
+        { onSuccess: (world) => { handleClose(); onCreated(world.id); } },
+      );
+    }
+  };
+
+  const isPending = createWorld.isPending || createWorldFromTemplate.isPending;
+  const userTemplates = templates ?? [];
+
+  return (
+    <Dialog
+      open={open}
+      onClose={handleClose}
+      maxWidth={step === "select" ? "md" : "sm"}
+      fullWidth
+      TransitionProps={{ onExited: reset }}
+    >
+      {step === "select" ? (
+        <>
+          <DialogTitle>选择模板</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              选择一个模板快速开始，或从空白世界创建。模板可在用户设置中管理。
+            </Typography>
+            <Grid container spacing={2}>
+              {/* Empty world card */}
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                <Card
+                  variant="outlined"
+                  sx={{
+                    height: "100%",
+                    borderStyle: "dashed",
+                    borderColor: "primary.main",
+                    "&:hover": { borderColor: "primary.dark", bgcolor: "action.hover" },
+                  }}
+                >
+                  <CardActionArea onClick={handleSelectEmpty} sx={{ height: "100%" }}>
+                    <CardContent
+                      sx={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        py: 4,
+                      }}
+                    >
+                      <NoteAddIcon sx={{ fontSize: 40, color: "primary.main", mb: 1 }} />
+                      <Typography variant="subtitle1" fontWeight="bold">
+                        空白世界
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        从零开始构建
+                      </Typography>
+                    </CardContent>
+                  </CardActionArea>
+                </Card>
+              </Grid>
+
+              {/* User templates */}
+              {userTemplates.map((tpl) => (
+                <Grid size={{ xs: 12, sm: 6, md: 4 }} key={tpl.id}>
+                  <Card
+                    variant="outlined"
+                    sx={{
+                      height: "100%",
+                      "&:hover": { borderColor: "primary.main", bgcolor: "action.hover" },
+                    }}
+                  >
+                    <CardActionArea
+                      onClick={() => handleSelectTemplate(tpl)}
+                      sx={{ height: "100%" }}
+                    >
+                      <CardContent>
+                        <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                          {tpl.name}
+                        </Typography>
+                        {tpl.description && (
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              display: "-webkit-box",
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: "vertical",
+                              mb: 1,
+                            }}
+                          >
+                            {tpl.description}
+                          </Typography>
+                        )}
+                        <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+                          <Typography variant="caption" color="text.secondary">
+                            分类: {tpl.snapshot.taxonomy.length}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            属性: {tpl.snapshot.attributeDefinitions.length}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            地点: {tpl.snapshot.places.length}
+                          </Typography>
+                        </Box>
+                      </CardContent>
+                    </CardActionArea>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleClose}>取消</Button>
+          </DialogActions>
+        </>
+      ) : (
+        <>
+          <DialogTitle>
+            {selectedTemplate ? `基于「${selectedTemplate.name}」创建世界` : "创建空白世界"}
+          </DialogTitle>
+          <DialogContent
+            sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}
+          >
+            <TextField
+              label="世界名称"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              autoFocus
+              required
+            />
+            <TextField
+              label="世界描述"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              multiline
+              rows={3}
+            />
+            <TextField
+              label="纪元描述"
+              value={epoch}
+              onChange={(e) => setEpoch(e.target.value)}
+              required={!selectedTemplate}
+              helperText="定义世界的时间原点（t=0），如「盘古开天辟地」。创建后会自动生成纪元事件。"
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setStep("select")} disabled={isPending}>
+              返回
+            </Button>
+            <Box sx={{ flex: 1 }} />
+            <Button onClick={handleClose} disabled={isPending}>
+              取消
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleCreate}
+              disabled={isPending || (!selectedTemplate && (!name.trim() || !epoch.trim()))}
+            >
+              创建
+            </Button>
+          </DialogActions>
+        </>
+      )}
+    </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main layout
+// ---------------------------------------------------------------------------
+
 export default function AppLayout({ children }: { children: ReactNode }) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
@@ -87,36 +332,21 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   // Extract worldId from pathname since AppLayout wraps <Routes> and isn't inside a :worldId route
   const worldIdMatch = location.pathname.match(/^\/worlds\/([^/]+)/);
   const worldId = worldIdMatch?.[1];
-  const { authState, signOut } = useAuth();
+  const { authState } = useAuth();
   const { data: worlds } = useWorlds();
-  const createWorld = useCreateWorld();
 
   // Create world dialog state
   const [createOpen, setCreateOpen] = useState(false);
-  const [newName, setNewName] = useState("");
-  const [newDesc, setNewDesc] = useState("");
-  const [newEpoch, setNewEpoch] = useState("");
-
-  const handleCreateWorld = () => {
-    if (!newName.trim() || !newEpoch.trim()) return;
-    createWorld.mutate(
-      { name: newName.trim(), description: newDesc.trim() || undefined, epoch: newEpoch.trim() },
-      {
-        onSuccess: (world) => {
-          setCreateOpen(false);
-          setNewName("");
-          setNewDesc("");
-          setNewEpoch("");
-          navigate(`/worlds/${world.id}`);
-        },
-      },
-    );
-  };
 
   const handleNav = (path: string) => {
     navigate(path);
     if (isMobile) setMobileOpen(false);
   };
+
+  const username =
+    authState.status === "authenticated"
+      ? authState.displayName
+      : "";
 
   const drawerContent = (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
@@ -135,6 +365,17 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
       {/* World list + sub-nav */}
       <List sx={{ flex: 1, px: 1, overflowY: "auto" }}>
+        {/* Create world button */}
+        <Button
+          size="small"
+          startIcon={<AddIcon />}
+          onClick={() => setCreateOpen(true)}
+          sx={{ mb: 1, ml: 1, justifyContent: "flex-start", textTransform: "none" }}
+          fullWidth
+        >
+          创建世界
+        </Button>
+
         {(worlds ?? []).map((world) => {
           const isActive = worldId === world.id;
           const basePath = `/worlds/${world.id}`;
@@ -180,27 +421,24 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           );
         })}
 
-        {/* Create world button */}
-        <Button
-          size="small"
-          startIcon={<AddIcon />}
-          onClick={() => setCreateOpen(true)}
-          sx={{ mt: 1, ml: 1, justifyContent: "flex-start", textTransform: "none" }}
-          fullWidth
-        >
-          创建世界
-        </Button>
       </List>
 
-      {/* User / Sign out */}
+      {/* User settings */}
       <Divider />
       <List sx={{ px: 1 }}>
         {authState.status === "authenticated" && (
-          <ListItemButton onClick={() => signOut()} sx={{ borderRadius: 2 }}>
+          <ListItemButton
+            selected={location.pathname === "/settings"}
+            onClick={() => handleNav("/settings")}
+            sx={{ borderRadius: 2 }}
+          >
             <ListItemIcon>
-              <LogoutIcon />
+              <TuneIcon />
             </ListItemIcon>
-            <ListItemText primary="退出登录" />
+            <ListItemText
+              primary={username}
+              primaryTypographyProps={{ noWrap: true, fontSize: "0.9rem" }}
+            />
           </ListItemButton>
         )}
       </List>
@@ -247,7 +485,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                 fontSize: 14,
               }}
             >
-              {(authState.user.username ?? "U")[0].toUpperCase()}
+              {(username || "U")[0].toUpperCase()}
             </Avatar>
           )}
         </Toolbar>
@@ -298,43 +536,12 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         {children}
       </Box>
 
-      {/* Create World Dialog */}
-      <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>创建世界</DialogTitle>
-        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}>
-          <TextField
-            label="世界名称"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            autoFocus
-            required
-          />
-          <TextField
-            label="世界描述"
-            value={newDesc}
-            onChange={(e) => setNewDesc(e.target.value)}
-            multiline
-            rows={3}
-          />
-          <TextField
-            label="纪元描述"
-            value={newEpoch}
-            onChange={(e) => setNewEpoch(e.target.value)}
-            required
-            helperText="定义世界的时间原点（t=0），如「盘古开天辟地」。创建后会自动生成纪元事件。"
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCreateOpen(false)}>取消</Button>
-          <Button
-            variant="contained"
-            onClick={handleCreateWorld}
-            disabled={!newName.trim() || !newEpoch.trim() || createWorld.isPending}
-          >
-            创建
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {/* Create World Dialog — two-step */}
+      <CreateWorldDialog
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={(id) => navigate(`/worlds/${id}`)}
+      />
     </Box>
   );
 }

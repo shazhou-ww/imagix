@@ -1,16 +1,19 @@
-import type { Story, Chapter } from "@imagix/shared";
+import type { Story, Chapter, Plot } from "@imagix/shared";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
 import SearchIcon from "@mui/icons-material/Search";
+import VisibilityIcon from "@mui/icons-material/Visibility";
 import {
   Accordion,
   AccordionDetails,
   AccordionSummary,
+  Autocomplete,
   Box,
   Button,
+  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -18,9 +21,6 @@ import {
   DialogTitle,
   IconButton,
   InputAdornment,
-  List,
-  ListItem,
-  ListItemText,
   TextField,
   Tooltip,
   Typography,
@@ -35,9 +35,317 @@ import {
   useChapters,
   useCreateChapter,
   useDeleteChapter,
+  usePlots,
+  useCreatePlot,
+  useUpdatePlot,
+  useDeletePlot,
 } from "@/api/hooks/useStories";
+import { useEvents } from "@/api/hooks/useEvents";
+import { useCharacters } from "@/api/hooks/useCharacters";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import EmptyState from "@/components/EmptyState";
+
+// ---------------------------------------------------------------------------
+// Plot viewer / editor for a single plot
+// ---------------------------------------------------------------------------
+
+function PlotItem({
+  plot,
+  storyId,
+  eventName,
+  characterName,
+}: {
+  plot: Plot;
+  storyId: string;
+  eventName: string;
+  characterName: string;
+}) {
+  const updatePlot = useUpdatePlot(storyId);
+  const deletePlot = useDeletePlot(storyId);
+  const [viewing, setViewing] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [style, setStyle] = useState(plot.style);
+  const [content, setContent] = useState(plot.content);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+
+  const openEdit = () => {
+    setStyle(plot.style);
+    setContent(plot.content);
+    setEditing(true);
+  };
+
+  const handleSave = () => {
+    updatePlot.mutate(
+      { plotId: plot.id, body: { style: style.trim(), content: content.trim() } },
+      { onSuccess: () => setEditing(false) },
+    );
+  };
+
+  return (
+    <Box
+      sx={{
+        p: 1.5,
+        border: 1,
+        borderColor: "divider",
+        borderRadius: 1,
+        bgcolor: "background.paper",
+      }}
+    >
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
+        <Chip label={eventName} size="small" variant="outlined" />
+        <Chip
+          label={characterName}
+          size="small"
+          color="primary"
+          variant="outlined"
+        />
+        {plot.style && (
+          <Chip label={plot.style} size="small" variant="outlined" color="secondary" />
+        )}
+        <Box sx={{ flex: 1 }} />
+        <Tooltip title="查看内容">
+          <IconButton size="small" onClick={() => setViewing(true)}>
+            <VisibilityIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="编辑">
+          <IconButton size="small" onClick={openEdit}>
+            <EditIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="删除">
+          <IconButton size="small" color="error" onClick={() => setDeleteConfirm(true)}>
+            <DeleteIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      </Box>
+      {plot.content && (
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+          }}
+        >
+          {plot.content}
+        </Typography>
+      )}
+
+      {/* View dialog */}
+      <Dialog open={viewing} onClose={() => setViewing(false)} maxWidth="md" fullWidth>
+        <DialogTitle>
+          情节 — {eventName}
+          {plot.style && ` · ${plot.style}`}
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            视角: {characterName}
+          </Typography>
+          <Typography variant="body1" sx={{ whiteSpace: "pre-wrap" }}>
+            {plot.content || "（暂无内容）"}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setViewing(false)}>关闭</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit dialog */}
+      <Dialog open={editing} onClose={() => setEditing(false)} maxWidth="md" fullWidth>
+        <DialogTitle>编辑情节</DialogTitle>
+        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}>
+          <TextField label="文风" value={style} onChange={(e) => setStyle(e.target.value)} />
+          <TextField
+            label="内容"
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            multiline
+            rows={10}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditing(false)}>取消</Button>
+          <Button variant="contained" onClick={handleSave} disabled={updatePlot.isPending}>
+            保存
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete confirm */}
+      <ConfirmDialog
+        open={deleteConfirm}
+        title="删除情节"
+        message="确定要删除此情节吗？"
+        onConfirm={() => deletePlot.mutate(plot.id, { onSuccess: () => setDeleteConfirm(false) })}
+        onClose={() => setDeleteConfirm(false)}
+      />
+    </Box>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Chapter with its plots
+// ---------------------------------------------------------------------------
+
+function ChapterPlots({
+  chapter,
+  story,
+  worldId,
+}: {
+  chapter: Chapter;
+  story: Story;
+  worldId: string;
+}) {
+  const { data: allPlots } = usePlots(story.id);
+  const { data: events } = useEvents(worldId);
+  const { data: characters } = useCharacters(worldId);
+  const createPlot = useCreatePlot(story.id, chapter.id);
+
+  const [addOpen, setAddOpen] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<{ id: string; label: string } | null>(null);
+  const [selectedChar, setSelectedChar] = useState<{ id: string; name: string } | null>(null);
+  const [plotStyle, setPlotStyle] = useState("");
+  const [plotContent, setPlotContent] = useState("");
+
+  const chapterPlots = useMemo(
+    () => (allPlots ?? []).filter((p) => p.chapterId === chapter.id),
+    [allPlots, chapter.id],
+  );
+
+  const eventMap = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const e of events ?? [])
+      m[e.id] = e.content.length > 40 ? `${e.content.slice(0, 40)}…` : e.content;
+    return m;
+  }, [events]);
+
+  const charMap = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const c of characters ?? []) m[c.id] = c.name;
+    return m;
+  }, [characters]);
+
+  const eventOptions = useMemo(
+    () =>
+      (events ?? []).map((e) => ({
+        id: e.id,
+        label: e.content.length > 60 ? `${e.content.slice(0, 60)}…` : e.content,
+      })),
+    [events],
+  );
+
+  const charOptions = useMemo(
+    () => (characters ?? []).map((c) => ({ id: c.id, name: c.name })),
+    [characters],
+  );
+
+  const handleAdd = () => {
+    if (!selectedEvent) return;
+    createPlot.mutate(
+      {
+        eventId: selectedEvent.id,
+        perspectiveCharacterId: selectedChar?.id ?? null,
+        style: plotStyle.trim() || undefined,
+        content: plotContent.trim() || undefined,
+      },
+      {
+        onSuccess: () => {
+          setAddOpen(false);
+          setSelectedEvent(null);
+          setSelectedChar(null);
+          setPlotStyle("");
+          setPlotContent("");
+        },
+      },
+    );
+  };
+
+  return (
+    <Box sx={{ pl: 2 }}>
+      {chapterPlots.length === 0 ? (
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          暂无情节
+        </Typography>
+      ) : (
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1, mb: 1 }}>
+          {chapterPlots.map((plot) => (
+            <PlotItem
+              key={plot.id}
+              plot={plot}
+              storyId={story.id}
+              eventName={eventMap[plot.eventId] ?? plot.eventId}
+              characterName={
+                plot.perspectiveCharacterId
+                  ? charMap[plot.perspectiveCharacterId] ?? "未知角色"
+                  : "上帝视角"
+              }
+            />
+          ))}
+        </Box>
+      )}
+
+      <Button size="small" startIcon={<AddIcon />} onClick={() => setAddOpen(true)}>
+        添加情节
+      </Button>
+
+      {/* Add plot dialog */}
+      <Dialog open={addOpen} onClose={() => setAddOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>添加情节</DialogTitle>
+        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}>
+          <Autocomplete
+            options={eventOptions}
+            getOptionLabel={(o) => o.label}
+            value={selectedEvent}
+            onChange={(_e, v) => setSelectedEvent(v)}
+            renderInput={(params) => (
+              <TextField {...params} label="关联事件" required />
+            )}
+          />
+          <Autocomplete
+            options={charOptions}
+            getOptionLabel={(o) => o.name}
+            value={selectedChar}
+            onChange={(_e, v) => setSelectedChar(v)}
+            renderInput={(params) => (
+              <TextField {...params} label="视角角色（可选，留空为上帝视角）" />
+            )}
+          />
+          <TextField
+            label="文风"
+            value={plotStyle}
+            onChange={(e) => setPlotStyle(e.target.value)}
+            helperText="如：武侠风、意识流、书信体等"
+          />
+          <TextField
+            label="内容"
+            value={plotContent}
+            onChange={(e) => setPlotContent(e.target.value)}
+            multiline
+            rows={6}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAddOpen(false)}>取消</Button>
+          <Button
+            variant="contained"
+            onClick={handleAdd}
+            disabled={!selectedEvent || createPlot.isPending}
+          >
+            创建
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Chapters list for a story (with expandable plots)
+// ---------------------------------------------------------------------------
 
 function StoryChapters({ story, worldId }: { story: Story; worldId: string }) {
   const { data: chapters, isLoading } = useChapters(story.id);
@@ -77,25 +385,39 @@ function StoryChapters({ story, worldId }: { story: Story; worldId: string }) {
           暂无章节
         </Typography>
       ) : (
-        <List dense disablePadding>
-          {chapters.map((ch) => (
-            <ListItem
-              key={ch.id}
-              secondaryAction={
+        chapters.map((ch) => (
+          <Accordion key={ch.id} variant="outlined" disableGutters sx={{ mb: 1 }}>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Box sx={{ display: "flex", alignItems: "center", flex: 1, mr: 2 }}>
+                <Typography fontWeight="bold" sx={{ flex: 1 }}>
+                  {ch.title}
+                </Typography>
+                <Chip
+                  label={`${ch.plotIds.length} 个情节`}
+                  size="small"
+                  variant="outlined"
+                  sx={{ mr: 1 }}
+                />
                 <Tooltip title="删除章节">
-                  <IconButton edge="end" size="small" color="error" onClick={() => setDeleteTarget(ch)}>
+                  <IconButton
+                    component="span"
+                    size="small"
+                    color="error"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDeleteTarget(ch);
+                    }}
+                  >
                     <DeleteIcon fontSize="small" />
                   </IconButton>
                 </Tooltip>
-              }
-            >
-              <ListItemText
-                primary={ch.title}
-                secondary={`情节: ${ch.plotIds.length} 个`}
-              />
-            </ListItem>
-          ))}
-        </List>
+              </Box>
+            </AccordionSummary>
+            <AccordionDetails>
+              <ChapterPlots chapter={ch} story={story} worldId={worldId} />
+            </AccordionDetails>
+          </Accordion>
+        ))
       )}
 
       {/* Add Chapter Dialog */}
@@ -256,6 +578,7 @@ export default function StoryListPage() {
                   </Typography>
                   <Tooltip title="编辑标题">
                     <IconButton
+                      component="span"
                       size="small"
                       onClick={(e) => {
                         e.stopPropagation();
@@ -267,6 +590,7 @@ export default function StoryListPage() {
                   </Tooltip>
                   <Tooltip title="删除故事">
                     <IconButton
+                      component="span"
                       size="small"
                       color="error"
                       onClick={(e) => {

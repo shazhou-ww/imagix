@@ -1,5 +1,6 @@
 import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
 import DownloadIcon from "@mui/icons-material/Download";
+import FileCopyIcon from "@mui/icons-material/FileCopy";
 import SaveIcon from "@mui/icons-material/Save";
 import UploadIcon from "@mui/icons-material/Upload";
 import {
@@ -7,6 +8,10 @@ import {
   Box,
   Button,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   Snackbar,
   TextField,
@@ -16,6 +21,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "@/api/client";
 import { useWorld, useDeleteWorld, useUpdateWorld } from "@/api/hooks/useWorlds";
+import { useSaveWorldAsTemplate } from "@/api/hooks/useTemplates";
 import ConfirmDialog from "@/components/ConfirmDialog";
 
 export default function WorldSettingsPage() {
@@ -40,6 +46,12 @@ export default function WorldSettingsPage() {
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
   const [snackMsg, setSnackMsg] = useState("");
+
+  // Save as template
+  const saveAsTemplate = useSaveWorldAsTemplate(worldId!);
+  const [templateOpen, setTemplateOpen] = useState(false);
+  const [tplName, setTplName] = useState("");
+  const [tplDesc, setTplDesc] = useState("");
 
   useEffect(() => {
     if (world) {
@@ -199,6 +211,29 @@ export default function WorldSettingsPage() {
 
         <Divider sx={{ my: 1 }} />
 
+        {/* Save as template */}
+        <Typography variant="h6" fontWeight="bold">
+          保存为模板
+        </Typography>
+        <Box>
+          <Button
+            variant="outlined"
+            startIcon={<FileCopyIcon />}
+            onClick={() => {
+              setTplName(world?.name ?? "");
+              setTplDesc(`基于「${world?.name}」创建的模板`);
+              setTemplateOpen(true);
+            }}
+          >
+            保存为模板
+          </Button>
+        </Box>
+        <Typography variant="body2" color="text.secondary">
+          将当前世界的结构设定（分类体系、属性定义、地点）保存为模板，以便快速创建类似的世界。
+        </Typography>
+
+        <Divider sx={{ my: 1 }} />
+
         {/* Danger zone */}
         <Typography variant="h6" fontWeight="bold" color="error">
           危险区域
@@ -262,6 +297,64 @@ export default function WorldSettingsPage() {
           {snackMsg || "世界设定已保存"}
         </Alert>
       </Snackbar>
+
+      {/* Save as template dialog */}
+      <Dialog
+        open={templateOpen}
+        onClose={() => setTemplateOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>保存为模板</DialogTitle>
+        <DialogContent
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+            pt: "8px !important",
+          }}
+        >
+          <TextField
+            label="模板名称"
+            value={tplName}
+            onChange={(e) => setTplName(e.target.value)}
+            autoFocus
+            required
+          />
+          <TextField
+            label="模板描述"
+            value={tplDesc}
+            onChange={(e) => setTplDesc(e.target.value)}
+            multiline
+            rows={3}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setTemplateOpen(false)}>取消</Button>
+          <Button
+            variant="contained"
+            disabled={!tplName.trim() || saveAsTemplate.isPending}
+            onClick={() => {
+              saveAsTemplate.mutate(
+                {
+                  name: tplName.trim(),
+                  description: tplDesc.trim() || undefined,
+                },
+                {
+                  onSuccess: () => {
+                    setTemplateOpen(false);
+                    setTplName("");
+                    setTplDesc("");
+                    setSnackMsg("已保存为模板");
+                  },
+                },
+              );
+            }}
+          >
+            保存
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

@@ -31,6 +31,7 @@ export const EntityPrefix = {
   Story: "sty",
   Chapter: "chp",
   Plot: "plt",
+  Template: "tpl",
 } as const;
 
 export type EntityPrefix = (typeof EntityPrefix)[keyof typeof EntityPrefix];

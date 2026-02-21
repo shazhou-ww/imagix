@@ -2,6 +2,7 @@ import type { AuthUser } from "aws-amplify/auth";
 import {
   signOut as amplifySignOut,
   getCurrentUser,
+  fetchAuthSession,
   signInWithRedirect,
 } from "aws-amplify/auth";
 import {
@@ -16,7 +17,7 @@ import {
 type AuthState =
   | { status: "loading" }
   | { status: "unauthenticated" }
-  | { status: "authenticated"; user: AuthUser };
+  | { status: "authenticated"; user: AuthUser; displayName: string };
 
 const AuthContext = createContext<{
   authState: AuthState;
@@ -41,7 +42,21 @@ export function AuthProvider({
     }
     try {
       const user = await getCurrentUser();
-      setAuthState({ status: "authenticated", user });
+      let displayName = user.username;
+      try {
+        const session = await fetchAuthSession();
+        const claims = session.tokens?.idToken?.payload;
+        if (claims) {
+          displayName =
+            (claims.name as string) ||
+            (claims.email as string) ||
+            (claims.preferred_username as string) ||
+            user.username;
+        }
+      } catch {
+        // session/token unavailable – fall back to username
+      }
+      setAuthState({ status: "authenticated", user, displayName });
     } catch {
       setAuthState({ status: "unauthenticated" });
     }

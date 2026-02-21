@@ -17,6 +17,7 @@ import chapterRoutes from "./routes/chapters.js";
 import { plotCreateListRoutes, plotCrudRoutes } from "./routes/plots.js";
 import stateRoutes from "./routes/state.js";
 import entityEventRoutes from "./routes/entity-events.js";
+import templateRoutes from "./routes/templates.js";
 
 const app = createApp();
 
@@ -25,6 +26,7 @@ app.get("/api/health", (c) =>
 );
 
 app.route("/api/worlds", worldRoutes);
+app.route("/api/templates", templateRoutes);
 app.route("/api/worlds/:worldId/taxonomy", taxonomyRoutes);
 app.route("/api/worlds/:worldId/attribute-definitions", attributeDefinitionRoutes);
 app.route("/api/worlds/:worldId/characters", characterRoutes);

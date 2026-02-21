@@ -222,3 +222,28 @@ export const EntityStateQuery = z.object({
 });
 
 export type EntityStateQuery = z.infer<typeof EntityStateQuery>;
+
+// ---------------------------------------------------------------------------
+// WorldTemplate
+// ---------------------------------------------------------------------------
+
+export const CreateTemplateBody = z.object({
+  name: z.string().min(1),
+  description: z.string().optional(),
+});
+export const UpdateTemplateBody = CreateTemplateBody.partial();
+
+export type CreateTemplateBody = z.infer<typeof CreateTemplateBody>;
+export type UpdateTemplateBody = z.infer<typeof UpdateTemplateBody>;
+
+/** 从模板创建世界时的请求体。可覆盖模板中的世界名称和纪元描述。 */
+export const CreateWorldFromTemplateBody = z.object({
+  /** 新世界名称。不提供则使用模板中的名称。 */
+  name: z.string().min(1).optional(),
+  /** 新世界描述。不提供则使用模板中的描述。 */
+  description: z.string().optional(),
+  /** 纪元描述覆盖。不提供则使用模板中的纪元。 */
+  epoch: z.string().min(1).optional(),
+});
+
+export type CreateWorldFromTemplateBody = z.infer<typeof CreateWorldFromTemplateBody>;

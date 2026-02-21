@@ -55,6 +55,10 @@ export const chpId = id.refine((v) =>
 export const pltId = id.refine((v) =>
   isValidIdWithPrefix(v, EntityPrefix.Plot),
 );
+/** 模板 ID */
+export const tplId = id.refine((v) =>
+  isValidIdWithPrefix(v, EntityPrefix.Template),
+);
 
 /** 任意实体 ID（不限定前缀），用于 from/to 等可指向多种实体的引用字段。 */
 export const entityId = id;
@@ -482,3 +486,54 @@ export const PlotSchema = z.object({
 });
 
 export type Plot = z.infer<typeof PlotSchema>;
+
+// ---------------------------------------------------------------------------
+// WorldTemplate — 世界模板
+// ---------------------------------------------------------------------------
+
+/**
+ * 世界模板快照 Schema。
+ * 保存世界结构数据的快照：世界设定、分类体系、属性定义、地点。
+ * 不包含角色、事物、关系、事件、故事等运行时数据。
+ */
+export const TemplateSnapshotSchema = z.object({
+  /** 世界基础设定。 */
+  world: z.object({
+    name: z.string(),
+    description: z.string().default(""),
+    settings: z.string().default(""),
+    epoch: z.string().default(""),
+  }),
+  /** 分类节点列表（CHAR / THING / REL 三棵树的全部节点）。 */
+  taxonomy: z.array(z.record(z.unknown())).default([]),
+  /** 属性定义列表。 */
+  attributeDefinitions: z.array(z.record(z.unknown())).default([]),
+  /** 地点列表。 */
+  places: z.array(z.record(z.unknown())).default([]),
+});
+
+/**
+ * 世界模板 Schema。
+ * 用户可以将某个世界保存为模板，也可以基于模板快速创建新世界。
+ */
+export const WorldTemplateSchema = z.object({
+  /** 模板唯一标识。 */
+  id: tplId,
+  /** 创建者的用户 ID。 */
+  userId: z.string(),
+  /** 模板名称。 */
+  name: z.string(),
+  /** 模板描述。 */
+  description: z.string().default(""),
+  /** 来源世界 ID（若从某个世界保存而来）。 */
+  sourceWorldId: wldId.optional(),
+  /** 世界结构快照。 */
+  snapshot: TemplateSnapshotSchema,
+  /** 创建时间。 */
+  createdAt: z.string(),
+  /** 最后更新时间。 */
+  updatedAt: z.string(),
+});
+
+export type TemplateSnapshot = z.infer<typeof TemplateSnapshotSchema>;
+export type WorldTemplate = z.infer<typeof WorldTemplateSchema>;

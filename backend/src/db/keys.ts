@@ -40,6 +40,9 @@ export const storyPk = (storyId: string) => `STORY#${storyId}`;
 export const chapterSk = (chapterId: string) => `CHAP#${chapterId}`;
 export const plotSk = (plotId: string) => `PLOT#${plotId}`;
 
+export const templatePk = (templateId: string) => `TEMPLATE#${templateId}`;
+export const templateSk = () => "#META";
+
 // ---------------------------------------------------------------------------
 // Denormalized entity keys
 // ---------------------------------------------------------------------------
@@ -77,4 +80,5 @@ export const PREFIX = {
   CHAP: "CHAP#",
   PLOT: "PLOT#",
   WORLD: "WORLD#",
+  TEMPLATE: "TEMPLATE#",
 } as const;

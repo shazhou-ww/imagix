@@ -20,6 +20,7 @@ import type {
   Story,
   Chapter,
   Plot,
+  WorldTemplate,
 } from "@imagix/shared";
 import { docClient, TABLE_NAME } from "./client.js";
 import {
@@ -42,6 +43,8 @@ import {
   relFromSk,
   relToSk,
   userGsi1pk,
+  templatePk,
+  templateSk,
   PREFIX,
 } from "./keys.js";
 
@@ -93,7 +96,11 @@ async function queryByPkPrefix(
   return res.Items ?? [];
 }
 
-async function queryGsi1(gsi1pk: string, skPrefix: string) {
+async function queryGsi1(
+  gsi1pk: string,
+  skPrefix: string,
+  scanForward = true,
+) {
   const res = await docClient.send(
     new QueryCommand({
       TableName: TABLE_NAME,
@@ -101,6 +108,7 @@ async function queryGsi1(gsi1pk: string, skPrefix: string) {
       KeyConditionExpression:
         "gsi1pk = :pk AND begins_with(gsi1sk, :prefix)",
       ExpressionAttributeValues: { ":pk": gsi1pk, ":prefix": skPrefix },
+      ScanIndexForward: scanForward,
     }),
   );
   return res.Items ?? [];
@@ -161,7 +169,7 @@ export async function getWorld(worldId: string) {
 }
 
 export async function listWorldsByUser(userId: string) {
-  return queryGsi1(userGsi1pk(userId), PREFIX.WORLD);
+  return queryGsi1(userGsi1pk(userId), PREFIX.WORLD, false);
 }
 
 export async function updateWorld(
@@ -698,6 +706,40 @@ export async function updatePlot(
 
 export async function deletePlot(storyId: string, plotId: string) {
   await del(storyPk(storyId), plotSk(plotId));
+}
+
+// ---------------------------------------------------------------------------
+// WorldTemplate
+// ---------------------------------------------------------------------------
+
+export async function putTemplate(template: WorldTemplate) {
+  const pk = templatePk(template.id);
+  await put({
+    pk,
+    sk: templateSk(),
+    gsi1pk: userGsi1pk(template.userId),
+    gsi1sk: `${PREFIX.TEMPLATE}${template.id}`,
+    ...template,
+  });
+}
+
+export async function getTemplate(templateId: string) {
+  return get(templatePk(templateId), templateSk());
+}
+
+export async function listTemplatesByUser(userId: string) {
+  return queryGsi1(userGsi1pk(userId), PREFIX.TEMPLATE);
+}
+
+export async function updateTemplate(
+  templateId: string,
+  fields: Record<string, unknown>,
+) {
+  await updateFields(templatePk(templateId), templateSk(), fields);
+}
+
+export async function deleteTemplate(templateId: string) {
+  await del(templatePk(templateId), templateSk());
 }
 
 // ---------------------------------------------------------------------------

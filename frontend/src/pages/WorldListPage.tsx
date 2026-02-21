@@ -1,5 +1,6 @@
 import AddIcon from "@mui/icons-material/Add";
 import {
+  Autocomplete,
   Box,
   Button,
   Card,
@@ -17,20 +18,26 @@ import {
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useCreateWorld, useWorlds } from "@/api/hooks/useWorlds";
+import { useTemplates, useCreateWorldFromTemplate } from "@/api/hooks/useTemplates";
+import type { WorldTemplate } from "@imagix/shared";
 import EmptyState from "@/components/EmptyState";
 
 export default function WorldListPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { data: worlds, isLoading } = useWorlds();
+  const { data: templates } = useTemplates();
   const createWorld = useCreateWorld();
+  const createWorldFromTemplate = useCreateWorldFromTemplate();
   const [dialogOpen, setDialogOpen] = useState(searchParams.get("create") === "1");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [epoch, setEpoch] = useState("");
+  const [selectedTemplate, setSelectedTemplate] = useState<WorldTemplate | null>(null);
 
   const closeDialog = () => {
     setDialogOpen(false);
+    setSelectedTemplate(null);
     // Clean up query param
     if (searchParams.has("create")) {
       searchParams.delete("create");
@@ -39,19 +46,42 @@ export default function WorldListPage() {
   };
 
   const handleCreate = () => {
-    if (!name.trim() || !epoch.trim()) return;
-    createWorld.mutate(
-      { name: name.trim(), description: description.trim() || undefined, epoch: epoch.trim() },
-      {
-        onSuccess: (world) => {
-          closeDialog();
-          setName("");
-          setDescription("");
-          setEpoch("");
-          navigate(`/worlds/${world.id}`);
+    if (selectedTemplate) {
+      // Create world from template
+      createWorldFromTemplate.mutate(
+        {
+          templateId: selectedTemplate.id,
+          body: {
+            name: name.trim() || undefined,
+            description: description.trim() || undefined,
+            epoch: epoch.trim() || undefined,
+          },
         },
-      },
-    );
+        {
+          onSuccess: (world) => {
+            closeDialog();
+            setName("");
+            setDescription("");
+            setEpoch("");
+            navigate(`/worlds/${world.id}`);
+          },
+        },
+      );
+    } else {
+      if (!name.trim() || !epoch.trim()) return;
+      createWorld.mutate(
+        { name: name.trim(), description: description.trim() || undefined, epoch: epoch.trim() },
+        {
+          onSuccess: (world) => {
+            closeDialog();
+            setName("");
+            setDescription("");
+            setEpoch("");
+            navigate(`/worlds/${world.id}`);
+          },
+        },
+      );
+    }
   };
 
   if (isLoading) {
@@ -152,6 +182,28 @@ export default function WorldListPage() {
             pt: "8px !important",
           }}
         >
+          {templates && templates.length > 0 && (
+            <Autocomplete
+              options={templates}
+              getOptionLabel={(option) => option.name}
+              value={selectedTemplate}
+              onChange={(_e, value) => {
+                setSelectedTemplate(value);
+                if (value) {
+                  setName(value.snapshot.world.name);
+                  setDescription(value.snapshot.world.description);
+                  setEpoch(value.snapshot.world.epoch);
+                }
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="基于模板（可选）"
+                  helperText="选择模板可自动填入世界设定、分类体系、属性定义和地点"
+                />
+              )}
+            />
+          )}
           <TextField
             label="世界名称"
             value={name}
@@ -170,7 +222,7 @@ export default function WorldListPage() {
             label="纪元描述"
             value={epoch}
             onChange={(e) => setEpoch(e.target.value)}
-            required
+            required={!selectedTemplate}
             helperText="定义世界的时间原点（t=0），如「盘古开天辟地」。创建后会自动生成纪元事件。"
           />
         </DialogContent>
@@ -179,7 +231,11 @@ export default function WorldListPage() {
           <Button
             variant="contained"
             onClick={handleCreate}
-            disabled={!name.trim() || !epoch.trim() || createWorld.isPending}
+            disabled={
+              selectedTemplate
+                ? createWorldFromTemplate.isPending
+                : !name.trim() || !epoch.trim() || createWorld.isPending
+            }
           >
             创建
           </Button>

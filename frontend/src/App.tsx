@@ -12,6 +12,7 @@ import PlaceListPage from "@/pages/PlaceListPage";
 import RelationshipListPage from "@/pages/RelationshipListPage";
 import StoryListPage from "@/pages/StoryListPage";
 import TaxonomyPage from "@/pages/TaxonomyPage";
+import UserSettingsPage from "@/pages/UserSettingsPage";
 import ThingListPage from "@/pages/ThingListPage";
 import WorldDashboardPage from "@/pages/WorldDashboardPage";
 import WorldSettingsPage from "@/pages/WorldSettingsPage";
@@ -64,6 +65,7 @@ function AuthenticatedRoutes() {
           element={<EventLinkPage />}
         />
         <Route path="/worlds/:worldId/stories" element={<StoryListPage />} />
+        <Route path="/settings" element={<UserSettingsPage />} />
         <Route path="*" element={<DefaultRedirect />} />
       </Routes>
     </AppLayout>

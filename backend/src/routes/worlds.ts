@@ -1,8 +1,9 @@
 import { Hono } from "hono";
-import { CreateWorldBody, UpdateWorldBody } from "@imagix/shared";
+import { CreateWorldBody, UpdateWorldBody, CreateTemplateBody } from "@imagix/shared";
 import type { AppEnv } from "../app.js";
 import { auth, p } from "../app.js";
 import * as ctrl from "../controllers/worlds.js";
+import * as templateCtrl from "../controllers/templates.js";
 
 const app = new Hono<AppEnv>()
   .use("*", auth)
@@ -36,6 +37,15 @@ const app = new Hono<AppEnv>()
     const body = await c.req.json();
     await ctrl.importWorld(p(c, "worldId"), body);
     return c.json({ ok: true });
+  })
+  .post("/:worldId/save-as-template", async (c) => {
+    const body = CreateTemplateBody.parse(await c.req.json());
+    const template = await templateCtrl.saveWorldAsTemplate(
+      c.get("userId"),
+      p(c, "worldId"),
+      body,
+    );
+    return c.json(template, 201);
   });
 
 export default app;

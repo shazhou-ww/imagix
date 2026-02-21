@@ -1,4 +1,3 @@
-import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import LogoutIcon from "@mui/icons-material/Logout";
@@ -24,7 +23,6 @@ import { useState } from "react";
 import { useAuth } from "@/auth/AuthContext";
 import {
   useTemplates,
-  useCreateTemplate,
   useDeleteTemplate,
   useUpdateTemplate,
 } from "@/api/hooks/useTemplates";
@@ -34,34 +32,14 @@ import EmptyState from "@/components/EmptyState";
 export default function UserSettingsPage() {
   const { authState, signOut } = useAuth();
   const { data: templates, isLoading } = useTemplates();
-  const createTemplate = useCreateTemplate();
   const deleteTemplate = useDeleteTemplate();
 
-  const [createOpen, setCreateOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-
-  // Create template form
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
 
   // Edit template form
   const [editName, setEditName] = useState("");
   const [editDesc, setEditDesc] = useState("");
-
-  const handleCreate = () => {
-    if (!name.trim()) return;
-    createTemplate.mutate(
-      { name: name.trim(), description: description.trim() || undefined },
-      {
-        onSuccess: () => {
-          setCreateOpen(false);
-          setName("");
-          setDescription("");
-        },
-      },
-    );
-  };
 
   const handleEdit = (id: string) => {
     const tpl = templates?.find((t) => t.id === id);
@@ -128,28 +106,11 @@ export default function UserSettingsPage() {
       <Divider sx={{ my: 3 }} />
 
       {/* Templates section */}
-      <Box
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          mb: 2,
-        }}
-      >
-        <Typography variant="h5" fontWeight="bold">
-          世界模板
-        </Typography>
-        <Button
-          variant="contained"
-          size="small"
-          startIcon={<AddIcon />}
-          onClick={() => setCreateOpen(true)}
-        >
-          创建模板
-        </Button>
-      </Box>
+      <Typography variant="h5" fontWeight="bold" sx={{ mb: 1 }}>
+        世界模板
+      </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        管理你的世界模板。你也可以在世界设定页面将某个世界保存为模板。创建新世界时可以选择模板快速开始。
+        在世界设定页面可将已有世界保存为模板。创建新世界时可以选择模板快速开始。
       </Typography>
 
       {isLoading ? (
@@ -159,12 +120,7 @@ export default function UserSettingsPage() {
       ) : !templates?.length ? (
         <EmptyState
           title="还没有模板"
-          description="你可以创建空模板，或在世界设定中将已有世界保存为模板"
-          action={
-            <Button variant="outlined" onClick={() => setCreateOpen(true)}>
-              创建模板
-            </Button>
-          }
+          description="在世界设定中将已有世界保存为模板，创建新世界时即可选择模板快速开始"
         />
       ) : (
         <Grid container spacing={2}>
@@ -228,39 +184,6 @@ export default function UserSettingsPage() {
           ))}
         </Grid>
       )}
-
-      {/* Create Template Dialog */}
-      <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>创建模板</DialogTitle>
-        <DialogContent
-          sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}
-        >
-          <TextField
-            label="模板名称"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            autoFocus
-            required
-          />
-          <TextField
-            label="模板描述"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            multiline
-            rows={3}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCreateOpen(false)}>取消</Button>
-          <Button
-            variant="contained"
-            onClick={handleCreate}
-            disabled={!name.trim() || createTemplate.isPending}
-          >
-            创建
-          </Button>
-        </DialogActions>
-      </Dialog>
 
       {/* Edit Template Dialog */}
       {editId && (

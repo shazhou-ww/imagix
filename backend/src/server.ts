@@ -28,6 +28,7 @@ import { plotCreateListRoutes, plotCrudRoutes } from "./routes/plots.js";
 import stateRoutes from "./routes/state.js";
 import entityEventRoutes from "./routes/entity-events.js";
 import templateRoutes from "./routes/templates.js";
+import mcpRoutes from "./mcp/index.js";
 
 const app = createApp();
 
@@ -65,6 +66,9 @@ app.route(
   "/api/worlds/:worldId/entities/:entityId/events",
   entityEventRoutes,
 );
+
+// MCP (Model Context Protocol) endpoint for AI agents
+app.route("/mcp", mcpRoutes);
 
 app.notFound((c) => {
   console.log("[404]", c.req.method, c.req.path, c.req.url);

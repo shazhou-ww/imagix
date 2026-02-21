@@ -4,6 +4,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import EventIcon from "@mui/icons-material/EventNote";
 import HighlightOffIcon from "@mui/icons-material/HighlightOff";
+import SearchIcon from "@mui/icons-material/Search";
 import UndoIcon from "@mui/icons-material/Undo";
 import {
   Alert,
@@ -19,6 +20,7 @@ import {
   DialogTitle,
   Grid,
   IconButton,
+  InputAdornment,
   MenuItem,
   TextField,
   Tooltip,
@@ -75,6 +77,11 @@ export default function ThingListPage() {
   const [endTime, setEndTime] = useState<number>(0);
   const [endContent, setEndContent] = useState("");
 
+  // Filter state
+  const [filterName, setFilterName] = useState("");
+  const [filterCategoryId, setFilterCategoryId] = useState("");
+  const [filterStatus, setFilterStatus] = useState<"all" | "alive" | "ended">("all");
+
   const birthEventMap = useMemo(() => {
     const map = new Map<string, WorldEvent>();
     for (const evt of events ?? []) {
@@ -97,6 +104,24 @@ export default function ThingListPage() {
     for (const n of thingNodes ?? []) map.set(n.id, n);
     return map;
   }, [thingNodes]);
+
+  // Filtered list
+  const filteredThings = useMemo(() => {
+    let result = things ?? [];
+    if (filterName.trim()) {
+      const q = filterName.trim().toLowerCase();
+      result = result.filter((t) => t.name.toLowerCase().includes(q));
+    }
+    if (filterCategoryId) {
+      const ids = new Set<string>();
+      const collect = (nid: string) => { ids.add(nid); for (const n of thingNodes ?? []) { if (n.parentId === nid) collect(n.id); } };
+      collect(filterCategoryId);
+      result = result.filter((t) => ids.has(t.categoryNodeId));
+    }
+    if (filterStatus === "alive") result = result.filter((t) => !t.endEventId);
+    else if (filterStatus === "ended") result = result.filter((t) => !!t.endEventId);
+    return result;
+  }, [things, filterName, filterCategoryId, filterStatus, thingNodes]);
 
   // Scroll to entity by hash
   useEffect(() => {
@@ -189,7 +214,7 @@ export default function ThingListPage() {
 
   return (
     <Box>
-      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 3 }}>
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
         <Typography variant="h4" fontWeight="bold">
           事物
         </Typography>
@@ -198,19 +223,61 @@ export default function ThingListPage() {
         </Button>
       </Box>
 
-      {!things?.length ? (
+      {(things?.length ?? 0) > 0 && (
+        <Box sx={{ display: "flex", gap: 2, mb: 2, flexWrap: "wrap" }}>
+          <TextField
+            size="small"
+            placeholder="搜索事物"
+            value={filterName}
+            onChange={(e) => setFilterName(e.target.value)}
+            slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> } }}
+            sx={{ minWidth: 180 }}
+          />
+          <TextField
+            size="small"
+            select
+            label="分类"
+            value={filterCategoryId}
+            onChange={(e) => setFilterCategoryId(e.target.value)}
+            sx={{ minWidth: 150 }}
+            slotProps={{ inputLabel: { htmlFor: undefined } }}
+          >
+            <MenuItem value="">全部</MenuItem>
+            {(thingNodes ?? []).map((n) => (
+              <MenuItem key={n.id} value={n.id}>{n.name}</MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            size="small"
+            select
+            label="状态"
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value as "all" | "alive" | "ended")}
+            sx={{ minWidth: 120 }}
+            slotProps={{ inputLabel: { htmlFor: undefined } }}
+          >
+            <MenuItem value="all">全部</MenuItem>
+            <MenuItem value="alive">存续中</MenuItem>
+            <MenuItem value="ended">已消亡</MenuItem>
+          </TextField>
+        </Box>
+      )}
+
+      {!filteredThings.length ? (
         <EmptyState
-          title="暂无事物"
-          description="先在分类体系中定义事物分类，然后添加事物"
+          title={things?.length ? "无匹配事物" : "暂无事物"}
+          description={things?.length ? "尝试调整筛选条件" : "先在分类体系中定义事物分类，然后添加事物"}
           action={
-            <Button variant="outlined" onClick={openCreate}>
-              添加事物
-            </Button>
+            things?.length ? (
+              <Button variant="outlined" onClick={() => { setFilterName(""); setFilterCategoryId(""); setFilterStatus("all"); }}>清除筛选</Button>
+            ) : (
+              <Button variant="outlined" onClick={openCreate}>添加事物</Button>
+            )
           }
         />
       ) : (
         <Grid container spacing={2}>
-          {things.map((thing) => {
+          {filteredThings.map((thing) => {
             const node = nodeMap.get(thing.categoryNodeId);
             const chain = getAncestorChain(thing.categoryNodeId, nodeMap);
             return (

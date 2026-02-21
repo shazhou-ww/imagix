@@ -2,6 +2,7 @@ import type { AttributeDefinition } from "@imagix/shared";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
+import SearchIcon from "@mui/icons-material/Search";
 import {
   Box,
   Button,
@@ -15,12 +16,13 @@ import {
   DialogTitle,
   Grid,
   IconButton,
+  InputAdornment,
   MenuItem,
   TextField,
   Tooltip,
   Typography,
 } from "@mui/material";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
   useAttributeDefinitions,
@@ -64,6 +66,23 @@ export default function AttributeDefinitionPage() {
   const [enumValues, setEnumValues] = useState<string[]>([]);
   const [newEnumValue, setNewEnumValue] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<AttributeDefinition | null>(null);
+
+  // Filter state
+  const [filterName, setFilterName] = useState("");
+  const [filterType, setFilterType] = useState("");
+
+  // Filtered list
+  const filteredAttrs = useMemo(() => {
+    let result = attrs ?? [];
+    if (filterName.trim()) {
+      const q = filterName.trim().toLowerCase();
+      result = result.filter((a) => a.name.toLowerCase().includes(q));
+    }
+    if (filterType) {
+      result = result.filter((a) => a.type === filterType);
+    }
+    return result;
+  }, [attrs, filterName, filterType]);
 
   const openCreate = () => {
     setEditing(null);
@@ -125,7 +144,7 @@ export default function AttributeDefinitionPage() {
 
   return (
     <Box>
-      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 3 }}>
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
         <Box>
           <Typography variant="h4" fontWeight="bold">
             属性词典
@@ -139,19 +158,48 @@ export default function AttributeDefinitionPage() {
         </Button>
       </Box>
 
-      {!attrs?.length ? (
+      {(attrs?.length ?? 0) > 0 && (
+        <Box sx={{ display: "flex", gap: 2, mb: 2, flexWrap: "wrap" }}>
+          <TextField
+            size="small"
+            placeholder="搜索属性"
+            value={filterName}
+            onChange={(e) => setFilterName(e.target.value)}
+            slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> } }}
+            sx={{ minWidth: 180 }}
+          />
+          <TextField
+            size="small"
+            select
+            label="类型"
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value)}
+            sx={{ minWidth: 120 }}
+            slotProps={{ inputLabel: { htmlFor: undefined } }}
+          >
+            <MenuItem value="">全部</MenuItem>
+            {TYPE_OPTIONS.map((o) => (
+              <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
+            ))}
+          </TextField>
+        </Box>
+      )}
+
+      {!filteredAttrs.length ? (
         <EmptyState
-          title="暂无属性定义"
-          description="添加属性定义来统一世界中的术语，如「修为境界」「灵根」「攻击力」等"
+          title={attrs?.length ? "无匹配属性" : "暂无属性定义"}
+          description={attrs?.length ? "尝试调整筛选条件" : "添加属性定义来统一世界中的术语，如「修为境界」「灵根」「攻击力」等"}
           action={
-            <Button variant="outlined" onClick={openCreate}>
-              添加属性
-            </Button>
+            attrs?.length ? (
+              <Button variant="outlined" onClick={() => { setFilterName(""); setFilterType(""); }}>清除筛选</Button>
+            ) : (
+              <Button variant="outlined" onClick={openCreate}>添加属性</Button>
+            )
           }
         />
       ) : (
         <Grid container spacing={2}>
-          {attrs.map((attr) => (
+          {filteredAttrs.map((attr) => (
             <Grid size={{ xs: 12, sm: 6, md: 4 }} key={attr.id}>
               <Card sx={{ height: 140, display: "flex", flexDirection: "column" }}>
                 <CardContent sx={{ flex: 1, overflow: "hidden" }}>

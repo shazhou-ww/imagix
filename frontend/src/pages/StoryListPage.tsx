@@ -4,6 +4,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
+import SearchIcon from "@mui/icons-material/Search";
 import {
   Accordion,
   AccordionDetails,
@@ -16,6 +17,7 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
+  InputAdornment,
   List,
   ListItem,
   ListItemText,
@@ -23,7 +25,7 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
   useStories,
@@ -151,6 +153,16 @@ export default function StoryListPage() {
   const [title, setTitle] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<Story | null>(null);
 
+  // Filter state
+  const [filterTitle, setFilterTitle] = useState("");
+
+  // Filtered list
+  const filteredStories = useMemo(() => {
+    if (!filterTitle.trim()) return stories ?? [];
+    const q = filterTitle.trim().toLowerCase();
+    return (stories ?? []).filter((s) => s.title.toLowerCase().includes(q));
+  }, [stories, filterTitle]);
+
   const openCreate = () => {
     setEditingStory(null);
     setTitle("");
@@ -195,7 +207,7 @@ export default function StoryListPage() {
 
   return (
     <Box>
-      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 3 }}>
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
         <Typography variant="h4" fontWeight="bold">
           故事
         </Typography>
@@ -204,19 +216,34 @@ export default function StoryListPage() {
         </Button>
       </Box>
 
-      {!stories?.length ? (
+      {(stories?.length ?? 0) > 0 && (
+        <Box sx={{ display: "flex", gap: 2, mb: 2, flexWrap: "wrap" }}>
+          <TextField
+            size="small"
+            placeholder="搜索故事"
+            value={filterTitle}
+            onChange={(e) => setFilterTitle(e.target.value)}
+            slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> } }}
+            sx={{ minWidth: 220 }}
+          />
+        </Box>
+      )}
+
+      {!filteredStories.length ? (
         <EmptyState
-          title="暂无故事"
-          description="创建故事，用章节和情节将世界事件编织成叙事"
+          title={stories?.length ? "无匹配故事" : "暂无故事"}
+          description={stories?.length ? "尝试调整搜索关键词" : "创建故事，用章节和情节将世界事件编织成叙事"}
           action={
-            <Button variant="outlined" onClick={openCreate}>
-              创建故事
-            </Button>
+            stories?.length ? (
+              <Button variant="outlined" onClick={() => setFilterTitle("")}>清除搜索</Button>
+            ) : (
+              <Button variant="outlined" onClick={openCreate}>创建故事</Button>
+            )
           }
         />
       ) : (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          {stories.map((story) => (
+          {filteredStories.map((story) => (
             <Accordion key={story.id} defaultExpanded={false}>
               <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                 <Box sx={{ display: "flex", alignItems: "center", flex: 1, mr: 2 }}>

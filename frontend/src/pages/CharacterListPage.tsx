@@ -4,6 +4,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import EventIcon from "@mui/icons-material/EventNote";
 import HighlightOffIcon from "@mui/icons-material/HighlightOff";
+import SearchIcon from "@mui/icons-material/Search";
 import UndoIcon from "@mui/icons-material/Undo";
 import {
   Alert,
@@ -19,6 +20,7 @@ import {
   DialogTitle,
   Grid,
   IconButton,
+  InputAdornment,
   MenuItem,
   TextField,
   Tooltip,
@@ -77,6 +79,11 @@ export default function CharacterListPage() {
   const [endTime, setEndTime] = useState<number>(0);
   const [endContent, setEndContent] = useState("");
 
+  // Filter state
+  const [filterName, setFilterName] = useState("");
+  const [filterCategoryId, setFilterCategoryId] = useState("");
+  const [filterStatus, setFilterStatus] = useState<"all" | "alive" | "ended">("all");
+
   // Build a map: entityId → birth event
   const birthEventMap = useMemo(() => {
     const map = new Map<string, WorldEvent>();
@@ -101,6 +108,24 @@ export default function CharacterListPage() {
     for (const n of charNodes ?? []) map.set(n.id, n);
     return map;
   }, [charNodes]);
+
+  // Filtered list
+  const filteredCharacters = useMemo(() => {
+    let result = characters ?? [];
+    if (filterName.trim()) {
+      const q = filterName.trim().toLowerCase();
+      result = result.filter((c) => c.name.toLowerCase().includes(q));
+    }
+    if (filterCategoryId) {
+      const ids = new Set<string>();
+      const collect = (nid: string) => { ids.add(nid); for (const n of charNodes ?? []) { if (n.parentId === nid) collect(n.id); } };
+      collect(filterCategoryId);
+      result = result.filter((c) => ids.has(c.categoryNodeId));
+    }
+    if (filterStatus === "alive") result = result.filter((c) => !c.endEventId);
+    else if (filterStatus === "ended") result = result.filter((c) => !!c.endEventId);
+    return result;
+  }, [characters, filterName, filterCategoryId, filterStatus, charNodes]);
 
   // Scroll to entity by hash
   useEffect(() => {
@@ -193,7 +218,7 @@ export default function CharacterListPage() {
 
   return (
     <Box>
-      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 3 }}>
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
         <Typography variant="h4" fontWeight="bold">
           角色
         </Typography>
@@ -202,19 +227,61 @@ export default function CharacterListPage() {
         </Button>
       </Box>
 
-      {!characters?.length ? (
+      {(characters?.length ?? 0) > 0 && (
+        <Box sx={{ display: "flex", gap: 2, mb: 2, flexWrap: "wrap" }}>
+          <TextField
+            size="small"
+            placeholder="搜索角色"
+            value={filterName}
+            onChange={(e) => setFilterName(e.target.value)}
+            slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> } }}
+            sx={{ minWidth: 180 }}
+          />
+          <TextField
+            size="small"
+            select
+            label="分类"
+            value={filterCategoryId}
+            onChange={(e) => setFilterCategoryId(e.target.value)}
+            sx={{ minWidth: 150 }}
+            slotProps={{ inputLabel: { htmlFor: undefined } }}
+          >
+            <MenuItem value="">全部</MenuItem>
+            {(charNodes ?? []).map((n) => (
+              <MenuItem key={n.id} value={n.id}>{n.name}</MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            size="small"
+            select
+            label="状态"
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value as "all" | "alive" | "ended")}
+            sx={{ minWidth: 120 }}
+            slotProps={{ inputLabel: { htmlFor: undefined } }}
+          >
+            <MenuItem value="all">全部</MenuItem>
+            <MenuItem value="alive">存续中</MenuItem>
+            <MenuItem value="ended">已消亡</MenuItem>
+          </TextField>
+        </Box>
+      )}
+
+      {!filteredCharacters.length ? (
         <EmptyState
-          title="暂无角色"
-          description="先在分类体系中定义角色分类，然后添加角色"
+          title={characters?.length ? "无匹配角色" : "暂无角色"}
+          description={characters?.length ? "尝试调整筛选条件" : "先在分类体系中定义角色分类，然后添加角色"}
           action={
-            <Button variant="outlined" onClick={openCreate}>
-              添加角色
-            </Button>
+            characters?.length ? (
+              <Button variant="outlined" onClick={() => { setFilterName(""); setFilterCategoryId(""); setFilterStatus("all"); }}>清除筛选</Button>
+            ) : (
+              <Button variant="outlined" onClick={openCreate}>添加角色</Button>
+            )
           }
         />
       ) : (
         <Grid container spacing={2}>
-          {characters.map((char) => {
+          {filteredCharacters.map((char) => {
             const node = nodeMap.get(char.categoryNodeId);
             const chain = getAncestorChain(char.categoryNodeId, nodeMap);
             return (

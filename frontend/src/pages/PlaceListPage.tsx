@@ -5,6 +5,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import PlaceIcon from "@mui/icons-material/Place";
+import SearchIcon from "@mui/icons-material/Search";
 import SubdirectoryArrowRightIcon from "@mui/icons-material/SubdirectoryArrowRight";
 import {
   Box,
@@ -18,6 +19,7 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
+  InputAdornment,
   MenuItem,
   TextField,
   Tooltip,
@@ -101,6 +103,9 @@ export default function PlaceListPage() {
   const [deleteError, setDeleteError] = useState("");
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
+  // Filter state
+  const [filterName, setFilterName] = useState("");
+
   const placeMap = useMemo(() => {
     const map = new Map<string, Place>();
     for (const p of places ?? []) map.set(p.id, p);
@@ -108,6 +113,40 @@ export default function PlaceListPage() {
   }, [places]);
 
   const tree = useMemo(() => buildTree(places ?? []), [places]);
+
+  // Filtered tree: keep nodes matching search and their ancestors
+  const filteredTree = useMemo(() => {
+    if (!filterName.trim()) return tree;
+    const q = filterName.trim().toLowerCase();
+    const filterNodes = (nodes: PlaceNode[]): PlaceNode[] => {
+      const result: PlaceNode[] = [];
+      for (const node of nodes) {
+        const selfMatch = node.place.name.toLowerCase().includes(q) ||
+          (node.place.description ?? "").toLowerCase().includes(q);
+        const filteredChildren = filterNodes(node.children);
+        if (selfMatch || filteredChildren.length > 0) {
+          result.push({ ...node, children: selfMatch ? node.children : filteredChildren });
+        }
+      }
+      return result;
+    };
+    return filterNodes(tree);
+  }, [tree, filterName]);
+
+  // Auto-expand nodes when filtering
+  const effectiveExpandedIds = useMemo(() => {
+    if (!filterName.trim()) return expandedIds;
+    // When filtering, expand all to show matches
+    const ids = new Set<string>();
+    const collectIds = (nodes: PlaceNode[]) => {
+      for (const node of nodes) {
+        if (node.children.length > 0) ids.add(node.place.id);
+        collectIds(node.children);
+      }
+    };
+    collectIds(filteredTree);
+    return ids;
+  }, [filteredTree, filterName, expandedIds]);
 
   // For the parent selector, exclude self and descendants when editing
   const getDescendantIds = useCallback(
@@ -208,7 +247,7 @@ export default function PlaceListPage() {
 
   const renderNode = (node: PlaceNode, depth: number) => {
     const hasChildren = node.children.length > 0;
-    const isExpanded = expandedIds.has(node.place.id);
+    const isExpanded = effectiveExpandedIds.has(node.place.id);
     const descendantCount = countDescendants(node);
 
     return (
@@ -326,7 +365,7 @@ export default function PlaceListPage() {
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          mb: 3,
+          mb: 2,
         }}
       >
         <Typography variant="h4" fontWeight="bold">
@@ -341,18 +380,33 @@ export default function PlaceListPage() {
         </Button>
       </Box>
 
-      {!tree.length ? (
+      {(places?.length ?? 0) > 0 && (
+        <Box sx={{ display: "flex", gap: 2, mb: 2, flexWrap: "wrap" }}>
+          <TextField
+            size="small"
+            placeholder="搜索地点"
+            value={filterName}
+            onChange={(e) => setFilterName(e.target.value)}
+            slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> } }}
+            sx={{ minWidth: 220 }}
+          />
+        </Box>
+      )}
+
+      {!filteredTree.length ? (
         <EmptyState
-          title="暂无地点"
-          description="添加地点来构建世界的空间结构"
+          title={places?.length ? "无匹配地点" : "暂无地点"}
+          description={places?.length ? "尝试调整搜索关键词" : "添加地点来构建世界的空间结构"}
           action={
-            <Button variant="outlined" onClick={() => openCreate()}>
-              添加地点
-            </Button>
+            places?.length ? (
+              <Button variant="outlined" onClick={() => setFilterName("")}>清除搜索</Button>
+            ) : (
+              <Button variant="outlined" onClick={() => openCreate()}>添加地点</Button>
+            )
           }
         />
       ) : (
-        <Box>{tree.map((node) => renderNode(node, 0))}</Box>
+        <Box>{filteredTree.map((node) => renderNode(node, 0))}</Box>
       )}
 
       {/* Create / Edit Dialog */}

@@ -1,15 +1,18 @@
 import type { Event as WorldEvent, AttributeChange } from "@imagix/shared";
 import AddIcon from "@mui/icons-material/Add";
+import ClearIcon from "@mui/icons-material/Clear";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import FilterListIcon from "@mui/icons-material/FilterList";
 import LinkIcon from "@mui/icons-material/Link";
 import PersonIcon from "@mui/icons-material/Person";
 import PlaceIcon from "@mui/icons-material/Place";
 import {
   Alert,
   Autocomplete,
+  Badge,
   Box,
   Button,
   Card,
@@ -48,6 +51,7 @@ import {
 } from "@/api/hooks/useEvents";
 import { useCharacters } from "@/api/hooks/useCharacters";
 import { useThings } from "@/api/hooks/useThings";
+import { useRelationships } from "@/api/hooks/useRelationships";
 import { useAttributeDefinitions } from "@/api/hooks/useAttributeDefinitions";
 import { useEntitiesState } from "@/api/hooks/useEntityState";
 import { useEventLinks } from "@/api/hooks/useEventLinks";
@@ -99,6 +103,7 @@ export default function EventListPage() {
   const deleteEvent = useDeleteEvent(worldId!);
   const { data: characters } = useCharacters(worldId);
   const { data: things } = useThings(worldId);
+  const { data: relationships } = useRelationships(worldId);
   const { data: attrDefs } = useAttributeDefinitions(worldId);
   const { data: places } = usePlaces(worldId);
 
@@ -114,6 +119,15 @@ export default function EventListPage() {
   const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set());
   const [saveError, setSaveError] = useState("");
   const { data: eventLinks } = useEventLinks(worldId);
+
+  // Filter state
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [filterCharIds, setFilterCharIds] = useState<string[]>([]);
+  const [filterThingIds, setFilterThingIds] = useState<string[]>([]);
+  const [filterRelIds, setFilterRelIds] = useState<string[]>([]);
+  const [filterTimeFrom, setFilterTimeFrom] = useState<number | null>(null);
+  const [filterTimeTo, setFilterTimeTo] = useState<number | null>(null);
+  const [filterTimeEnabled, setFilterTimeEnabled] = useState(false);
 
   // 编辑系统事件（创生/消亡）时的时序校验
   const timeError = useMemo(() => {
@@ -220,10 +234,82 @@ export default function EventListPage() {
     [],
   );
 
+  // Relationship display label helper
+  const relLabelMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const r of relationships ?? []) {
+      const fromName = entityOptions.find((e) => e.id === r.fromId)?.name ?? r.fromId.slice(0, 6);
+      const toName = entityOptions.find((e) => e.id === r.toId)?.name ?? r.toId.slice(0, 6);
+      map.set(r.id, `${fromName} → ${toName}`);
+    }
+    return map;
+  }, [relationships, entityOptions]);
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (filterCharIds.length) count++;
+    if (filterThingIds.length) count++;
+    if (filterRelIds.length) count++;
+    if (filterTimeEnabled) count++;
+    return count;
+  }, [filterCharIds, filterThingIds, filterRelIds, filterTimeEnabled]);
+
+  const clearAllFilters = useCallback(() => {
+    setFilterCharIds([]);
+    setFilterThingIds([]);
+    setFilterRelIds([]);
+    setFilterTimeFrom(null);
+    setFilterTimeTo(null);
+    setFilterTimeEnabled(false);
+  }, []);
+
   const sortedEvents = useMemo(
     () => [...(events ?? [])].sort((a, b) => a.time - b.time),
     [events],
   );
+
+  // Apply filters
+  const filteredEvents = useMemo(() => {
+    let result = sortedEvents;
+
+    // Filter by character
+    if (filterCharIds.length > 0) {
+      result = result.filter((evt) => {
+        const entityIds = new Set(evt.impacts?.attributeChanges?.map((ac) => ac.entityId) ?? []);
+        return filterCharIds.some((id) => entityIds.has(id));
+      });
+    }
+
+    // Filter by thing
+    if (filterThingIds.length > 0) {
+      result = result.filter((evt) => {
+        const entityIds = new Set(evt.impacts?.attributeChanges?.map((ac) => ac.entityId) ?? []);
+        return filterThingIds.some((id) => entityIds.has(id));
+      });
+    }
+
+    // Filter by relationship
+    if (filterRelIds.length > 0) {
+      result = result.filter((evt) => {
+        const relIds = new Set(
+          evt.impacts?.relationshipAttributeChanges?.map((rac) => rac.relationshipId) ?? [],
+        );
+        return filterRelIds.some((id) => relIds.has(id));
+      });
+    }
+
+    // Filter by time range
+    if (filterTimeEnabled) {
+      if (filterTimeFrom !== null) {
+        result = result.filter((evt) => evt.time >= filterTimeFrom);
+      }
+      if (filterTimeTo !== null) {
+        result = result.filter((evt) => evt.time <= filterTimeTo);
+      }
+    }
+
+    return result;
+  }, [sortedEvents, filterCharIds, filterThingIds, filterRelIds, filterTimeEnabled, filterTimeFrom, filterTimeTo]);
 
   // Scroll to event by hash
   useEffect(() => {
@@ -317,28 +403,136 @@ export default function EventListPage() {
 
   return (
     <Box>
-      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 3 }}>
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
         <Typography variant="h4" fontWeight="bold">
           事件时间线
         </Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
-          添加事件
-        </Button>
+        <Box sx={{ display: "flex", gap: 1 }}>
+          <Tooltip title="筛选">
+            <IconButton
+              onClick={() => setFilterOpen((v) => !v)}
+              color={activeFilterCount > 0 ? "primary" : "default"}
+            >
+              <Badge badgeContent={activeFilterCount} color="primary">
+                <FilterListIcon />
+              </Badge>
+            </IconButton>
+          </Tooltip>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
+            添加事件
+          </Button>
+        </Box>
       </Box>
 
-      {!sortedEvents.length ? (
+      {/* Filter panel */}
+      <Collapse in={filterOpen}>
+        <Paper variant="outlined" sx={{ p: 2, mb: 2, display: "flex", flexDirection: "column", gap: 2 }}>
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <Typography variant="subtitle2" color="text.secondary">筛选条件</Typography>
+            {activeFilterCount > 0 && (
+              <Button size="small" startIcon={<ClearIcon />} onClick={clearAllFilters}>清除全部</Button>
+            )}
+          </Box>
+          <Box sx={{ display: "flex", flexDirection: { xs: "column", md: "row" }, gap: 2 }}>
+            {/* Character filter */}
+            <Autocomplete
+              multiple
+              size="small"
+              sx={{ flex: 1, minWidth: 180 }}
+              options={characters ?? []}
+              getOptionLabel={(o) => o.name}
+              value={(characters ?? []).filter((c) => filterCharIds.includes(c.id))}
+              onChange={(_, v) => setFilterCharIds(v.map((c) => c.id))}
+              isOptionEqualToValue={(o, v) => o.id === v.id}
+              renderInput={(params) => <TextField {...params} label="按角色" placeholder="选择角色" />}
+            />
+            {/* Thing filter */}
+            <Autocomplete
+              multiple
+              size="small"
+              sx={{ flex: 1, minWidth: 180 }}
+              options={things ?? []}
+              getOptionLabel={(o) => o.name}
+              value={(things ?? []).filter((t) => filterThingIds.includes(t.id))}
+              onChange={(_, v) => setFilterThingIds(v.map((t) => t.id))}
+              isOptionEqualToValue={(o, v) => o.id === v.id}
+              renderInput={(params) => <TextField {...params} label="按事物" placeholder="选择事物" />}
+            />
+            {/* Relationship filter */}
+            <Autocomplete
+              multiple
+              size="small"
+              sx={{ flex: 1, minWidth: 200 }}
+              options={relationships ?? []}
+              getOptionLabel={(o) => relLabelMap.get(o.id) ?? o.id}
+              value={(relationships ?? []).filter((r) => filterRelIds.includes(r.id))}
+              onChange={(_, v) => setFilterRelIds(v.map((r) => r.id))}
+              isOptionEqualToValue={(o, v) => o.id === v.id}
+              renderInput={(params) => <TextField {...params} label="按关系" placeholder="选择关系" />}
+            />
+          </Box>
+          {/* Time range filter */}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  size="small"
+                  checked={filterTimeEnabled}
+                  onChange={(e) => {
+                    setFilterTimeEnabled(e.target.checked);
+                    if (!e.target.checked) { setFilterTimeFrom(null); setFilterTimeTo(null); }
+                  }}
+                />
+              }
+              label="按时间段"
+              sx={{ mr: 1 }}
+            />
+            {filterTimeEnabled && (
+              <>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <Typography variant="body2" color="text.secondary">从</Typography>
+                  <EpochTimeInput
+                    value={filterTimeFrom ?? 0}
+                    onChange={(v) => setFilterTimeFrom(v)}
+                    size="small"
+                    showPreview
+                  />
+                </Box>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <Typography variant="body2" color="text.secondary">到</Typography>
+                  <EpochTimeInput
+                    value={filterTimeTo ?? 0}
+                    onChange={(v) => setFilterTimeTo(v)}
+                    size="small"
+                    showPreview
+                  />
+                </Box>
+              </>
+            )}
+          </Box>
+          {activeFilterCount > 0 && (
+            <Typography variant="caption" color="text.secondary">
+              共 {filteredEvents.length} / {sortedEvents.length} 个事件
+            </Typography>
+          )}
+        </Paper>
+      </Collapse>
+
+      {!filteredEvents.length ? (
         <EmptyState
-          title="暂无事件"
-          description="添加事件来构建世界的时间线"
+          title={activeFilterCount > 0 ? "无匹配事件" : "暂无事件"}
+          description={activeFilterCount > 0 ? "尝试调整筛选条件" : "添加事件来构建世界的时间线"}
           action={
-            <Button variant="outlined" onClick={openCreate}>
-              添加事件
-            </Button>
+            activeFilterCount > 0 ? (
+              <Button variant="outlined" onClick={clearAllFilters}>清除筛选</Button>
+            ) : (
+              <Button variant="outlined" onClick={openCreate}>添加事件</Button>
+            )
           }
         />
       ) : (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          {sortedEvents.map((evt) => (
+          {filteredEvents.map((evt) => (
             <Card key={evt.id} id={evt.id}>
               <CardContent sx={{ display: "flex", gap: 2, alignItems: "flex-start" }}>
                 <Box

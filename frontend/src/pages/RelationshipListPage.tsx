@@ -7,6 +7,7 @@ import HighlightOffIcon from "@mui/icons-material/HighlightOff";
 import UndoIcon from "@mui/icons-material/Undo";
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Card,
@@ -66,6 +67,11 @@ export default function RelationshipListPage() {
   const [endTarget, setEndTarget] = useState<Relationship | null>(null);
   const [endTime, setEndTime] = useState<number>(0);
   const [endContent, setEndContent] = useState("");
+
+  // Filter state
+  const [filterTypeNodeId, setFilterTypeNodeId] = useState("");
+  const [filterEntityId, setFilterEntityId] = useState<string | null>(null);
+  const [filterStatus, setFilterStatus] = useState<"all" | "active" | "ended">("all");
 
   const birthEventMap = useMemo(() => {
     const map = new Map<string, WorldEvent>();
@@ -150,6 +156,28 @@ export default function RelationshipListPage() {
     return map;
   }, [characters, things]);
 
+  // Entity options for filter
+  const allEntityOptions = useMemo(() => {
+    const opts: { id: string; name: string; type: string }[] = [];
+    for (const c of characters ?? []) opts.push({ id: c.id, name: c.name, type: "角色" });
+    for (const t of things ?? []) opts.push({ id: t.id, name: t.name, type: "事物" });
+    return opts;
+  }, [characters, things]);
+
+  // Filtered list
+  const filteredRelationships = useMemo(() => {
+    let result = relationships ?? [];
+    if (filterTypeNodeId) {
+      result = result.filter((r) => r.typeNodeId === filterTypeNodeId);
+    }
+    if (filterEntityId) {
+      result = result.filter((r) => r.fromId === filterEntityId || r.toId === filterEntityId);
+    }
+    if (filterStatus === "active") result = result.filter((r) => !r.endEventId);
+    else if (filterStatus === "ended") result = result.filter((r) => !!r.endEventId);
+    return result;
+  }, [relationships, filterTypeNodeId, filterEntityId, filterStatus]);
+
   // Scroll to entity by hash
   useEffect(() => {
     if (scrolledRef.current || !relationships?.length) return;
@@ -233,7 +261,7 @@ export default function RelationshipListPage() {
 
   return (
     <Box>
-      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 3 }}>
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
         <Typography variant="h4" fontWeight="bold">
           关系
         </Typography>
@@ -242,22 +270,67 @@ export default function RelationshipListPage() {
         </Button>
       </Box>
 
-      {!relationships?.length ? (
+      {(relationships?.length ?? 0) > 0 && (
+        <Box sx={{ display: "flex", gap: 2, mb: 2, flexWrap: "wrap" }}>
+          <TextField
+            size="small"
+            select
+            label="关系类型"
+            value={filterTypeNodeId}
+            onChange={(e) => setFilterTypeNodeId(e.target.value)}
+            sx={{ minWidth: 150 }}
+            slotProps={{ inputLabel: { htmlFor: undefined } }}
+          >
+            <MenuItem value="">全部</MenuItem>
+            {typeNodes.map((n) => (
+              <MenuItem key={n.id} value={n.id}>{n.name}</MenuItem>
+            ))}
+          </TextField>
+          <Autocomplete
+            size="small"
+            sx={{ minWidth: 200 }}
+            options={allEntityOptions}
+            getOptionLabel={(o) => o.name}
+            groupBy={(o) => o.type}
+            value={allEntityOptions.find((o) => o.id === filterEntityId) ?? null}
+            onChange={(_, v) => setFilterEntityId(v?.id ?? null)}
+            isOptionEqualToValue={(o, v) => o.id === v.id}
+            renderInput={(params) => <TextField {...params} label="涉及实体" placeholder="选择角色或事物" />}
+          />
+          <TextField
+            size="small"
+            select
+            label="状态"
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value as "all" | "active" | "ended")}
+            sx={{ minWidth: 120 }}
+            slotProps={{ inputLabel: { htmlFor: undefined } }}
+          >
+            <MenuItem value="all">全部</MenuItem>
+            <MenuItem value="active">存续中</MenuItem>
+            <MenuItem value="ended">已解除</MenuItem>
+          </TextField>
+        </Box>
+      )}
+
+      {!filteredRelationships.length ? (
         <EmptyState
-          title="暂无关系"
-          description="在分类体系中定义关系类型，然后建立实体间的关系"
+          title={relationships?.length ? "无匹配关系" : "暂无关系"}
+          description={relationships?.length ? "尝试调整筛选条件" : "在分类体系中定义关系类型，然后建立实体间的关系"}
           action={
-            <Button variant="outlined" onClick={openCreate}>
-              添加关系
-            </Button>
+            relationships?.length ? (
+              <Button variant="outlined" onClick={() => { setFilterTypeNodeId(""); setFilterEntityId(null); setFilterStatus("all"); }}>清除筛选</Button>
+            ) : (
+              <Button variant="outlined" onClick={openCreate}>添加关系</Button>
+            )
           }
         />
       ) : (
         <Grid container spacing={2}>
-          {relationships.map((rel) => {
+          {filteredRelationships.map((rel) => {
             const typeNode = relNodeMap.get(rel.typeNodeId);
             return (
-              <Grid size={{ xs: 12, sm: 6 }} key={rel.id}>
+              <Grid size={{ xs: 12, sm: 6, md: 4 }} key={rel.id}>
                 <Card id={rel.id}>
                   <CardContent>
                     <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
@@ -270,11 +343,31 @@ export default function RelationshipListPage() {
                       </Tooltip>
                     </Box>
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                      <Typography variant="body2" noWrap sx={{ flex: 1 }}>
+                      <Typography
+                        variant="body2"
+                        noWrap
+                        sx={{ flex: 1, cursor: "pointer", "&:hover": { textDecoration: "underline" } }}
+                        color="primary"
+                        onClick={() => {
+                          const prefix = rel.fromId.slice(0, 3);
+                          const page = prefix === "chr" ? "characters" : "things";
+                          navigate(`/worlds/${worldId}/${page}#${rel.fromId}`);
+                        }}
+                      >
                         {entityLabelMap.get(rel.fromId) ?? rel.fromId}
                       </Typography>
                       <ArrowForwardIcon fontSize="small" color="action" />
-                      <Typography variant="body2" noWrap sx={{ flex: 1 }}>
+                      <Typography
+                        variant="body2"
+                        noWrap
+                        sx={{ flex: 1, cursor: "pointer", "&:hover": { textDecoration: "underline" } }}
+                        color="primary"
+                        onClick={() => {
+                          const prefix = rel.toId.slice(0, 3);
+                          const page = prefix === "chr" ? "characters" : "things";
+                          navigate(`/worlds/${worldId}/${page}#${rel.toId}`);
+                        }}
+                      >
                         {entityLabelMap.get(rel.toId) ?? rel.toId}
                       </Typography>
                     </Box>

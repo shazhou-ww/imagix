@@ -186,13 +186,22 @@ export default function CharacterListPage() {
       updateChar.mutate(
         {
           charId: editingChar.id,
-          body: { name: charName.trim(), description: charDescription.trim() || undefined, categoryNodeId },
+          body: {
+            name: charName.trim(),
+            description: charDescription.trim() || undefined,
+            categoryNodeId,
+          },
         },
         { onSuccess: () => setDialogOpen(false) },
       );
     } else {
       createChar.mutate(
-        { name: charName.trim(), description: charDescription.trim() || undefined, categoryNodeId, birthTime },
+        {
+          name: charName.trim(),
+          description: charDescription.trim() || undefined,
+          categoryNodeId,
+          birthTime,
+        },
         { onSuccess: () => setDialogOpen(false) },
       );
     }
@@ -358,7 +367,14 @@ export default function CharacterListPage() {
                       <Typography
                         variant="subtitle1"
                         fontWeight="bold"
-                        sx={{ flex: 1 }}
+                        sx={{
+                          flex: 1,
+                          cursor: "pointer",
+                          "&:hover": { color: "primary.main" },
+                        }}
+                        onClick={() =>
+                          navigate(`/worlds/${worldId}/characters/${char.id}`)
+                        }
                       >
                         {char.name}
                       </Typography>

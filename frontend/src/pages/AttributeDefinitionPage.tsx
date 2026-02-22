@@ -26,7 +26,7 @@ import {
   Typography,
 } from "@mui/material";
 import { useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   useAttributeDefinitions,
   useCreateAttributeDefinition,
@@ -56,6 +56,7 @@ const TYPE_LABELS: Record<string, string> = {
 
 export default function AttributeDefinitionPage() {
   const { worldId } = useParams<{ worldId: string }>();
+  const navigate = useNavigate();
   const { data: attrs, isLoading } = useAttributeDefinitions(worldId);
   const createAttr = useCreateAttributeDefinition(worldId ?? "");
   const updateAttr = useUpdateAttributeDefinition(worldId ?? "");
@@ -250,7 +251,14 @@ export default function AttributeDefinitionPage() {
                       variant="subtitle1"
                       fontWeight="bold"
                       noWrap
-                      sx={{ flex: 1 }}
+                      sx={{
+                        flex: 1,
+                        cursor: "pointer",
+                        "&:hover": { color: "primary.main" },
+                      }}
+                      onClick={() =>
+                        navigate(`/worlds/${worldId}/attributes/${attr.id}`)
+                      }
                     >
                       {attr.name}
                     </Typography>

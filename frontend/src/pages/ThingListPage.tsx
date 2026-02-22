@@ -178,13 +178,22 @@ export default function ThingListPage() {
       updateThing.mutate(
         {
           thingId: editingThing.id,
-          body: { name: thingName.trim(), description: thingDescription.trim() || undefined, categoryNodeId },
+          body: {
+            name: thingName.trim(),
+            description: thingDescription.trim() || undefined,
+            categoryNodeId,
+          },
         },
         { onSuccess: () => setDialogOpen(false) },
       );
     } else {
       createThing.mutate(
-        { name: thingName.trim(), description: thingDescription.trim() || undefined, categoryNodeId, creationTime },
+        {
+          name: thingName.trim(),
+          description: thingDescription.trim() || undefined,
+          categoryNodeId,
+          creationTime,
+        },
         { onSuccess: () => setDialogOpen(false) },
       );
     }
@@ -350,7 +359,14 @@ export default function ThingListPage() {
                       <Typography
                         variant="subtitle1"
                         fontWeight="bold"
-                        sx={{ flex: 1 }}
+                        sx={{
+                          flex: 1,
+                          cursor: "pointer",
+                          "&:hover": { color: "primary.main" },
+                        }}
+                        onClick={() =>
+                          navigate(`/worlds/${worldId}/things/${thing.id}`)
+                        }
                       >
                         {thing.name}
                       </Typography>

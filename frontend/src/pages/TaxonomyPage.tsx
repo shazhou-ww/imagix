@@ -154,12 +154,16 @@ function TreeNodeItem({
 function NodeDetailPanel({
   node,
   nodes,
+  worldId,
+  tree,
   onSave,
   onDelete,
   saving,
 }: {
   node: TaxonomyNode;
   nodes: TaxonomyNode[];
+  worldId: string;
+  tree: string;
   onSave: (nodeId: string, body: UpdateTaxonomyNodeBody) => void;
   onDelete: (node: TaxonomyNode) => void;
   saving: boolean;
@@ -168,6 +172,8 @@ function NodeDetailPanel({
   const [description, setDescription] = useState(node.description ?? "");
   const [timeFormula, setTimeFormula] = useState(node.timeFormula ?? "");
   const [dirty, setDirty] = useState(false);
+
+  const navigate = useNavigate();
 
   const resetToNode = useCallback((n: TaxonomyNode) => {
     setName(n.name);
@@ -216,6 +222,14 @@ function NodeDetailPanel({
         <Typography variant="h6" fontWeight="bold" sx={{ flex: 1 }}>
           节点详情
         </Typography>
+        <Button
+          size="small"
+          onClick={() =>
+            navigate(`/worlds/${worldId}/taxonomy/${tree}/${node.id}`)
+          }
+        >
+          查看详情
+        </Button>
         <Button
           variant="contained"
           size="small"
@@ -472,6 +486,8 @@ export default function TaxonomyPage() {
                 key={activeNode.id}
                 node={activeNode}
                 nodes={nodes ?? []}
+                worldId={worldId ?? ""}
+                tree={tree ?? ""}
                 onSave={handleSaveNode}
                 onDelete={setDeleteTarget}
                 saving={updateNode.isPending}

@@ -397,6 +397,10 @@ export default function RelationshipListPage() {
                         label={typeNode?.name ?? "未知类型"}
                         size="small"
                         color="primary"
+                        onClick={() =>
+                          navigate(`/worlds/${worldId}/relationships/${rel.id}`)
+                        }
+                        sx={{ cursor: "pointer" }}
                       />
                       <Box sx={{ flex: 1 }} />
                       <Tooltip title="删除">
@@ -423,7 +427,7 @@ export default function RelationshipListPage() {
                           const prefix = rel.fromId.slice(0, 3);
                           const page =
                             prefix === "chr" ? "characters" : "things";
-                          navigate(`/worlds/${worldId}/${page}#${rel.fromId}`);
+                          navigate(`/worlds/${worldId}/${page}/${rel.fromId}`);
                         }}
                       >
                         {entityLabelMap.get(rel.fromId) ?? rel.fromId}
@@ -442,7 +446,7 @@ export default function RelationshipListPage() {
                           const prefix = rel.toId.slice(0, 3);
                           const page =
                             prefix === "chr" ? "characters" : "things";
-                          navigate(`/worlds/${worldId}/${page}#${rel.toId}`);
+                          navigate(`/worlds/${worldId}/${page}/${rel.toId}`);
                         }}
                       >
                         {entityLabelMap.get(rel.toId) ?? rel.toId}

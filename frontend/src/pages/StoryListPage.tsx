@@ -26,7 +26,7 @@ import {
   Typography,
 } from "@mui/material";
 import { useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useCharacters } from "@/api/hooks/useCharacters";
 import { useEvents } from "@/api/hooks/useEvents";
 import {
@@ -552,6 +552,7 @@ function StoryChapters({ story, worldId }: { story: Story; worldId: string }) {
 
 export default function StoryListPage() {
   const { worldId } = useParams<{ worldId: string }>();
+  const navigate = useNavigate();
   const { data: stories, isLoading } = useStories(worldId);
   const createStory = useCreateStory(worldId ?? "");
   const updateStory = useUpdateStory(worldId ?? "");
@@ -686,7 +687,18 @@ export default function StoryListPage() {
                   sx={{ display: "flex", alignItems: "center", flex: 1, mr: 2 }}
                 >
                   <MenuBookIcon color="primary" sx={{ mr: 1.5 }} />
-                  <Typography fontWeight="bold" sx={{ flex: 1 }}>
+                  <Typography
+                    fontWeight="bold"
+                    sx={{
+                      flex: 1,
+                      cursor: "pointer",
+                      "&:hover": { color: "primary.main" },
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/worlds/${worldId}/stories/${story.id}`);
+                    }}
+                  >
                     {story.title}
                   </Typography>
                   <Typography

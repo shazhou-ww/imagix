@@ -26,7 +26,7 @@ import {
   Typography,
 } from "@mui/material";
 import { useCallback, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   useCreatePlace,
   useDeletePlace,
@@ -89,6 +89,7 @@ function countDescendants(node: PlaceNode): number {
 
 export default function PlaceListPage() {
   const { worldId } = useParams<{ worldId: string }>();
+  const navigate = useNavigate();
   const { data: places, isLoading } = usePlaces(worldId);
   const createPlace = useCreatePlace(worldId ?? "");
   const updatePlace = useUpdatePlace(worldId ?? "");
@@ -292,7 +293,18 @@ export default function PlaceListPage() {
             <PlaceIcon color="primary" fontSize="small" />
 
             <Box sx={{ flex: 1, minWidth: 0 }}>
-              <Typography variant="subtitle1" fontWeight="bold" noWrap>
+              <Typography
+                variant="subtitle1"
+                fontWeight="bold"
+                noWrap
+                sx={{
+                  cursor: "pointer",
+                  "&:hover": { color: "primary.main" },
+                }}
+                onClick={() =>
+                  navigate(`/worlds/${worldId}/places/${node.place.id}`)
+                }
+              >
                 {node.place.name}
               </Typography>
               {node.place.description && (

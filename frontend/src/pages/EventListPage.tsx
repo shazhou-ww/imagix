@@ -719,7 +719,18 @@ export default function EventListPage() {
                 </Box>
                 <Box sx={{ flex: 1 }}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <Typography variant="body1">{evt.content}</Typography>
+                    <Typography
+                      variant="body1"
+                      sx={{
+                        cursor: "pointer",
+                        "&:hover": { color: "primary.main" },
+                      }}
+                      onClick={() =>
+                        navigate(`/worlds/${worldId}/events/${evt.id}`)
+                      }
+                    >
+                      {evt.content}
+                    </Typography>
                     {evt.system && (
                       <Chip
                         label={(() => {

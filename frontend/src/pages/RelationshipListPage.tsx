@@ -620,6 +620,10 @@ export default function RelationshipListPage() {
             slotProps={{ inputLabel: { htmlFor: undefined } }}
             required
             disabled={!direction}
+            error={!!toId && toId === fromId}
+            helperText={
+              toId && toId === fromId ? "源和目标不能是同一个实体" : undefined
+            }
           >
             {toOptions.map((o) => (
               <MenuItem key={o.id} value={o.id}>

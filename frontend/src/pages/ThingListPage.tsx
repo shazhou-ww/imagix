@@ -1,7 +1,6 @@
 import type { TaxonomyNode, Thing, Event as WorldEvent } from "@imagix/shared";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
-import EditIcon from "@mui/icons-material/Edit";
 import EventIcon from "@mui/icons-material/EventNote";
 import HighlightOffIcon from "@mui/icons-material/HighlightOff";
 import SearchIcon from "@mui/icons-material/Search";
@@ -36,7 +35,6 @@ import {
   useEndThing,
   useThings,
   useUndoEndThing,
-  useUpdateThing,
 } from "@/api/hooks/useThings";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import EmptyState from "@/components/EmptyState";
@@ -64,14 +62,12 @@ export default function ThingListPage() {
   const { data: things, isLoading } = useThings(worldId);
   const { data: thingNodes } = useTaxonomyTree(worldId, "THING");
   const createThing = useCreateThing(worldId ?? "");
-  const updateThing = useUpdateThing(worldId ?? "");
   const deleteThing = useDeleteThing(worldId ?? "");
   const endThing = useEndThing(worldId ?? "");
   const undoEndThing = useUndoEndThing(worldId ?? "");
   const { data: events } = useEvents(worldId);
 
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingThing, setEditingThing] = useState<Thing | null>(null);
   const [thingName, setThingName] = useState("");
   const [thingDescription, setThingDescription] = useState("");
   const [categoryNodeId, setCategoryNodeId] = useState("");
@@ -156,7 +152,6 @@ export default function ThingListPage() {
   }, [location.hash, things]);
 
   const openCreate = () => {
-    setEditingThing(null);
     setThingName("");
     setThingDescription("");
     setCategoryNodeId(thingNodes?.[0]?.id ?? "");
@@ -164,39 +159,17 @@ export default function ThingListPage() {
     setDialogOpen(true);
   };
 
-  const openEdit = (thing: Thing) => {
-    setEditingThing(thing);
-    setThingName(thing.name ?? "");
-    setThingDescription(thing.description ?? "");
-    setCategoryNodeId(thing.categoryNodeId);
-    setDialogOpen(true);
-  };
-
   const handleSave = () => {
     if (!thingName.trim() || !categoryNodeId) return;
-    if (editingThing) {
-      updateThing.mutate(
-        {
-          thingId: editingThing.id,
-          body: {
-            name: thingName.trim(),
-            description: thingDescription.trim() || undefined,
-            categoryNodeId,
-          },
-        },
-        { onSuccess: () => setDialogOpen(false) },
-      );
-    } else {
-      createThing.mutate(
-        {
-          name: thingName.trim(),
-          description: thingDescription.trim() || undefined,
-          categoryNodeId,
-          creationTime,
-        },
-        { onSuccess: () => setDialogOpen(false) },
-      );
-    }
+    createThing.mutate(
+      {
+        name: thingName.trim(),
+        description: thingDescription.trim() || undefined,
+        categoryNodeId,
+        creationTime,
+      },
+      { onSuccess: () => setDialogOpen(false) },
+    );
   };
 
   const handleDelete = () => {
@@ -370,14 +343,6 @@ export default function ThingListPage() {
                       >
                         {thing.name}
                       </Typography>
-                      <Tooltip title="编辑">
-                        <IconButton
-                          size="small"
-                          onClick={() => openEdit(thing)}
-                        >
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
                       <Tooltip title="删除">
                         <IconButton
                           size="small"
@@ -546,7 +511,7 @@ export default function ThingListPage() {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>{editingThing ? "编辑事物" : "添加事物"}</DialogTitle>
+        <DialogTitle>添加事物</DialogTitle>
         <DialogContent
           sx={{
             display: "flex",
@@ -602,25 +567,23 @@ export default function ThingListPage() {
               ))}
             </TextField>
           )}
-          {!editingThing && (
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                创建时间
-              </Typography>
-              <EpochTimeInput
-                value={creationTime}
-                onChange={setCreationTime}
-                showPreview
-              />
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ mt: 0.5, display: "block" }}
-              >
-                创建后会自动生成「创建」事件。
-              </Typography>
-            </Box>
-          )}
+          <Box>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+              创建时间
+            </Typography>
+            <EpochTimeInput
+              value={creationTime}
+              onChange={setCreationTime}
+              showPreview
+            />
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ mt: 0.5, display: "block" }}
+            >
+              创建后会自动生成「创建」事件。
+            </Typography>
+          </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)}>取消</Button>
@@ -628,13 +591,10 @@ export default function ThingListPage() {
             variant="contained"
             onClick={handleSave}
             disabled={
-              !thingName.trim() ||
-              !categoryNodeId ||
-              createThing.isPending ||
-              updateThing.isPending
+              !thingName.trim() || !categoryNodeId || createThing.isPending
             }
           >
-            {editingThing ? "保存" : "创建"}
+            创建
           </Button>
         </DialogActions>
       </Dialog>

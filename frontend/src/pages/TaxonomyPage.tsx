@@ -1,13 +1,8 @@
-import type {
-  TaxonomyNode,
-  TaxonomyTree,
-  UpdateTaxonomyNodeBody,
-} from "@imagix/shared";
+import type { TaxonomyNode, TaxonomyTree } from "@imagix/shared";
 import AddIcon from "@mui/icons-material/Add";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import DeleteIcon from "@mui/icons-material/Delete";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import SaveIcon from "@mui/icons-material/Save";
 import {
   Box,
   Button,
@@ -27,13 +22,12 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   useCreateTaxonomyNode,
   useDeleteTaxonomyNode,
   useTaxonomyTree,
-  useUpdateTaxonomyNode,
 } from "@/api/hooks/useTaxonomy";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import EmptyState from "@/components/EmptyState";
@@ -148,7 +142,7 @@ function TreeNodeItem({
 }
 
 // ---------------------------------------------------------------------------
-// Detail panel (right side)
+// Detail panel (right side) — read-only preview, edit on detail page
 // ---------------------------------------------------------------------------
 
 function NodeDetailPanel({
@@ -156,38 +150,15 @@ function NodeDetailPanel({
   nodes,
   worldId,
   tree,
-  onSave,
   onDelete,
-  saving,
 }: {
   node: TaxonomyNode;
   nodes: TaxonomyNode[];
   worldId: string;
   tree: string;
-  onSave: (nodeId: string, body: UpdateTaxonomyNodeBody) => void;
   onDelete: (node: TaxonomyNode) => void;
-  saving: boolean;
 }) {
-  const [name, setName] = useState(node.name);
-  const [description, setDescription] = useState(node.description ?? "");
-  const [timeFormula, setTimeFormula] = useState(node.timeFormula ?? "");
-  const [dirty, setDirty] = useState(false);
-
   const navigate = useNavigate();
-
-  const resetToNode = useCallback((n: TaxonomyNode) => {
-    setName(n.name);
-    setDescription(n.description ?? "");
-    setTimeFormula(n.timeFormula ?? "");
-    setDirty(false);
-  }, []);
-
-  const nodeKey = node.id;
-  const [lastKey, setLastKey] = useState(nodeKey);
-  if (nodeKey !== lastKey) {
-    resetToNode(node);
-    setLastKey(nodeKey);
-  }
 
   const ancestorPath = useMemo(() => {
     const path: TaxonomyNode[] = [];
@@ -202,42 +173,21 @@ function NodeDetailPanel({
     return path;
   }, [node, nodes]);
 
-  const markDirty = () => setDirty(true);
-
-  const handleSave = () => {
-    if (!name.trim()) return;
-    onSave(node.id, {
-      name: name.trim(),
-      description: description.trim() || undefined,
-      parentId: node.parentId,
-      timeFormula: timeFormula.trim() || undefined,
-    });
-    setDirty(false);
-  };
-
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5, p: 2.5 }}>
       {/* Header */}
       <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
         <Typography variant="h6" fontWeight="bold" sx={{ flex: 1 }}>
-          节点详情
+          {node.name}
         </Typography>
         <Button
+          variant="contained"
           size="small"
           onClick={() =>
             navigate(`/worlds/${worldId}/taxonomy/${tree}/${node.id}`)
           }
         >
           查看详情
-        </Button>
-        <Button
-          variant="contained"
-          size="small"
-          startIcon={<SaveIcon />}
-          onClick={handleSave}
-          disabled={!dirty || !name.trim() || saving || node.system}
-        >
-          保存
         </Button>
         {!node.system && (
           <Tooltip title="删除此节点">
@@ -295,60 +245,35 @@ function NodeDetailPanel({
         </Box>
       )}
 
-      {/* Name edit */}
-      <TextField
-        label="分类名称"
-        value={name}
-        onChange={(e) => {
-          setName(e.target.value);
-          markDirty();
-        }}
-        size="small"
-        required
-        disabled={node.system}
-      />
-
       {/* Description */}
-      <TextField
-        label="分类描述（可选）"
-        value={description}
-        onChange={(e) => {
-          setDescription(e.target.value);
-          markDirty();
-        }}
-        size="small"
-        multiline
-        rows={2}
-        disabled={node.system}
-        placeholder="描述该分类的含义或用途"
-      />
-
-      <Divider />
+      {node.description && (
+        <Typography variant="body2" color="text.secondary">
+          {node.description}
+        </Typography>
+      )}
 
       {/* Time formula */}
-      <Box>
-        <Typography variant="subtitle2" gutterBottom>
-          时间派生公式
-        </Typography>
-        <TextField
-          size="small"
-          value={timeFormula}
-          onChange={(e) => {
-            setTimeFormula(e.target.value);
-            markDirty();
-          }}
-          multiline
-          rows={3}
-          fullWidth
-          disabled={node.system}
-          placeholder='例如: { "$age": attributes.`$age` + (currentTime - lastTime) }'
-          helperText={
-            node.system
-              ? "系统预置公式，不可修改"
-              : "JSONata 表达式，事件溯源回放时自动执行。子节点继承，可覆盖。"
-          }
-        />
-      </Box>
+      {node.timeFormula && (
+        <Box>
+          <Divider sx={{ mb: 2 }} />
+          <Typography variant="subtitle2" gutterBottom>
+            时间派生公式
+          </Typography>
+          <Typography
+            variant="body2"
+            sx={{
+              fontFamily: "monospace",
+              bgcolor: "action.hover",
+              p: 1.5,
+              borderRadius: 1,
+              whiteSpace: "pre-wrap",
+              fontSize: "0.85rem",
+            }}
+          >
+            {node.timeFormula}
+          </Typography>
+        </Box>
+      )}
     </Box>
   );
 }
@@ -364,7 +289,6 @@ export default function TaxonomyPage() {
 
   const { data: nodes, isLoading } = useTaxonomyTree(worldId, currentTree);
   const createNode = useCreateTaxonomyNode(worldId ?? "", currentTree);
-  const updateNode = useUpdateTaxonomyNode(worldId ?? "", currentTree);
   const deleteNode = useDeleteTaxonomyNode(worldId ?? "", currentTree);
 
   const [selectedNode, setSelectedNode] = useState<TaxonomyNode | null>(null);
@@ -400,10 +324,6 @@ export default function TaxonomyPage() {
         },
       },
     );
-  };
-
-  const handleSaveNode = (nodeId: string, body: UpdateTaxonomyNodeBody) => {
-    updateNode.mutate({ nodeId, body });
   };
 
   const handleDelete = () => {
@@ -488,9 +408,7 @@ export default function TaxonomyPage() {
                 nodes={nodes ?? []}
                 worldId={worldId ?? ""}
                 tree={tree ?? ""}
-                onSave={handleSaveNode}
                 onDelete={setDeleteTarget}
-                saving={updateNode.isPending}
               />
             ) : (
               <Box

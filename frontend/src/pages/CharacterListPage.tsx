@@ -5,7 +5,6 @@ import type {
 } from "@imagix/shared";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
-import EditIcon from "@mui/icons-material/Edit";
 import EventIcon from "@mui/icons-material/EventNote";
 import HighlightOffIcon from "@mui/icons-material/HighlightOff";
 import SearchIcon from "@mui/icons-material/Search";
@@ -38,7 +37,6 @@ import {
   useDeleteCharacter,
   useEndCharacter,
   useUndoEndCharacter,
-  useUpdateCharacter,
 } from "@/api/hooks/useCharacters";
 import { useEvents } from "@/api/hooks/useEvents";
 import { useTaxonomyTree } from "@/api/hooks/useTaxonomy";
@@ -68,7 +66,6 @@ export default function CharacterListPage() {
   const { data: characters, isLoading } = useCharacters(worldId);
   const { data: charNodes } = useTaxonomyTree(worldId, "CHAR");
   const createChar = useCreateCharacter(worldId ?? "");
-  const updateChar = useUpdateCharacter(worldId ?? "");
   const deleteChar = useDeleteCharacter(worldId ?? "");
   const endChar = useEndCharacter(worldId ?? "");
   const undoEndChar = useUndoEndCharacter(worldId ?? "");
@@ -77,7 +74,6 @@ export default function CharacterListPage() {
   const scrolledRef = useRef(false);
 
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingChar, setEditingChar] = useState<Character | null>(null);
   const [charName, setCharName] = useState("");
   const [charDescription, setCharDescription] = useState("");
   const [categoryNodeId, setCategoryNodeId] = useState("");
@@ -164,7 +160,6 @@ export default function CharacterListPage() {
   }, [location.hash, characters]);
 
   const openCreate = () => {
-    setEditingChar(null);
     setCharName("");
     setCharDescription("");
     setCategoryNodeId(charNodes?.[0]?.id ?? "");
@@ -172,39 +167,17 @@ export default function CharacterListPage() {
     setDialogOpen(true);
   };
 
-  const openEdit = (char: Character) => {
-    setEditingChar(char);
-    setCharName(char.name ?? "");
-    setCharDescription(char.description ?? "");
-    setCategoryNodeId(char.categoryNodeId);
-    setDialogOpen(true);
-  };
-
   const handleSave = () => {
     if (!charName.trim() || !categoryNodeId) return;
-    if (editingChar) {
-      updateChar.mutate(
-        {
-          charId: editingChar.id,
-          body: {
-            name: charName.trim(),
-            description: charDescription.trim() || undefined,
-            categoryNodeId,
-          },
-        },
-        { onSuccess: () => setDialogOpen(false) },
-      );
-    } else {
-      createChar.mutate(
-        {
-          name: charName.trim(),
-          description: charDescription.trim() || undefined,
-          categoryNodeId,
-          birthTime,
-        },
-        { onSuccess: () => setDialogOpen(false) },
-      );
-    }
+    createChar.mutate(
+      {
+        name: charName.trim(),
+        description: charDescription.trim() || undefined,
+        categoryNodeId,
+        birthTime,
+      },
+      { onSuccess: () => setDialogOpen(false) },
+    );
   };
 
   const handleDelete = () => {
@@ -378,11 +351,6 @@ export default function CharacterListPage() {
                       >
                         {char.name}
                       </Typography>
-                      <Tooltip title="编辑">
-                        <IconButton size="small" onClick={() => openEdit(char)}>
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
                       <Tooltip title="删除">
                         <IconButton
                           size="small"
@@ -551,7 +519,7 @@ export default function CharacterListPage() {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>{editingChar ? "编辑角色" : "添加角色"}</DialogTitle>
+        <DialogTitle>添加角色</DialogTitle>
         <DialogContent
           sx={{
             display: "flex",
@@ -607,25 +575,23 @@ export default function CharacterListPage() {
               ))}
             </TextField>
           )}
-          {!editingChar && (
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                诞生时间
-              </Typography>
-              <EpochTimeInput
-                value={birthTime}
-                onChange={setBirthTime}
-                showPreview
-              />
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ mt: 0.5, display: "block" }}
-              >
-                创建后会自动生成「诞生」事件。
-              </Typography>
-            </Box>
-          )}
+          <Box>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+              诞生时间
+            </Typography>
+            <EpochTimeInput
+              value={birthTime}
+              onChange={setBirthTime}
+              showPreview
+            />
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ mt: 0.5, display: "block" }}
+            >
+              创建后会自动生成「诞生」事件。
+            </Typography>
+          </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)}>取消</Button>
@@ -633,13 +599,10 @@ export default function CharacterListPage() {
             variant="contained"
             onClick={handleSave}
             disabled={
-              !charName.trim() ||
-              !categoryNodeId ||
-              createChar.isPending ||
-              updateChar.isPending
+              !charName.trim() || !categoryNodeId || createChar.isPending
             }
           >
-            {editingChar ? "保存" : "创建"}
+            创建
           </Button>
         </DialogActions>
       </Dialog>

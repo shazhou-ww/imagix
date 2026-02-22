@@ -2,7 +2,6 @@ import type { AttributeChange, Event as WorldEvent } from "@imagix/shared";
 import AddIcon from "@mui/icons-material/Add";
 import ClearIcon from "@mui/icons-material/Clear";
 import DeleteIcon from "@mui/icons-material/Delete";
-import EditIcon from "@mui/icons-material/Edit";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import FilterListIcon from "@mui/icons-material/FilterList";
@@ -51,7 +50,6 @@ import {
   useCreateEvent,
   useDeleteEvent,
   useEvents,
-  useUpdateEvent,
 } from "@/api/hooks/useEvents";
 import { usePlaces } from "@/api/hooks/usePlaces";
 import { useRelationships } from "@/api/hooks/useRelationships";
@@ -107,7 +105,6 @@ export default function EventListPage() {
   const scrolledRef = useRef(false);
   const { data: events, isLoading } = useEvents(worldId);
   const createEvent = useCreateEvent(worldId ?? "");
-  const updateEvent = useUpdateEvent(worldId ?? "");
   const deleteEvent = useDeleteEvent(worldId ?? "");
   const { data: characters } = useCharacters(worldId);
   const { data: things } = useThings(worldId);
@@ -116,7 +113,6 @@ export default function EventListPage() {
   const { data: places } = usePlaces(worldId);
 
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingEvent, setEditingEvent] = useState<WorldEvent | null>(null);
   const [time, setTime] = useState<number>(0);
   const [duration, setDuration] = useState<number>(0);
   const [content, setContent] = useState("");
@@ -137,55 +133,12 @@ export default function EventListPage() {
   const [filterTimeTo, setFilterTimeTo] = useState<number | null>(null);
   const [filterTimeEnabled, setFilterTimeEnabled] = useState(false);
 
-  // 编辑系统事件（创生/消亡）时的时序校验
-  const timeError = useMemo(() => {
-    if (!editingEvent?.system) return "";
-    const affectedIds = [
-      ...new Set(
-        editingEvent.impacts?.attributeChanges?.map((ac) => ac.entityId) ?? [],
-      ),
-    ];
-    if (affectedIds.length === 0) return "";
-    const isBirth = editingEvent.impacts?.attributeChanges?.some(
-      (ac) => ac.attribute === "$alive" && ac.value === true,
-    );
-    const isEnd = editingEvent.impacts?.attributeChanges?.some(
-      (ac) => ac.attribute === "$alive" && ac.value === false,
-    );
-    if (!isBirth && !isEnd) return "";
-
-    for (const pid of affectedIds) {
-      if (isBirth) {
-        const endEvt = (events ?? []).find(
-          (e) =>
-            e.id !== editingEvent.id &&
-            e.system &&
-            e.impacts?.attributeChanges?.some(
-              (ac) =>
-                ac.entityId === pid &&
-                ac.attribute === "$alive" &&
-                ac.value === false,
-            ),
-        );
-        if (endEvt && time >= endEvt.time) return "创生时间必须早于消亡时间";
-      } else {
-        const birthEvt = (events ?? []).find(
-          (e) =>
-            e.id !== editingEvent.id &&
-            e.system &&
-            e.impacts?.attributeChanges?.some(
-              (ac) =>
-                ac.entityId === pid &&
-                ac.attribute === "$alive" &&
-                ac.value === true,
-            ),
-        );
-        if (birthEvt && time <= birthEvt.time)
-          return "消亡时间必须晚于创生时间";
-      }
-    }
-    return "";
-  }, [editingEvent, time, events]);
+  // Fetch participant states at current event time
+  const { data: participantStates } = useEntitiesState(
+    dialogOpen ? worldId : undefined,
+    dialogOpen ? participantIds : undefined,
+    dialogOpen ? time : undefined,
+  );
 
   // Build entity options for autocomplete
   const entityOptions = useMemo(() => {
@@ -197,14 +150,6 @@ export default function EventListPage() {
       opts.push({ id: t.id, name: t.name, type: "thing" });
     return opts;
   }, [characters, things]);
-
-  // Fetch participant states at current event time, excluding the editing event itself
-  const { data: participantStates } = useEntitiesState(
-    dialogOpen ? worldId : undefined,
-    dialogOpen ? participantIds : undefined,
-    dialogOpen ? time : undefined,
-    editingEvent?.id,
-  );
 
   // Grouped view of attribute changes
   const groupedAttrChanges = useMemo(
@@ -390,7 +335,6 @@ export default function EventListPage() {
   }, [location.hash, sortedEvents]);
 
   const openCreate = () => {
-    setEditingEvent(null);
     setTime(0);
     setDuration(0);
     setContent("");
@@ -401,26 +345,9 @@ export default function EventListPage() {
     setDialogOpen(true);
   };
 
-  const openEdit = (evt: WorldEvent) => {
-    setEditingEvent(evt);
-    setTime(evt.time);
-    setDuration(evt.duration ?? 0);
-    setContent(evt.content);
-    setPlaceId(evt.placeId ?? null);
-    // Derive participant IDs from impacts
-    const entityIds = [
-      ...new Set(evt.impacts?.attributeChanges?.map((ac) => ac.entityId) ?? []),
-    ];
-    setParticipantIds(entityIds);
-    setAttrChanges(evt.impacts?.attributeChanges ?? []);
-    setSaveError("");
-    setDialogOpen(true);
-  };
-
   const handleSave = () => {
     if (!content.trim()) return;
     // Filter out attribute changes where value is unchanged from current state
-    // (participantStates already excludes the forEvent, so comparison is correct)
     const effectiveChanges = attrChanges.filter((ac) => {
       const state = participantStates?.find((s) => s.entityId === ac.entityId);
       const currentVal = state?.attributes?.[ac.attribute];
@@ -429,31 +356,16 @@ export default function EventListPage() {
     });
     const impacts = {
       attributeChanges: effectiveChanges,
-      relationshipAttributeChanges:
-        editingEvent?.impacts?.relationshipAttributeChanges ?? [],
+      relationshipAttributeChanges: [],
     };
-    if (editingEvent) {
-      updateEvent.mutate(
-        {
-          eventId: editingEvent.id,
-          body: { time, duration, content: content.trim(), placeId, impacts },
-        },
-        {
-          onSuccess: () => setDialogOpen(false),
-          onError: (err) =>
-            setSaveError(err instanceof Error ? err.message : "操作失败"),
-        },
-      );
-    } else {
-      createEvent.mutate(
-        { time, duration, content: content.trim(), placeId, impacts },
-        {
-          onSuccess: () => setDialogOpen(false),
-          onError: (err) =>
-            setSaveError(err instanceof Error ? err.message : "操作失败"),
-        },
-      );
-    }
+    createEvent.mutate(
+      { time, duration, content: content.trim(), placeId, impacts },
+      {
+        onSuccess: () => setDialogOpen(false),
+        onError: (err) =>
+          setSaveError(err instanceof Error ? err.message : "操作失败"),
+      },
+    );
   };
 
   const handleDelete = () => {
@@ -908,11 +820,6 @@ export default function EventListPage() {
                       </IconButton>
                     </Tooltip>
                   )}
-                  <Tooltip title="编辑">
-                    <IconButton size="small" onClick={() => openEdit(evt)}>
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
                   {!evt.system && (
                     <Tooltip title="删除">
                       <IconButton
@@ -1050,41 +957,7 @@ export default function EventListPage() {
         maxWidth="lg"
         fullWidth
       >
-        <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          {editingEvent ? "编辑事件" : "添加事件"}
-          {editingEvent?.system && (
-            <Chip
-              label={(() => {
-                const acs = editingEvent.impacts?.attributeChanges ?? [];
-                if (acs.length === 0) return "纪元事件";
-                const isBirth = acs.some(
-                  (ac) => ac.attribute === "$alive" && ac.value === true,
-                );
-                const isEnd = acs.some(
-                  (ac) => ac.attribute === "$alive" && ac.value === false,
-                );
-                const entityId = acs[0]?.entityId ?? "";
-                const entity = entityOptions.find((e) => e.id === entityId);
-                const typeLabel = entityId.startsWith("chr")
-                  ? "角色"
-                  : entityId.startsWith("rel")
-                    ? "关系"
-                    : "事物";
-                const name = entity?.name ?? entityId.slice(0, 8);
-                if (isBirth) return `创生事件·${typeLabel}·${name}`;
-                if (isEnd) return `消亡事件·${typeLabel}·${name}`;
-                return "系统事件";
-              })()}
-              size="small"
-              color={
-                (editingEvent.impacts?.attributeChanges?.length ?? 0) === 0
-                  ? "warning"
-                  : "info"
-              }
-              sx={{ height: 22, fontSize: "0.75rem" }}
-            />
-          )}
-        </DialogTitle>
+        <DialogTitle>添加事件</DialogTitle>
         <DialogContent
           sx={{
             display: "flex",
@@ -1098,7 +971,6 @@ export default function EventListPage() {
               {saveError}
             </Alert>
           )}
-          {timeError && <Alert severity="error">{timeError}</Alert>}
           <Box
             sx={{
               display: "flex",
@@ -1114,15 +986,7 @@ export default function EventListPage() {
               >
                 事件时间
               </Typography>
-              <EpochTimeInput
-                value={time}
-                onChange={setTime}
-                showPreview
-                disabled={
-                  !!editingEvent?.system &&
-                  (editingEvent.impacts?.attributeChanges?.length ?? 0) === 0
-                }
-              />
+              <EpochTimeInput value={time} onChange={setTime} showPreview />
             </Box>
             <Box sx={{ flex: 1 }}>
               <Typography
@@ -1137,7 +1001,6 @@ export default function EventListPage() {
                 onChange={setDuration}
                 showPreview={false}
                 showEraToggle={false}
-                disabled={!!editingEvent?.system}
               />
               {duration > 0 && (
                 <Typography
@@ -1520,14 +1383,9 @@ export default function EventListPage() {
           <Button
             variant="contained"
             onClick={handleSave}
-            disabled={
-              !content.trim() ||
-              createEvent.isPending ||
-              updateEvent.isPending ||
-              !!timeError
-            }
+            disabled={!content.trim() || createEvent.isPending}
           >
-            {editingEvent ? "保存" : "创建"}
+            创建
           </Button>
         </DialogActions>
       </Dialog>

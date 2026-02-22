@@ -4,7 +4,6 @@ import type {
 } from "@imagix/shared";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
-import EditIcon from "@mui/icons-material/Edit";
 import SearchIcon from "@mui/icons-material/Search";
 import {
   Box,
@@ -31,7 +30,6 @@ import {
   useAttributeDefinitions,
   useCreateAttributeDefinition,
   useDeleteAttributeDefinition,
-  useUpdateAttributeDefinition,
 } from "@/api/hooks/useAttributeDefinitions";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import EmptyState from "@/components/EmptyState";
@@ -59,11 +57,9 @@ export default function AttributeDefinitionPage() {
   const navigate = useNavigate();
   const { data: attrs, isLoading } = useAttributeDefinitions(worldId);
   const createAttr = useCreateAttributeDefinition(worldId ?? "");
-  const updateAttr = useUpdateAttributeDefinition(worldId ?? "");
   const deleteAttr = useDeleteAttributeDefinition(worldId ?? "");
 
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<AttributeDefinition | null>(null);
   const [name, setName] = useState("");
   const [type, setType] = useState<string>("string");
   const [description, setDescription] = useState("");
@@ -91,21 +87,10 @@ export default function AttributeDefinitionPage() {
   }, [attrs, filterName, filterType]);
 
   const openCreate = () => {
-    setEditing(null);
     setName("");
     setType("string");
     setDescription("");
     setEnumValues([]);
-    setNewEnumValue("");
-    setDialogOpen(true);
-  };
-
-  const openEdit = (attr: AttributeDefinition) => {
-    setEditing(attr);
-    setName(attr.name);
-    setType(attr.type);
-    setDescription(attr.description ?? "");
-    setEnumValues(attr.enumValues ?? []);
     setNewEnumValue("");
     setDialogOpen(true);
   };
@@ -120,17 +105,9 @@ export default function AttributeDefinitionPage() {
     if (type === "enum") {
       if (enumValues.length > 0) body.enumValues = enumValues;
     }
-
-    if (editing) {
-      updateAttr.mutate(
-        { adfId: editing.id, body },
-        { onSuccess: () => setDialogOpen(false) },
-      );
-    } else {
-      createAttr.mutate(body, {
-        onSuccess: () => setDialogOpen(false),
-      });
-    }
+    createAttr.mutate(body, {
+      onSuccess: () => setDialogOpen(false),
+    });
   };
 
   const handleDelete = () => {
@@ -270,25 +247,15 @@ export default function AttributeDefinitionPage() {
                       sx={{ height: 22, fontSize: "0.75rem", mr: 0.5 }}
                     />
                     {!attr.system && (
-                      <>
-                        <Tooltip title="编辑">
-                          <IconButton
-                            size="small"
-                            onClick={() => openEdit(attr)}
-                          >
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="删除">
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => setDeleteTarget(attr)}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </>
+                      <Tooltip title="删除">
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => setDeleteTarget(attr)}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
                     )}
                   </Box>
                   {attr.description && (
@@ -335,14 +302,14 @@ export default function AttributeDefinitionPage() {
         </Grid>
       )}
 
-      {/* Create / Edit Dialog */}
+      {/* Create Dialog */}
       <Dialog
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>{editing ? "编辑属性" : "添加属性"}</DialogTitle>
+        <DialogTitle>添加属性</DialogTitle>
         <DialogContent
           sx={{
             display: "flex",
@@ -452,11 +419,9 @@ export default function AttributeDefinitionPage() {
           <Button
             variant="contained"
             onClick={handleSave}
-            disabled={
-              !name.trim() || createAttr.isPending || updateAttr.isPending
-            }
+            disabled={!name.trim() || createAttr.isPending}
           >
-            {editing ? "保存" : "创建"}
+            创建
           </Button>
         </DialogActions>
       </Dialog>

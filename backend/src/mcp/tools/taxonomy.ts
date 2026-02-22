@@ -132,31 +132,28 @@ export function registerTaxonomyTools(registry: ToolRegistry) {
   registry.register({
     name: "create_attribute_definition",
     description:
-      "Create an attribute definition. Define custom attributes for entities (e.g. 'mood', 'power_level') with type and display info.",
+      "Create an attribute definition. Define custom attributes for entities (e.g. 'mood', 'power_level') with type and optional enum values.",
     inputSchema: {
       type: "object",
       properties: {
         worldId: wid,
         name: { type: "string", description: "Attribute key name" },
-        label: { type: "string", description: "Display label" },
         type: {
           type: "string",
-          enum: ["string", "number", "boolean"],
+          enum: ["string", "number", "boolean", "enum", "timestamp", "timespan"],
           description: "Value type",
         },
-        defaultValue: { description: "Default value (matches type)" },
         enumValues: {
           type: "array",
           items: { type: "string" },
-          description: "Allowed values (string type only)",
+          description: "Allowed enum values (required when type is 'string' with fixed choices)",
         },
-        scope: {
+        description: {
           type: "string",
-          enum: ["entity", "relationship"],
-          description: "Scope",
+          description: "Description of this attribute",
         },
       },
-      required: ["worldId", "name", "label", "type", "scope"],
+      required: ["worldId", "name", "type"],
     },
     handler: async (a) =>
       // biome-ignore lint/suspicious/noExplicitAny: MCP tool args
@@ -166,7 +163,7 @@ export function registerTaxonomyTools(registry: ToolRegistry) {
   registry.register({
     name: "update_attribute_definition",
     description:
-      "Update an attribute definition. System preset defs cannot be edited.",
+      "Update an attribute definition (name, type, enumValues, description). System preset defs cannot be edited.",
     inputSchema: {
       type: "object",
       properties: {
@@ -175,10 +172,13 @@ export function registerTaxonomyTools(registry: ToolRegistry) {
           type: "string",
           description: "Attribute definition ID ('adf...')",
         },
-        label: { type: "string" },
-        type: { type: "string", enum: ["string", "number", "boolean"] },
-        defaultValue: {},
+        name: { type: "string", description: "Attribute key name" },
+        type: {
+          type: "string",
+          enum: ["string", "number", "boolean", "enum", "timestamp", "timespan"],
+        },
         enumValues: { type: "array", items: { type: "string" } },
+        description: { type: "string", description: "Description of this attribute" },
       },
       required: ["worldId", "attributeDefinitionId"],
     },

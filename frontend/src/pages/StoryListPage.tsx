@@ -1,7 +1,6 @@
 import type { Chapter, Plot, Story } from "@imagix/shared";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
-import EditIcon from "@mui/icons-material/Edit";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
 import SearchIcon from "@mui/icons-material/Search";
@@ -39,8 +38,6 @@ import {
   useDeleteStory,
   usePlots,
   useStories,
-  useUpdatePlot,
-  useUpdateStory,
 } from "@/api/hooks/useStories";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import EmptyState from "@/components/EmptyState";
@@ -60,29 +57,9 @@ function PlotItem({
   eventName: string;
   characterName: string;
 }) {
-  const updatePlot = useUpdatePlot(storyId);
   const deletePlot = useDeletePlot(storyId);
   const [viewing, setViewing] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const [style, setStyle] = useState(plot.style);
-  const [content, setContent] = useState(plot.content);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
-
-  const openEdit = () => {
-    setStyle(plot.style);
-    setContent(plot.content);
-    setEditing(true);
-  };
-
-  const handleSave = () => {
-    updatePlot.mutate(
-      {
-        plotId: plot.id,
-        body: { style: style.trim(), content: content.trim() },
-      },
-      { onSuccess: () => setEditing(false) },
-    );
-  };
 
   return (
     <Box
@@ -114,11 +91,6 @@ function PlotItem({
         <Tooltip title="查看内容">
           <IconButton size="small" onClick={() => setViewing(true)}>
             <VisibilityIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title="编辑">
-          <IconButton size="small" onClick={openEdit}>
-            <EditIcon fontSize="small" />
           </IconButton>
         </Tooltip>
         <Tooltip title="删除">
@@ -168,47 +140,6 @@ function PlotItem({
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setViewing(false)}>关闭</Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Edit dialog */}
-      <Dialog
-        open={editing}
-        onClose={() => setEditing(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>编辑情节</DialogTitle>
-        <DialogContent
-          sx={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 2,
-            pt: "8px !important",
-          }}
-        >
-          <TextField
-            label="文风"
-            value={style}
-            onChange={(e) => setStyle(e.target.value)}
-          />
-          <TextField
-            label="内容"
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            multiline
-            rows={10}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setEditing(false)}>取消</Button>
-          <Button
-            variant="contained"
-            onClick={handleSave}
-            disabled={updatePlot.isPending}
-          >
-            保存
-          </Button>
         </DialogActions>
       </Dialog>
 
@@ -555,11 +486,9 @@ export default function StoryListPage() {
   const navigate = useNavigate();
   const { data: stories, isLoading } = useStories(worldId);
   const createStory = useCreateStory(worldId ?? "");
-  const updateStory = useUpdateStory(worldId ?? "");
   const deleteStory = useDeleteStory(worldId ?? "");
 
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingStory, setEditingStory] = useState<Story | null>(null);
   const [title, setTitle] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<Story | null>(null);
 
@@ -574,30 +503,16 @@ export default function StoryListPage() {
   }, [stories, filterTitle]);
 
   const openCreate = () => {
-    setEditingStory(null);
     setTitle("");
-    setDialogOpen(true);
-  };
-
-  const openEdit = (story: Story) => {
-    setEditingStory(story);
-    setTitle(story.title);
     setDialogOpen(true);
   };
 
   const handleSave = () => {
     if (!title.trim()) return;
-    if (editingStory) {
-      updateStory.mutate(
-        { storyId: editingStory.id, body: { title: title.trim() } },
-        { onSuccess: () => setDialogOpen(false) },
-      );
-    } else {
-      createStory.mutate(
-        { title: title.trim() },
-        { onSuccess: () => setDialogOpen(false) },
-      );
-    }
+    createStory.mutate(
+      { title: title.trim() },
+      { onSuccess: () => setDialogOpen(false) },
+    );
   };
 
   const handleDelete = () => {
@@ -708,18 +623,6 @@ export default function StoryListPage() {
                   >
                     {story.chapterIds.length} 章
                   </Typography>
-                  <Tooltip title="编辑标题">
-                    <IconButton
-                      component="span"
-                      size="small"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openEdit(story);
-                      }}
-                    >
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
                   <Tooltip title="删除故事">
                     <IconButton
                       component="span"
@@ -750,7 +653,7 @@ export default function StoryListPage() {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>{editingStory ? "编辑故事" : "创建故事"}</DialogTitle>
+        <DialogTitle>创建故事</DialogTitle>
         <DialogContent
           sx={{
             display: "flex",
@@ -772,11 +675,9 @@ export default function StoryListPage() {
           <Button
             variant="contained"
             onClick={handleSave}
-            disabled={
-              !title.trim() || createStory.isPending || updateStory.isPending
-            }
+            disabled={!title.trim() || createStory.isPending}
           >
-            {editingStory ? "保存" : "创建"}
+            创建
           </Button>
         </DialogActions>
       </Dialog>

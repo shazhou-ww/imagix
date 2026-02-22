@@ -1,7 +1,6 @@
 import type { Place } from "@imagix/shared";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
-import EditIcon from "@mui/icons-material/Edit";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import PlaceIcon from "@mui/icons-material/Place";
@@ -31,7 +30,6 @@ import {
   useCreatePlace,
   useDeletePlace,
   usePlaces,
-  useUpdatePlace,
 } from "@/api/hooks/usePlaces";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import EmptyState from "@/components/EmptyState";
@@ -92,11 +90,9 @@ export default function PlaceListPage() {
   const navigate = useNavigate();
   const { data: places, isLoading } = usePlaces(worldId);
   const createPlace = useCreatePlace(worldId ?? "");
-  const updatePlace = useUpdatePlace(worldId ?? "");
   const deletePlace = useDeletePlace(worldId ?? "");
 
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingPlace, setEditingPlace] = useState<Place | null>(null);
   const [name, setName] = useState("");
   const [parentId, setParentId] = useState<string | null>(null);
   const [description, setDescription] = useState("");
@@ -153,28 +149,10 @@ export default function PlaceListPage() {
     return ids;
   }, [filteredTree, filterName, expandedIds]);
 
-  // For the parent selector, exclude self and descendants when editing
-  const getDescendantIds = useCallback(
-    (placeId: string): Set<string> => {
-      const ids = new Set<string>();
-      const collect = (id: string) => {
-        ids.add(id);
-        for (const p of places ?? []) {
-          if (p.parentId === id) collect(p.id);
-        }
-      };
-      collect(placeId);
-      return ids;
-    },
-    [places],
-  );
-
   const parentOptions = useMemo(() => {
     if (!places) return [];
-    if (!editingPlace) return places;
-    const excluded = getDescendantIds(editingPlace.id);
-    return places.filter((p) => !excluded.has(p.id));
-  }, [places, editingPlace, getDescendantIds]);
+    return places;
+  }, [places]);
 
   const toggleExpand = useCallback((id: string) => {
     setExpandedIds((prev) => {
@@ -186,45 +164,22 @@ export default function PlaceListPage() {
   }, []);
 
   const openCreate = (presetParentId?: string) => {
-    setEditingPlace(null);
     setName("");
     setParentId(presetParentId ?? null);
     setDescription("");
     setDialogOpen(true);
   };
 
-  const openEdit = (place: Place) => {
-    setEditingPlace(place);
-    setName(place.name);
-    setParentId(place.parentId);
-    setDescription(place.description ?? "");
-    setDialogOpen(true);
-  };
-
   const handleSave = () => {
     if (!name.trim()) return;
-    if (editingPlace) {
-      updatePlace.mutate(
-        {
-          placeId: editingPlace.id,
-          body: {
-            name: name.trim(),
-            parentId,
-            description: description.trim() || undefined,
-          },
-        },
-        { onSuccess: () => setDialogOpen(false) },
-      );
-    } else {
-      createPlace.mutate(
-        {
-          name: name.trim(),
-          parentId,
-          description: description.trim() || undefined,
-        },
-        { onSuccess: () => setDialogOpen(false) },
-      );
-    }
+    createPlace.mutate(
+      {
+        name: name.trim(),
+        parentId,
+        description: description.trim() || undefined,
+      },
+      { onSuccess: () => setDialogOpen(false) },
+    );
   };
 
   const handleDelete = () => {
@@ -349,11 +304,6 @@ export default function PlaceListPage() {
                 <AddIcon fontSize="small" />
               </IconButton>
             </Tooltip>
-            <Tooltip title="编辑">
-              <IconButton size="small" onClick={() => openEdit(node.place)}>
-                <EditIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
             <Tooltip title="删除">
               <IconButton
                 size="small"
@@ -453,7 +403,7 @@ export default function PlaceListPage() {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>{editingPlace ? "编辑地点" : "添加地点"}</DialogTitle>
+        <DialogTitle>添加地点</DialogTitle>
         <DialogContent
           sx={{
             display: "flex",
@@ -499,11 +449,9 @@ export default function PlaceListPage() {
           <Button
             variant="contained"
             onClick={handleSave}
-            disabled={
-              !name.trim() || createPlace.isPending || updatePlace.isPending
-            }
+            disabled={!name.trim() || createPlace.isPending}
           >
-            {editingPlace ? "保存" : "创建"}
+            创建
           </Button>
         </DialogActions>
       </Dialog>

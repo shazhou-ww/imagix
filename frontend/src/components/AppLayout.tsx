@@ -432,7 +432,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                 onClick={() => handleNav(basePath)}
                 sx={{ borderRadius: 2, mb: 0.5 }}
               >
-                <ListItemIcon>
+                <ListItemIcon sx={{ minWidth: 32 }}>
                   <PublicIcon />
                 </ListItemIcon>
                 <ListItemText
@@ -483,7 +483,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             onClick={() => handleNav("/settings")}
             sx={{ borderRadius: 2 }}
           >
-            <ListItemIcon>
+            <ListItemIcon sx={{ minWidth: 32 }}>
               <TuneIcon />
             </ListItemIcon>
             <ListItemText

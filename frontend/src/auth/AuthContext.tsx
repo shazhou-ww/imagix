@@ -49,8 +49,9 @@ export function AuthProvider({
         if (claims) {
           displayName =
             (claims.name as string) ||
-            (claims.email as string) ||
+            (claims.given_name as string) ||
             (claims.preferred_username as string) ||
+            (claims.email as string) ||
             user.username;
         }
       } catch {

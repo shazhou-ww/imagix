@@ -37,6 +37,7 @@ export const auth = (() => {
     attributeMapping: {
       email: "email",
       username: "sub",
+      name: "name",
     },
   });
 

@@ -390,24 +390,29 @@ export default function RelationshipListPage() {
             const typeNode = relNodeMap.get(rel.typeNodeId);
             return (
               <Grid size={{ xs: 12, sm: 6, md: 4 }} key={rel.id}>
-                <Card id={rel.id}>
+                <Card
+                  id={rel.id}
+                  sx={{ cursor: "pointer" }}
+                  onClick={() =>
+                    navigate(`/worlds/${worldId}/relationships/${rel.id}`)
+                  }
+                >
                   <CardContent>
                     <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
                       <Chip
                         label={typeNode?.name ?? "未知类型"}
                         size="small"
                         color="primary"
-                        onClick={() =>
-                          navigate(`/worlds/${worldId}/relationships/${rel.id}`)
-                        }
-                        sx={{ cursor: "pointer" }}
                       />
                       <Box sx={{ flex: 1 }} />
                       <Tooltip title="删除">
                         <IconButton
                           size="small"
                           color="error"
-                          onClick={() => setDeleteTarget(rel)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteTarget(rel);
+                          }}
                         >
                           <DeleteIcon fontSize="small" />
                         </IconButton>
@@ -423,7 +428,8 @@ export default function RelationshipListPage() {
                           "&:hover": { textDecoration: "underline" },
                         }}
                         color="primary"
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           const prefix = rel.fromId.slice(0, 3);
                           const page =
                             prefix === "chr" ? "characters" : "things";
@@ -442,7 +448,8 @@ export default function RelationshipListPage() {
                           "&:hover": { textDecoration: "underline" },
                         }}
                         color="primary"
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           const prefix = rel.toId.slice(0, 3);
                           const page =
                             prefix === "chr" ? "characters" : "things";
@@ -476,9 +483,10 @@ export default function RelationshipListPage() {
                               fontSize: "0.75rem",
                               cursor: "pointer",
                             }}
-                            onClick={() =>
-                              navigate(`/worlds/${worldId}/events#${birth.id}`)
-                            }
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/worlds/${worldId}/events#${birth.id}`);
+                            }}
                           />
                         ) : null;
                       })()}
@@ -498,17 +506,21 @@ export default function RelationshipListPage() {
                               fontSize: "0.75rem",
                               cursor: "pointer",
                             }}
-                            onClick={() =>
+                            onClick={(e) => {
+                              e.stopPropagation();
                               navigate(
                                 `/worlds/${worldId}/events#${rel.endEventId}`,
-                              )
-                            }
+                              );
+                            }}
                           />
                           <Tooltip title="撤销解除">
                             <IconButton
                               size="small"
                               color="warning"
-                              onClick={() => undoEndRel.mutate(rel.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                undoEndRel.mutate(rel.id);
+                              }}
                             >
                               <UndoIcon sx={{ fontSize: 16 }} />
                             </IconButton>
@@ -520,7 +532,10 @@ export default function RelationshipListPage() {
                           size="small"
                           variant="outlined"
                           color="default"
-                          onClick={() => openEndDialog(rel)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openEndDialog(rel);
+                          }}
                           sx={{
                             height: 22,
                             fontSize: "0.75rem",

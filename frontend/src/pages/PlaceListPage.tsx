@@ -218,7 +218,9 @@ export default function PlaceListPage() {
             mb: 1,
             borderLeft: depth > 0 ? "3px solid" : "none",
             borderLeftColor: "primary.light",
+            cursor: "pointer",
           }}
+          onClick={() => navigate(`/worlds/${worldId}/places/${node.place.id}`)}
         >
           <CardContent
             sx={{
@@ -233,7 +235,10 @@ export default function PlaceListPage() {
             {hasChildren ? (
               <IconButton
                 size="small"
-                onClick={() => toggleExpand(node.place.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleExpand(node.place.id);
+                }}
               >
                 {isExpanded ? (
                   <ExpandLessIcon fontSize="small" />
@@ -248,18 +253,7 @@ export default function PlaceListPage() {
             <PlaceIcon color="primary" fontSize="small" />
 
             <Box sx={{ flex: 1, minWidth: 0 }}>
-              <Typography
-                variant="subtitle1"
-                fontWeight="bold"
-                noWrap
-                sx={{
-                  cursor: "pointer",
-                  "&:hover": { color: "primary.main" },
-                }}
-                onClick={() =>
-                  navigate(`/worlds/${worldId}/places/${node.place.id}`)
-                }
-              >
+              <Typography variant="subtitle1" fontWeight="bold" noWrap>
                 {node.place.name}
               </Typography>
               {node.place.description && (
@@ -299,7 +293,10 @@ export default function PlaceListPage() {
               <IconButton
                 size="small"
                 color="primary"
-                onClick={() => openCreate(node.place.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openCreate(node.place.id);
+                }}
               >
                 <AddIcon fontSize="small" />
               </IconButton>
@@ -308,7 +305,8 @@ export default function PlaceListPage() {
               <IconButton
                 size="small"
                 color="error"
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   setDeleteError("");
                   setDeleteTarget(node.place);
                 }}

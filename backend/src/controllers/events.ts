@@ -5,6 +5,7 @@ import {
   EntityPrefix,
   type Event,
   EventSchema,
+  type Plot,
   type Relationship,
   type StateImpact,
   type Thing,
@@ -299,6 +300,21 @@ export async function remove(worldId: string, eventId: string): Promise<void> {
           });
         }
       }
+    }
+  }
+
+  // Guard: check for plots referencing this event
+  const stories = await repo.listStoriesByWorld(worldId);
+  for (const story of stories) {
+    const s = story as { id: string };
+    const plots = await repo.listPlots(s.id);
+    const referencingPlot = (plots as Plot[]).find(
+      (p) => p.eventId === eventId,
+    );
+    if (referencingPlot) {
+      throw AppError.badRequest(
+        "有情节引用了该事件，请先删除相关情节",
+      );
     }
   }
 

@@ -220,7 +220,15 @@ export default function AttributeDefinitionPage() {
           {filteredAttrs.map((attr) => (
             <Grid size={{ xs: 12, sm: 6, md: 4 }} key={attr.id}>
               <Card
-                sx={{ height: 140, display: "flex", flexDirection: "column" }}
+                sx={{
+                  height: 140,
+                  display: "flex",
+                  flexDirection: "column",
+                  cursor: "pointer",
+                }}
+                onClick={() =>
+                  navigate(`/worlds/${worldId}/attributes/${attr.id}`)
+                }
               >
                 <CardContent sx={{ flex: 1, overflow: "hidden" }}>
                   <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
@@ -228,14 +236,7 @@ export default function AttributeDefinitionPage() {
                       variant="subtitle1"
                       fontWeight="bold"
                       noWrap
-                      sx={{
-                        flex: 1,
-                        cursor: "pointer",
-                        "&:hover": { color: "primary.main" },
-                      }}
-                      onClick={() =>
-                        navigate(`/worlds/${worldId}/attributes/${attr.id}`)
-                      }
+                      sx={{ flex: 1 }}
                     >
                       {attr.name}
                     </Typography>
@@ -251,7 +252,10 @@ export default function AttributeDefinitionPage() {
                         <IconButton
                           size="small"
                           color="error"
-                          onClick={() => setDeleteTarget(attr)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteTarget(attr);
+                          }}
                         >
                           <DeleteIcon fontSize="small" />
                         </IconButton>

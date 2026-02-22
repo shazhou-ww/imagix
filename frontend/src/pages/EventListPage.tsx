@@ -583,7 +583,12 @@ export default function EventListPage() {
       ) : (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
           {filteredEvents.map((evt) => (
-            <Card key={evt.id} id={evt.id}>
+            <Card
+              key={evt.id}
+              id={evt.id}
+              sx={{ cursor: "pointer" }}
+              onClick={() => navigate(`/worlds/${worldId}/events/${evt.id}`)}
+            >
               <CardContent
                 sx={{ display: "flex", gap: 2, alignItems: "flex-start" }}
               >
@@ -631,18 +636,7 @@ export default function EventListPage() {
                 </Box>
                 <Box sx={{ flex: 1 }}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <Typography
-                      variant="body1"
-                      sx={{
-                        cursor: "pointer",
-                        "&:hover": { color: "primary.main" },
-                      }}
-                      onClick={() =>
-                        navigate(`/worlds/${worldId}/events/${evt.id}`)
-                      }
-                    >
-                      {evt.content}
-                    </Typography>
+                    <Typography variant="body1">{evt.content}</Typography>
                     {evt.system && (
                       <Chip
                         label={(() => {
@@ -718,7 +712,8 @@ export default function EventListPage() {
                                 fontSize: "0.75rem",
                                 cursor: "pointer",
                               }}
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 const prefix = eid.slice(0, 3);
                                 const page =
                                   prefix === "chr"
@@ -771,7 +766,10 @@ export default function EventListPage() {
                             fontSize: "0.7rem",
                             cursor: "pointer",
                           }}
-                          onClick={() => toggleExpand(evt.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleExpand(evt.id);
+                          }}
                         />
                       )}
                       {(() => {
@@ -792,7 +790,10 @@ export default function EventListPage() {
                               fontSize: "0.7rem",
                               cursor: "pointer",
                             }}
-                            onClick={() => toggleExpand(evt.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleExpand(evt.id);
+                            }}
                           />
                         ) : null;
                       })()}
@@ -810,7 +811,10 @@ export default function EventListPage() {
                     >
                       <IconButton
                         size="small"
-                        onClick={() => toggleExpand(evt.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleExpand(evt.id);
+                        }}
                       >
                         {expandedEvents.has(evt.id) ? (
                           <ExpandLessIcon fontSize="small" />
@@ -825,7 +829,10 @@ export default function EventListPage() {
                       <IconButton
                         size="small"
                         color="error"
-                        onClick={() => setDeleteTarget(evt)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteTarget(evt);
+                        }}
                       >
                         <DeleteIcon fontSize="small" />
                       </IconButton>
@@ -836,6 +843,7 @@ export default function EventListPage() {
               <Collapse in={expandedEvents.has(evt.id)} unmountOnExit>
                 <Divider />
                 <Box
+                  onClick={(e) => e.stopPropagation()}
                   sx={{
                     px: 2,
                     py: 1.5,

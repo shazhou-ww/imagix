@@ -62,5 +62,18 @@ export async function update(
 }
 
 export async function remove(worldId: string, storyId: string): Promise<void> {
+  // Cascade: delete all chapters and plots under this story
+  const chapters = await repo.listChapters(storyId);
+  const plots = await repo.listPlots(storyId);
+
+  // Delete all plots first
+  for (const plot of plots) {
+    await repo.deletePlot(storyId, (plot as { id: string }).id);
+  }
+  // Delete all chapters
+  for (const chapter of chapters) {
+    await repo.deleteChapter(storyId, (chapter as { id: string }).id);
+  }
+
   await repo.deleteStory(worldId, storyId);
 }

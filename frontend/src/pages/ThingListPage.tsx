@@ -326,20 +326,19 @@ export default function ThingListPage() {
             const chain = getAncestorChain(thing.categoryNodeId, nodeMap);
             return (
               <Grid size={{ xs: 12, sm: 6, md: 4 }} key={thing.id}>
-                <Card id={thing.id}>
+                <Card
+                  id={thing.id}
+                  sx={{ cursor: "pointer" }}
+                  onClick={() =>
+                    navigate(`/worlds/${worldId}/things/${thing.id}`)
+                  }
+                >
                   <CardContent>
                     <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
                       <Typography
                         variant="subtitle1"
                         fontWeight="bold"
-                        sx={{
-                          flex: 1,
-                          cursor: "pointer",
-                          "&:hover": { color: "primary.main" },
-                        }}
-                        onClick={() =>
-                          navigate(`/worlds/${worldId}/things/${thing.id}`)
-                        }
+                        sx={{ flex: 1 }}
                       >
                         {thing.name}
                       </Typography>
@@ -347,7 +346,10 @@ export default function ThingListPage() {
                         <IconButton
                           size="small"
                           color="error"
-                          onClick={() => setDeleteTarget(thing)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteTarget(thing);
+                          }}
                         >
                           <DeleteIcon fontSize="small" />
                         </IconButton>
@@ -436,9 +438,10 @@ export default function ThingListPage() {
                               fontSize: "0.75rem",
                               cursor: "pointer",
                             }}
-                            onClick={() =>
-                              navigate(`/worlds/${worldId}/events#${birth.id}`)
-                            }
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/worlds/${worldId}/events#${birth.id}`);
+                            }}
                           />
                         ) : null;
                       })()}
@@ -458,17 +461,21 @@ export default function ThingListPage() {
                               fontSize: "0.75rem",
                               cursor: "pointer",
                             }}
-                            onClick={() =>
+                            onClick={(e) => {
+                              e.stopPropagation();
                               navigate(
                                 `/worlds/${worldId}/events#${thing.endEventId}`,
-                              )
-                            }
+                              );
+                            }}
                           />
                           <Tooltip title="撤销消亡">
                             <IconButton
                               size="small"
                               color="warning"
-                              onClick={() => undoEndThing.mutate(thing.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                undoEndThing.mutate(thing.id);
+                              }}
                             >
                               <UndoIcon sx={{ fontSize: 16 }} />
                             </IconButton>
@@ -480,7 +487,10 @@ export default function ThingListPage() {
                           size="small"
                           variant="outlined"
                           color="default"
-                          onClick={() => openEndDialog(thing)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openEndDialog(thing);
+                          }}
                           sx={{
                             height: 22,
                             fontSize: "0.75rem",

@@ -84,5 +84,14 @@ export async function remove(worldId: string, placeId: string): Promise<void> {
     throw AppError.badRequest("该地点下有子地点，请先删除或移动子地点");
   }
 
+  // Guard: check for events referencing this place
+  const events = await repo.listEvents(worldId);
+  const referencedByEvent = (events as { placeId?: string | null }[]).some(
+    (e) => e.placeId === placeId,
+  );
+  if (referencedByEvent) {
+    throw AppError.badRequest("有事件引用了该地点，请先修改或删除相关事件");
+  }
+
   await repo.deletePlace(worldId, placeId);
 }

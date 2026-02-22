@@ -53,7 +53,45 @@ export async function remove(
   nodeId: string,
 ): Promise<void> {
   const existing = await repo.getTaxonomyNode(worldId, tree, nodeId);
-  if (existing && (existing as TaxonomyNode).system)
+  if (!existing) throw AppError.notFound("TaxonomyNode");
+  if ((existing as TaxonomyNode).system)
     throw AppError.forbidden("系统预置节点不可删除");
+
+  // Guard: check for child nodes
+  const allNodes = await repo.getTaxonomyTree(worldId, tree);
+  const hasChildren = (allNodes as TaxonomyNode[]).some(
+    (n) => n.parentId === nodeId,
+  );
+  if (hasChildren) {
+    throw AppError.badRequest("该分类节点下有子节点，请先删除或移动子节点");
+  }
+
+  // Guard: check for entities referencing this node
+  if (tree === "CHAR") {
+    const chars = await repo.listCharacters(worldId);
+    const referenced = (chars as { categoryNodeId: string; deletedAt?: string }[]).some(
+      (c) => !c.deletedAt && c.categoryNodeId === nodeId,
+    );
+    if (referenced) {
+      throw AppError.badRequest("有角色正在使用该分类节点，请先修改角色分类");
+    }
+  } else if (tree === "THING") {
+    const things = await repo.listThings(worldId);
+    const referenced = (things as { categoryNodeId: string; deletedAt?: string }[]).some(
+      (t) => !t.deletedAt && t.categoryNodeId === nodeId,
+    );
+    if (referenced) {
+      throw AppError.badRequest("有事物正在使用该分类节点，请先修改事物分类");
+    }
+  } else if (tree === "REL") {
+    const rels = await repo.listRelationships(worldId);
+    const referenced = (rels as { typeNodeId: string; deletedAt?: string }[]).some(
+      (r) => !r.deletedAt && r.typeNodeId === nodeId,
+    );
+    if (referenced) {
+      throw AppError.badRequest("有关系正在使用该类型节点，请先修改关系类型");
+    }
+  }
+
   await repo.deleteTaxonomyNode(worldId, tree, nodeId);
 }

@@ -79,6 +79,15 @@ export async function remove(
   const story = (await repo.getStory(worldId, storyId)) as Story | null;
   if (!story) throw AppError.notFound("Story");
 
+  // Cascade: delete all plots belonging to this chapter
+  const allPlots = await repo.listPlots(storyId);
+  for (const plot of allPlots) {
+    const p = plot as { id: string; chapterId: string };
+    if (p.chapterId === chapterId) {
+      await repo.deletePlot(storyId, p.id);
+    }
+  }
+
   await repo.deleteChapter(storyId, chapterId);
 
   await repo.updateStory(worldId, storyId, {

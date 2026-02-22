@@ -334,20 +334,19 @@ export default function CharacterListPage() {
             const chain = getAncestorChain(char.categoryNodeId, nodeMap);
             return (
               <Grid size={{ xs: 12, sm: 6, md: 4 }} key={char.id}>
-                <Card id={char.id}>
+                <Card
+                  id={char.id}
+                  sx={{ cursor: "pointer" }}
+                  onClick={() =>
+                    navigate(`/worlds/${worldId}/characters/${char.id}`)
+                  }
+                >
                   <CardContent>
                     <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
                       <Typography
                         variant="subtitle1"
                         fontWeight="bold"
-                        sx={{
-                          flex: 1,
-                          cursor: "pointer",
-                          "&:hover": { color: "primary.main" },
-                        }}
-                        onClick={() =>
-                          navigate(`/worlds/${worldId}/characters/${char.id}`)
-                        }
+                        sx={{ flex: 1 }}
                       >
                         {char.name}
                       </Typography>
@@ -355,7 +354,10 @@ export default function CharacterListPage() {
                         <IconButton
                           size="small"
                           color="error"
-                          onClick={() => setDeleteTarget(char)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteTarget(char);
+                          }}
                         >
                           <DeleteIcon fontSize="small" />
                         </IconButton>
@@ -444,9 +446,10 @@ export default function CharacterListPage() {
                               fontSize: "0.75rem",
                               cursor: "pointer",
                             }}
-                            onClick={() =>
-                              navigate(`/worlds/${worldId}/events#${birth.id}`)
-                            }
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/worlds/${worldId}/events#${birth.id}`);
+                            }}
                           />
                         ) : null;
                       })()}
@@ -466,17 +469,21 @@ export default function CharacterListPage() {
                               fontSize: "0.75rem",
                               cursor: "pointer",
                             }}
-                            onClick={() =>
+                            onClick={(e) => {
+                              e.stopPropagation();
                               navigate(
                                 `/worlds/${worldId}/events#${char.endEventId}`,
-                              )
-                            }
+                              );
+                            }}
                           />
                           <Tooltip title="撤销消亡">
                             <IconButton
                               size="small"
                               color="warning"
-                              onClick={() => undoEndChar.mutate(char.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                undoEndChar.mutate(char.id);
+                              }}
                             >
                               <UndoIcon sx={{ fontSize: 16 }} />
                             </IconButton>
@@ -488,7 +495,10 @@ export default function CharacterListPage() {
                           size="small"
                           variant="outlined"
                           color="default"
-                          onClick={() => openEndDialog(char)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openEndDialog(char);
+                          }}
                           sx={{
                             height: 22,
                             fontSize: "0.75rem",

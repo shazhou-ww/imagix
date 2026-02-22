@@ -440,6 +440,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                   primaryTypographyProps={{
                     noWrap: true,
                     fontSize: "0.9rem",
+                    fontWeight: isActive ? "bold" : undefined,
                   }}
                 />
                 {isActive ? (

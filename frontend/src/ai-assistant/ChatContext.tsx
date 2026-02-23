@@ -12,8 +12,8 @@ import {
   useState,
 } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { type LlmStreamEvent, sendMessage } from "./llm-client";
-import { mcpCallTool, mcpListTools } from "./mcp-client";
+import { fetchAuthSession } from "aws-amplify/auth";
+import { mcpListTools } from "./mcp-client";
 import {
   NAVIGATION_TOOL_DEFS,
   NAVIGATION_TOOL_NAMES,
@@ -32,15 +32,19 @@ import {
   saveSkillState,
   saveUiState,
 } from "./storage";
+import {
+  addSwEventListener,
+  registerLlmServiceWorker,
+  sendNavToolResult,
+  sendToSw,
+  type SwInboundEvent,
+} from "./sw-bridge";
 import { buildSystemPrompt, parsePageContext } from "./system-prompt";
-import { parseTextToolCalls } from "./tool-call-parser";
 import type {
   AiConfig,
   ChatMessage,
   ChatSession,
-  ToolCall,
   ToolDefinition,
-  ToolResult,
 } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -95,6 +99,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Refs for Service Worker event handler (kept in sync with latest values)
+  const navigateRef = useRef(navigate);
+  navigateRef.current = navigate;
+  const locationRef = useRef(location);
+  locationRef.current = location;
+
   // Initialisation flag
   const [ready, setReady] = useState(false);
 
@@ -106,6 +116,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   });
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSession, setActiveSession] = useState<ChatSession | null>(null);
+  const activeSessionRef = useRef(activeSession);
+  activeSessionRef.current = activeSession;
   const [panelOpen, setPanelOpenState] = useState(false);
   const [pinnedSkillIds, setPinnedSkillIds] = useState<string[]>([]);
   const [unpinnedSkillIds, setUnpinnedSkillIds] = useState<string[]>([]);
@@ -125,16 +137,175 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [activeToolCallName, setActiveToolCallName] = useState<string | null>(
     null,
   );
-  const abortRef = useRef<AbortController | null>(null);
+
+  // Track base message count for Service Worker message merging
+  const baseMessageCountRef = useRef(0);
 
   // Cache MCP tool definitions
   const mcpToolsRef = useRef<ToolDefinition[] | null>(null);
 
   // ---------------------------------------------------------------------------
-  // Init: load from IndexedDB
+  // Service Worker event handler
+  // ---------------------------------------------------------------------------
+  // biome-ignore lint/correctness/useExhaustiveDependencies: uses refs for latest values
+  const handleSwEvent = useCallback((event: SwInboundEvent) => {
+    switch (event.type) {
+      case "text-delta": {
+        if (event.sessionId !== activeSessionRef.current?.id) return;
+        setStreamingText(event.accumulated);
+        break;
+      }
+      case "tool-executing": {
+        if (event.sessionId !== activeSessionRef.current?.id) return;
+        setActiveToolCallName(event.toolName);
+        break;
+      }
+      case "messages-updated": {
+        const session = activeSessionRef.current;
+        if (!session || event.sessionId !== session.id) return;
+        const baseCount = baseMessageCountRef.current;
+        const updated: ChatSession = {
+          ...session,
+          messages: [
+            ...session.messages.slice(0, baseCount),
+            ...event.newMessages,
+          ],
+          updatedAt: Date.now(),
+        };
+        setActiveSession(updated);
+        activeSessionRef.current = updated;
+        // Reset streaming text for next round
+        setStreamingText("");
+        setActiveToolCallName(null);
+        // Persist intermediate state
+        saveChatSession(updated);
+        break;
+      }
+      case "nav-tool-request": {
+        if (event.sessionId !== activeSessionRef.current?.id) return;
+        const args = JSON.parse(event.toolCall.arguments || "{}");
+        const result = executeNavigationTool(
+          event.toolCall.name,
+          args,
+          locationRef.current.pathname,
+          navigateRef.current,
+        );
+        sendNavToolResult(
+          event.sessionId,
+          event.toolCall.id,
+          result || { content: "Unknown navigation tool", isError: true },
+        );
+        break;
+      }
+      case "done": {
+        const session = activeSessionRef.current;
+        if (!session || event.sessionId !== session.id) {
+          setIsStreaming(false);
+          return;
+        }
+        const baseCount = baseMessageCountRef.current;
+        const final: ChatSession = {
+          ...session,
+          messages: [
+            ...session.messages.slice(0, baseCount),
+            ...event.newMessages,
+          ],
+          updatedAt: Date.now(),
+        };
+        setActiveSession(final);
+        activeSessionRef.current = final;
+        // Persist final state
+        (async () => {
+          await saveChatSession(final);
+          const list = await listChatSessions();
+          setSessions(list);
+          await saveUiState({ panelOpen: true, activeSessionId: final.id });
+        })();
+        setIsStreaming(false);
+        setStreamingText("");
+        setActiveToolCallName(null);
+        break;
+      }
+      case "error": {
+        if (event.sessionId !== activeSessionRef.current?.id) return;
+        // Error will be followed by "done" event — no need to reset here
+        break;
+      }
+      case "state": {
+        // Reconnection: Service Worker reports its current state
+        if (event.sessionId === null) return;
+        const session = activeSessionRef.current;
+        if (!session || event.sessionId !== session.id) return;
+
+        if (event.isStreaming) {
+          // Active stream — reconnect UI state
+          setIsStreaming(true);
+          setStreamingText(event.accumulated);
+          setActiveToolCallName(event.activeToolCallName);
+          baseMessageCountRef.current = event.baseMessageCount;
+          const updated: ChatSession = {
+            ...session,
+            messages: [
+              ...session.messages.slice(0, event.baseMessageCount),
+              ...event.newMessages,
+            ],
+            updatedAt: Date.now(),
+          };
+          setActiveSession(updated);
+          activeSessionRef.current = updated;
+
+          // Handle pending navigation tool request
+          if (event.pendingNavToolRequest) {
+            const tc = event.pendingNavToolRequest;
+            const tcArgs = JSON.parse(tc.arguments || "{}");
+            const tcResult = executeNavigationTool(
+              tc.name,
+              tcArgs,
+              locationRef.current.pathname,
+              navigateRef.current,
+            );
+            sendNavToolResult(
+              event.sessionId,
+              tc.id,
+              tcResult || { content: "Unknown navigation tool", isError: true },
+            );
+          }
+        } else if (event.newMessages.length > 0) {
+          // Stream completed during page refresh — apply results
+          const updated: ChatSession = {
+            ...session,
+            messages: [
+              ...session.messages.slice(0, event.baseMessageCount),
+              ...event.newMessages,
+            ],
+            updatedAt: Date.now(),
+          };
+          setActiveSession(updated);
+          activeSessionRef.current = updated;
+          (async () => {
+            await saveChatSession(updated);
+            const list = await listChatSessions();
+            setSessions(list);
+          })();
+        }
+        break;
+      }
+    }
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // Init: load from IndexedDB + register Service Worker
   // ---------------------------------------------------------------------------
   useEffect(() => {
+    const unsub = addSwEventListener(handleSwEvent);
+
     (async () => {
+      // Register Service Worker
+      await registerLlmServiceWorker().catch((e) =>
+        console.warn("[AI] Service Worker registration failed:", e),
+      );
+
+      // Load from IndexedDB
       const [cfg, skillState, uiState, sessionList] = await Promise.all([
         getAiConfig(),
         getSkillState(),
@@ -147,13 +318,25 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       setPanelOpenState(uiState.panelOpen);
       setSessions(sessionList);
 
+      let loadedSession: ChatSession | null = null;
       if (uiState.activeSessionId) {
         const s = await getChatSession(uiState.activeSessionId);
-        if (s) setActiveSession(s);
+        if (s) {
+          loadedSession = s;
+          setActiveSession(s);
+          activeSessionRef.current = s;
+        }
       }
       setReady(true);
+
+      // Check for active Service Worker stream (reconnection after refresh)
+      if (loadedSession) {
+        sendToSw({ type: "get-state" }).catch(() => {});
+      }
     })();
-  }, []);
+
+    return unsub;
+  }, [handleSwEvent]);
 
   // ---------------------------------------------------------------------------
   // Persist helpers
@@ -289,38 +472,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   }, [loadedSkillIds]);
 
   // ---------------------------------------------------------------------------
-  // Execute a tool call
-  // ---------------------------------------------------------------------------
-  const executeTool = useCallback(
-    async (tc: ToolCall): Promise<ToolResult> => {
-      const args = JSON.parse(tc.arguments || "{}");
-
-      // Check if it's a navigation tool first
-      if (NAVIGATION_TOOL_NAMES.has(tc.name)) {
-        const result = executeNavigationTool(
-          tc.name,
-          args,
-          location.pathname,
-          navigate,
-        );
-        if (result) return result;
-      }
-
-      // Otherwise call MCP
-      try {
-        return await mcpCallTool(tc.name, args);
-      } catch (e) {
-        return {
-          content: `工具调用失败：${e instanceof Error ? e.message : String(e)}`,
-          isError: true,
-        };
-      }
-    },
-    [location.pathname, navigate],
-  );
-
-  // ---------------------------------------------------------------------------
-  // Send message + tool loop
+  // Send message (via Service Worker)
   // ---------------------------------------------------------------------------
   const sendUserMessage = useCallback(
     async (text: string) => {
@@ -364,6 +516,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         updatedAt: Date.now(),
       };
       setActiveSession(session);
+      activeSessionRef.current = session;
       await persistSession(session);
 
       // Get tools
@@ -377,143 +530,44 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         parsePageContext(location.pathname),
       );
 
+      // Get auth token for MCP calls in Service Worker
+      let authToken = "";
+      try {
+        const authSession = await fetchAuthSession();
+        authToken = authSession.tokens?.idToken?.toString() ?? "";
+      } catch {
+        // Continue without auth — MCP calls will fail but LLM calls still work
+      }
+
+      // Track base message count for message merging on reconnect
+      baseMessageCountRef.current = session.messages.length;
+
       // Start streaming
       setIsStreaming(true);
       setStreamingText("");
       setActiveToolCallName(null);
 
-      const controller = new AbortController();
-      abortRef.current = controller;
-
-      // Tool loop: keep calling LLM until it stops issuing tool calls
-      let currentMessages = [...session.messages];
-
+      // Send to Service Worker for background processing
       try {
-        let continueLoop = true;
-        const MAX_TOOL_ROUNDS = 15; // Safety limit
-        let round = 0;
-
-        while (continueLoop && round < MAX_TOOL_ROUNDS) {
-          continueLoop = false;
-          round++;
-          console.log(`[AI] Loop round ${round}, messages:`, currentMessages.length);
-
-          let accumulatedText = "";
-          const toolCalls: ToolCall[] = [];
-
-          await sendMessage({
-            endpoint,
-            model,
-            messages: currentMessages,
-            tools,
-            systemPrompt,
-            signal: controller.signal,
-            onEvent: (event: LlmStreamEvent) => {
-              switch (event.type) {
-                case "text":
-                  accumulatedText += event.text ?? "";
-                  setStreamingText(accumulatedText);
-                  break;
-                case "tool_call":
-                  if (event.toolCall) {
-                    toolCalls.push(event.toolCall);
-                  }
-                  break;
-                case "error":
-                  accumulatedText += `\n\n❌ ${event.error}`;
-                  setStreamingText(accumulatedText);
-                  break;
-              }
-            },
-          });
-
-          // Fallback: parse tool calls from text for models that output
-          // them as text (e.g. DeepSeek's <｜DSML｜> format)
-          if (toolCalls.length === 0 && accumulatedText) {
-            const parsed = parseTextToolCalls(accumulatedText);
-            if (parsed) {
-              console.log(`[AI] Parsed ${parsed.toolCalls.length} tool call(s) from text`, parsed.toolCalls.map(tc => tc.name));
-              toolCalls.push(...parsed.toolCalls);
-              accumulatedText = parsed.cleanText;
-              setStreamingText(accumulatedText);
-            }
-          }
-
-          // Build assistant message
-          console.log(`[AI] Round ${round} done. Text length: ${accumulatedText.length}, Tool calls: ${toolCalls.length}`, toolCalls.map(tc => tc.name));
-          const assistantMsg: ChatMessage = {
-            id: generateId(),
-            role: "assistant",
-            content: accumulatedText,
-            toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
-            timestamp: Date.now(),
-          };
-          currentMessages = [...currentMessages, assistantMsg];
-
-          // Update UI with the assistant message immediately
-          session = {
-            ...session,
-            messages: currentMessages,
-            updatedAt: Date.now(),
-          };
-          setActiveSession(session);
-
-          // If there are tool calls, execute them and continue the loop
-          if (toolCalls.length > 0) {
-            for (const tc of toolCalls) {
-              setActiveToolCallName(tc.name);
-              const result = await executeTool(tc);
-
-              const toolMsg: ChatMessage = {
-                id: generateId(),
-                role: "tool",
-                content: result.content,
-                toolCallId: tc.id,
-                toolName: tc.name,
-                timestamp: Date.now(),
-              };
-              currentMessages = [...currentMessages, toolMsg];
-            }
-
-            // Update UI with tool results
-            session = {
-              ...session,
-              messages: currentMessages,
-              updatedAt: Date.now(),
-            };
-            setActiveSession(session);
-
-            setActiveToolCallName(null);
-            setStreamingText("");
-            continueLoop = true; // Continue to let LLM process tool results
-            console.log(`[AI] Tool results added, continuing loop...`);
-          }
-        }
+        await sendToSw({
+          type: "start",
+          sessionId: session.id,
+          endpoint: {
+            url: endpoint.url,
+            apiKey: endpoint.apiKey,
+            provider: endpoint.provider,
+          },
+          model: { name: model.name },
+          messages: session.messages,
+          tools,
+          systemPrompt,
+          authToken,
+          navToolNames: [...NAVIGATION_TOOL_NAMES],
+        });
       } catch (e) {
-        if ((e as Error).name !== "AbortError") {
-          const errorMsg: ChatMessage = {
-            id: generateId(),
-            role: "assistant",
-            content: `❌ 发生错误：${e instanceof Error ? e.message : String(e)}`,
-            timestamp: Date.now(),
-          };
-          currentMessages = [...currentMessages, errorMsg];
-        }
+        console.error("[AI] Failed to send to Service Worker:", e);
+        setIsStreaming(false);
       }
-
-      // Persist final state
-      session = {
-        ...session,
-        messages: currentMessages,
-        updatedAt: Date.now(),
-      };
-      setActiveSession(session);
-      await persistSession(session);
-
-      setIsStreaming(false);
-      setStreamingText("");
-      setActiveToolCallName(null);
-      abortRef.current = null;
     },
     [
       isStreaming,
@@ -523,12 +577,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       getToolDefinitions,
       loadedSkillIds,
       location.pathname,
-      executeTool,
     ],
   );
 
   const abortStreaming = useCallback(() => {
-    abortRef.current?.abort();
+    const session = activeSessionRef.current;
+    if (session) {
+      sendToSw({ type: "abort", sessionId: session.id }).catch(() => {});
+    }
   }, []);
 
   // ---------------------------------------------------------------------------

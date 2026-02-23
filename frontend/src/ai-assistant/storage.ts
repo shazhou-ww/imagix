@@ -120,21 +120,22 @@ export async function deleteChatSession(id: string): Promise<void> {
 const SKILL_KEY = "skill-state";
 
 const DEFAULT_SKILL_STATE: SkillState = {
-  loadedSkillIds: [
-    "world-management",
-    "character-management",
-    "relationships",
-    "events",
-    "narrative",
-    "taxonomy",
-    "templates",
-    "navigation",
-  ],
+  pinnedSkillIds: [],
+  unpinnedSkillIds: [],
 };
 
 export async function getSkillState(): Promise<SkillState> {
   const db = await getDB();
-  return (await db.get("skill-state", SKILL_KEY)) ?? DEFAULT_SKILL_STATE;
+  const raw = await db.get("skill-state", SKILL_KEY);
+  if (!raw) return DEFAULT_SKILL_STATE;
+  // Migrate from old format { loadedSkillIds: string[] }
+  if ("loadedSkillIds" in raw && !("pinnedSkillIds" in raw)) {
+    return DEFAULT_SKILL_STATE;
+  }
+  return {
+    pinnedSkillIds: raw.pinnedSkillIds ?? [],
+    unpinnedSkillIds: raw.unpinnedSkillIds ?? [],
+  };
 }
 
 export async function saveSkillState(state: SkillState): Promise<void> {

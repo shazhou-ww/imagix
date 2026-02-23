@@ -191,6 +191,79 @@ export function getSkillById(id: string): Skill | undefined {
   return ALL_SKILLS.find((s) => s.id === id);
 }
 
+// ---------------------------------------------------------------------------
+// Auto-load: URL → relevant skills
+// ---------------------------------------------------------------------------
+
+/** Skills that are always loaded regardless of URL */
+const ALWAYS_LOADED_SKILLS = new Set(["navigation", "world-management"]);
+
+/**
+ * Given a URL pathname, compute which skills should be auto-loaded.
+ * This returns the "suggested" set; user pinning/unpinning overrides this.
+ */
+export function getAutoSkillIds(pathname: string): string[] {
+  const auto = new Set<string>(ALWAYS_LOADED_SKILLS);
+
+  // Outside of any world — only world management + navigation
+  const worldMatch = pathname.match(/^\/worlds\/[^/]+/);
+  if (!worldMatch) return [...auto];
+
+  const rest = pathname.slice(worldMatch[0].length);
+
+  // World dashboard — load a broad set
+  if (!rest || rest === "/") {
+    auto.add("character-management");
+    auto.add("relationships");
+    auto.add("events");
+    auto.add("narrative");
+    return [...auto];
+  }
+
+  // Route-specific mappings
+  if (rest.startsWith("/characters")) auto.add("character-management");
+  if (rest.startsWith("/things"))     auto.add("character-management");
+  if (rest.startsWith("/places"))     auto.add("character-management");
+  if (rest.startsWith("/relationships")) {
+    auto.add("relationships");
+    auto.add("character-management");
+  }
+  if (rest.startsWith("/events") || rest.startsWith("/event-links")) {
+    auto.add("events");
+  }
+  if (rest.startsWith("/stories"))    auto.add("narrative");
+  if (rest.startsWith("/taxonomy"))   auto.add("taxonomy");
+  if (rest.startsWith("/attributes")) auto.add("taxonomy");
+  if (rest.startsWith("/settings"))   auto.add("taxonomy");
+
+  // Entity detail pages also benefit from relationships + events
+  if (
+    rest.match(/^\/(characters|things|places)\/[^/]+$/)
+  ) {
+    auto.add("relationships");
+    auto.add("events");
+  }
+
+  return [...auto];
+}
+
+/**
+ * Compute effective loaded skill ids from auto-detection + user overrides.
+ *
+ * Logic:
+ *   effective = (auto ∪ pinned) \ unpinned
+ */
+export function computeEffectiveSkillIds(
+  autoIds: string[],
+  pinnedIds: string[],
+  unpinnedIds: string[],
+): string[] {
+  const set = new Set(autoIds);
+  for (const id of pinnedIds) set.add(id);
+  for (const id of unpinnedIds) set.delete(id);
+  return [...set];
+}
+
 /** Given a set of loaded skill ids, compute the union of allowed MCP tool names */
 export function getActiveToolNames(loadedSkillIds: string[]): Set<string> {
   const names = new Set<string>();

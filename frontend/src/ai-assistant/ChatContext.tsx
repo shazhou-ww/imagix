@@ -19,7 +19,7 @@ import {
   NAVIGATION_TOOL_NAMES,
   executeNavigationTool,
 } from "./navigation-tools";
-import { getActiveToolNames } from "./skills/registry";
+import { getActiveToolNames, getAutoSkillIds, computeEffectiveSkillIds } from "./skills/registry";
 import {
   deleteChatSession,
   getAiConfig,
@@ -55,6 +55,12 @@ interface ChatContextValue {
   activeSession: ChatSession | null;
   panelOpen: boolean;
   loadedSkillIds: string[];
+  /** Skills auto-detected from current URL */
+  autoSkillIds: string[];
+  /** Skills explicitly pinned by the user */
+  pinnedSkillIds: string[];
+  /** Skills explicitly unpinned by the user */
+  unpinnedSkillIds: string[];
   isStreaming: boolean;
   streamingText: string;
   activeToolCallName: string | null;
@@ -62,7 +68,8 @@ interface ChatContextValue {
   // Actions
   setConfig: (config: AiConfig) => Promise<void>;
   setPanelOpen: (open: boolean) => void;
-  setLoadedSkills: (ids: string[]) => Promise<void>;
+  /** Toggle a skill: if currently loaded → unpin it; if not loaded → pin it */
+  toggleSkill: (skillId: string) => Promise<void>;
   createSession: () => Promise<void>;
   switchSession: (id: string) => Promise<void>;
   removeSession: (id: string) => Promise<void>;
@@ -100,7 +107,17 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSession, setActiveSession] = useState<ChatSession | null>(null);
   const [panelOpen, setPanelOpenState] = useState(false);
-  const [loadedSkillIds, setLoadedSkillIdsState] = useState<string[]>([]);
+  const [pinnedSkillIds, setPinnedSkillIds] = useState<string[]>([]);
+  const [unpinnedSkillIds, setUnpinnedSkillIds] = useState<string[]>([]);
+
+  // Auto-detected skills from current URL
+  const autoSkillIds = getAutoSkillIds(location.pathname);
+  // Effective loaded skills = (auto ∪ pinned) \ unpinned
+  const loadedSkillIds = computeEffectiveSkillIds(
+    autoSkillIds,
+    pinnedSkillIds,
+    unpinnedSkillIds,
+  );
 
   // Streaming state
   const [isStreaming, setIsStreaming] = useState(false);
@@ -125,7 +142,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         listChatSessions(),
       ]);
       setConfigState(cfg);
-      setLoadedSkillIdsState(skillState.loadedSkillIds);
+      setPinnedSkillIds(skillState.pinnedSkillIds);
+      setUnpinnedSkillIds(skillState.unpinnedSkillIds);
       setPanelOpenState(uiState.panelOpen);
       setSessions(sessionList);
 
@@ -153,12 +171,39 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     [activeSession],
   );
 
-  const setLoadedSkills = useCallback(async (ids: string[]) => {
-    setLoadedSkillIdsState(ids);
-    await saveSkillState({ loadedSkillIds: ids });
+  const toggleSkill = useCallback(async (skillId: string) => {
+    const isCurrentlyLoaded = computeEffectiveSkillIds(
+      getAutoSkillIds(location.pathname),
+      pinnedSkillIds,
+      unpinnedSkillIds,
+    ).includes(skillId);
+
+    let nextPinned = [...pinnedSkillIds];
+    let nextUnpinned = [...unpinnedSkillIds];
+    const isAuto = getAutoSkillIds(location.pathname).includes(skillId);
+
+    if (isCurrentlyLoaded) {
+      // User is turning it OFF
+      nextPinned = nextPinned.filter((id) => id !== skillId);
+      if (isAuto) {
+        // It was auto-loaded, so add to unpinned to suppress it
+        if (!nextUnpinned.includes(skillId)) nextUnpinned.push(skillId);
+      }
+    } else {
+      // User is turning it ON
+      nextUnpinned = nextUnpinned.filter((id) => id !== skillId);
+      if (!isAuto) {
+        // Not auto-loaded, so pin it explicitly
+        if (!nextPinned.includes(skillId)) nextPinned.push(skillId);
+      }
+    }
+
+    setPinnedSkillIds(nextPinned);
+    setUnpinnedSkillIds(nextUnpinned);
+    await saveSkillState({ pinnedSkillIds: nextPinned, unpinnedSkillIds: nextUnpinned });
     // Invalidate cached MCP tools so they get re-filtered
     mcpToolsRef.current = null;
-  }, []);
+  }, [location.pathname, pinnedSkillIds, unpinnedSkillIds]);
 
   // ---------------------------------------------------------------------------
   // Session management
@@ -496,12 +541,15 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     activeSession,
     panelOpen,
     loadedSkillIds,
+    autoSkillIds,
+    pinnedSkillIds,
+    unpinnedSkillIds,
     isStreaming,
     streamingText,
     activeToolCallName,
     setConfig,
     setPanelOpen,
-    setLoadedSkills,
+    toggleSkill,
     createSession,
     switchSession,
     removeSession,

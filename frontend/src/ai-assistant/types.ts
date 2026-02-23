@@ -92,7 +92,10 @@ export interface Skill {
 
 /** Persisted skill loading state */
 export interface SkillState {
-  loadedSkillIds: string[];
+  /** Skills explicitly pinned on by the user (always loaded regardless of URL) */
+  pinnedSkillIds: string[];
+  /** Skills explicitly unpinned by the user (never auto-loaded) */
+  unpinnedSkillIds: string[];
 }
 
 // ---------------------------------------------------------------------------

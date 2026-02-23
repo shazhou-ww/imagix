@@ -13,6 +13,7 @@ import PublicIcon from "@mui/icons-material/Public";
 import TimelineIcon from "@mui/icons-material/Timeline";
 import {
   Box,
+  Chip,
   List,
   ListItem,
   ListItemIcon,
@@ -44,14 +45,22 @@ const ICON_MAP: Record<string, ReactNode> = {
 };
 
 export default function SkillPanel({ anchorEl, onClose }: SkillPanelProps) {
-  const { loadedSkillIds, setLoadedSkills } = useChat();
+  const { loadedSkillIds, autoSkillIds, pinnedSkillIds, unpinnedSkillIds, toggleSkill } = useChat();
 
-  const handleToggle = (skillId: string) => {
+  /** Determine the badge label for a skill */
+  const getBadge = (skillId: string): { label: string; color: "success" | "info" | "default" } | null => {
     const isLoaded = loadedSkillIds.includes(skillId);
-    const next = isLoaded
-      ? loadedSkillIds.filter((id) => id !== skillId)
-      : [...loadedSkillIds, skillId];
-    setLoadedSkills(next);
+    const isAuto = autoSkillIds.includes(skillId);
+    const isPinned = pinnedSkillIds.includes(skillId);
+    const isUnpinned = unpinnedSkillIds.includes(skillId);
+
+    if (!isLoaded) {
+      if (isUnpinned) return { label: "已屏蔽", color: "default" };
+      return null;
+    }
+    if (isPinned) return { label: "已固定", color: "info" };
+    if (isAuto) return { label: "自动", color: "success" };
+    return null;
   };
 
   return (
@@ -63,7 +72,7 @@ export default function SkillPanel({ anchorEl, onClose }: SkillPanelProps) {
       transformOrigin={{ vertical: "bottom", horizontal: "center" }}
       slotProps={{
         paper: {
-          sx: { width: 300, maxHeight: 400 },
+          sx: { width: 320, maxHeight: 400 },
         },
       }}
     >
@@ -72,20 +81,34 @@ export default function SkillPanel({ anchorEl, onClose }: SkillPanelProps) {
           技能管理
         </Typography>
         <Typography variant="caption" color="text.secondary">
-          启用的技能决定 AI 助手可以使用哪些工具
+          技能根据当前页面自动加载，也可手动固定或屏蔽
         </Typography>
       </Box>
 
       <List dense>
         {ALL_SKILLS.map((skill) => {
           const isLoaded = loadedSkillIds.includes(skill.id);
+          const badge = getBadge(skill.id);
           return (
             <ListItem key={skill.id} sx={{ pr: 1 }}>
               <ListItemIcon sx={{ minWidth: 36 }}>
                 {ICON_MAP[skill.icon ?? ""] ?? <CategoryIcon />}
               </ListItemIcon>
               <ListItemText
-                primary={skill.name}
+                primary={
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                    <span>{skill.name}</span>
+                    {badge && (
+                      <Chip
+                        label={badge.label}
+                        size="small"
+                        color={badge.color}
+                        variant="outlined"
+                        sx={{ height: 18, fontSize: "0.65rem", "& .MuiChip-label": { px: 0.5 } }}
+                      />
+                    )}
+                  </Box>
+                }
                 secondary={`${skill.description} (${skill.allowedTools.length} 工具)`}
                 primaryTypographyProps={{ fontSize: "0.85rem" }}
                 secondaryTypographyProps={{ fontSize: "0.7rem" }}
@@ -94,7 +117,7 @@ export default function SkillPanel({ anchorEl, onClose }: SkillPanelProps) {
                 edge="end"
                 size="small"
                 checked={isLoaded}
-                onChange={() => handleToggle(skill.id)}
+                onChange={() => toggleSkill(skill.id)}
               />
             </ListItem>
           );

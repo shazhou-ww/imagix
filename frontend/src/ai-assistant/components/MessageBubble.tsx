@@ -2,7 +2,6 @@
 // AI Assistant – Message bubble component
 // ---------------------------------------------------------------------------
 
-import BuildIcon from "@mui/icons-material/Build";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
@@ -10,11 +9,11 @@ import SmartToyIcon from "@mui/icons-material/SmartToy";
 import {
   Avatar,
   Box,
-  Chip,
   Collapse,
   IconButton,
   Paper,
   Tooltip,
+  Typography,
 } from "@mui/material";
 import { useState } from "react";
 import Markdown from "react-markdown";
@@ -36,25 +35,34 @@ export default function MessageBubble({
   const [copied, setCopied] = useState(false);
   const [toolExpanded, setToolExpanded] = useState(false);
 
-  // Tool result messages rendered inline
+  // Tool result messages — minimal inline display
   if (isTool) {
+    const isError =
+      message.content.startsWith("错误") ||
+      message.content.startsWith("工具调用失败");
     return (
-      <Box sx={{ mb: 1, ml: 5 }}>
-        <Chip
-          icon={
-            message.content.startsWith("错误") ||
-            message.content.startsWith("工具调用失败") ? (
-              <ErrorOutlineIcon />
-            ) : (
-              <CheckCircleOutlineIcon />
-            )
-          }
-          label={`${message.toolName ?? "tool"} 结果`}
-          size="small"
-          variant="outlined"
+      <Box sx={{ mb: 0.5, ml: 5 }}>
+        <Typography
+          variant="caption"
           onClick={() => setToolExpanded(!toolExpanded)}
-          sx={{ cursor: "pointer" }}
-        />
+          sx={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 0.3,
+            cursor: "pointer",
+            color: isError ? "error.main" : "text.disabled",
+            fontSize: "0.7rem",
+            "&:hover": { color: "text.secondary" },
+          }}
+        >
+          {isError ? (
+            <ErrorOutlineIcon sx={{ fontSize: 12 }} />
+          ) : (
+            <CheckCircleOutlineIcon sx={{ fontSize: 12 }} />
+          )}
+          {message.toolName}
+          {toolExpanded ? " ▾" : " ▸"}
+        </Typography>
         <Collapse in={toolExpanded}>
           <Paper
             variant="outlined"
@@ -64,10 +72,11 @@ export default function MessageBubble({
               maxHeight: 200,
               overflow: "auto",
               bgcolor: "grey.50",
-              fontSize: "0.75rem",
+              fontSize: "0.7rem",
               fontFamily: "monospace",
               whiteSpace: "pre-wrap",
               wordBreak: "break-word",
+              borderColor: "divider",
             }}
           >
             {message.content}
@@ -131,21 +140,31 @@ export default function MessageBubble({
             color: "text.primary",
           }}
         >
-          {/* Tool calls indicator */}
+          {/* Tool calls — subtle inline list */}
           {message.toolCalls && message.toolCalls.length > 0 && (
-            <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", mb: 0.5 }}>
-              {message.toolCalls.map((tc) => (
-                <Chip
-                  key={tc.id}
-                  icon={<BuildIcon />}
-                  label={tc.name}
-                  size="small"
-                  color="secondary"
-                  variant="outlined"
-                  sx={{ fontSize: "0.7rem" }}
-                />
+            <Typography
+              variant="caption"
+              sx={{
+                display: "block",
+                color: "text.disabled",
+                fontSize: "0.65rem",
+                mb: displayContent ? 0.5 : 0,
+                lineHeight: 1.4,
+              }}
+            >
+              调用{" "}
+              {message.toolCalls.map((tc, i) => (
+                <span key={tc.id}>
+                  {i > 0 && "、"}
+                  <Box
+                    component="span"
+                    sx={{ fontFamily: "monospace", fontSize: "0.7rem" }}
+                  >
+                    {tc.name}
+                  </Box>
+                </span>
               ))}
-            </Box>
+            </Typography>
           )}
 
           {/* Content */}

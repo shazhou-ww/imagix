@@ -3,7 +3,6 @@
 // ---------------------------------------------------------------------------
 
 import AddCommentIcon from "@mui/icons-material/AddComment";
-import BuildIcon from "@mui/icons-material/Build";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import HistoryIcon from "@mui/icons-material/History";
@@ -14,7 +13,6 @@ import StopIcon from "@mui/icons-material/Stop";
 import {
   Badge,
   Box,
-  Chip,
   CircularProgress,
   Divider,
   Fab,
@@ -259,13 +257,20 @@ export default function ChatPanel() {
         {isStreaming && messages[messages.length - 1]?.role !== "assistant" && (
           <Box sx={{ mb: 1.5 }}>
             {activeToolCallName ? (
-              <Chip
-                icon={<BuildIcon />}
-                label={`正在调用 ${activeToolCallName}…`}
-                size="small"
-                color="secondary"
-                variant="outlined"
-              />
+              <Typography
+                variant="caption"
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 0.5,
+                  ml: 5,
+                  color: "text.disabled",
+                  fontSize: "0.7rem",
+                }}
+              >
+                <CircularProgress size={10} sx={{ color: "text.disabled" }} />
+                {activeToolCallName}
+              </Typography>
             ) : streamingText ? (
               <MessageBubble
                 message={{

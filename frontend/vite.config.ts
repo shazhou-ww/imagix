@@ -18,6 +18,10 @@ export default defineConfig({
         target: process.env.IMAGIX_API_URL || "http://127.0.0.1:4511",
         changeOrigin: true,
       },
+      "/mcp": {
+        target: process.env.IMAGIX_API_URL || "http://127.0.0.1:4511",
+        changeOrigin: true,
+      },
     },
   },
   test: {

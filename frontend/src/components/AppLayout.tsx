@@ -50,6 +50,8 @@ import {
   useTemplates,
 } from "@/api/hooks/useTemplates";
 import { useCreateWorld, useWorlds } from "@/api/hooks/useWorlds";
+import { ChatProvider } from "@/ai-assistant/ChatContext";
+import ChatPanel from "@/ai-assistant/components/ChatPanel";
 import { useAuth } from "@/auth/AuthContext";
 
 const DRAWER_WIDTH = 240;
@@ -498,6 +500,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   );
 
   return (
+    <ChatProvider>
     <Box
       sx={{
         display: "flex",
@@ -588,6 +591,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         {children}
       </Box>
 
+      {/* AI Assistant */}
+      <ChatPanel />
+
       {/* Create World Dialog — two-step */}
       <CreateWorldDialog
         open={createOpen}
@@ -595,5 +601,6 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         onCreated={(id) => navigate(`/worlds/${id}`)}
       />
     </Box>
+    </ChatProvider>
   );
 }
